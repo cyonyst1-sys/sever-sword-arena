@@ -169,6 +169,7 @@ export class Arena {
     M.leaf = new THREE.MeshStandardMaterial({ color: 0x4f8f3a, roughness: 0.7, side: THREE.DoubleSide });
     M.leafDark = new THREE.MeshStandardMaterial({ color: 0x2c5a26, roughness: 0.9, flatShading: true });
     M.vein = new THREE.MeshStandardMaterial({ color: 0x9ccf74, roughness: 0.7 });
+    M.stem = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
     // green forest light under a leafy roof
     this.realScene.background = new THREE.Color(0x7d9c74);
     this.realScene.fog = new THREE.Fog(0x7b9a72, 45, 240);
@@ -238,7 +239,8 @@ export class Arena {
       this.tag = null;
       return p;
     };
-    const leaf = (C, len, wid, ang, y, grp, from) => {
+    const buds = new Map(); // per limb: matrices of the little leaves round each bud (one instanced mesh per limb)
+    const leaf = (C, len, wid, ang, y, grp, from, rw) => {
       const p = addPlat({ kind: 'leaf', x: C.x, z: C.z, y, w: len, d: wid, ang, group: grp });
       this.tag = p;
       const ux = Math.cos(ang), uz = Math.sin(ang);
@@ -251,10 +253,27 @@ export class Arena {
       g.computeVertexNormals();
       const m = new THREE.Mesh(g, M.leaf); m.rotation.y = -ang; m.position.set(C.x, y + 0.06, C.z); m.castShadow = m.receiveShadow = true; S.add(m); this.own(p, m);
       const rib = new THREE.Mesh(new THREE.BoxGeometry(len * 0.92, 0.08, 0.2), M.vein); rib.rotation.y = -ang; rib.position.set(C.x, y + 0.1, C.z); S.add(rib); this.own(p, rib);
-      if (from) { // the stem back to the branch
-        const base = new THREE.Vector3(C.x - ux * len / 2, y - 0.05, C.z - uz * len / 2), f = new THREE.Vector3(from.x, from.y - 0.4, from.z);
-        const d = base.clone().sub(f), l = d.length();
-        if (l > 0.3) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, l, 6), M.bark); st.position.copy(f).add(base).multiplyScalar(0.5); st.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); S.add(st); this.own(p, st); }
+      if (from) { // the stalk: grows out of the side of the branch, thick bark tapering into a thin green stem
+        const R = rw || 1.5, end = new THREE.Vector3(C.x - ux * len * 0.42, y - 0.12, C.z - uz * len * 0.42);
+        const h = new THREE.Vector3(end.x - from.x, 0, end.z - from.z).normalize();
+        const bud = new THREE.Vector3(from.x + h.x * R * 0.7, from.y - R * 0.55, from.z + h.z * R * 0.7);
+        const curve = new THREE.CatmullRomCurve3([bud, bud.clone().lerp(end, 0.45).add(new THREE.Vector3(0, 0.25, 0)), end]);
+        const TS = 14, RS = 8, tube = new THREE.TubeGeometry(curve, TS, 1, RS, false), tp = tube.attributes.position;
+        const col = new Float32Array(tp.count * 3), c0 = new THREE.Color(0x6b4a2c), c1 = new THREE.Color(0x4f8f3a), cc = new THREE.Color(), cp = new THREE.Vector3();
+        for (let i = 0; i <= TS; i++) {
+          const t = i / TS, e = t * t * (3 - 2 * t), rad = R * 0.5 * (1 - e) + 0.16 * e; // fat collar on the bark → slim stem
+          curve.getPointAt(t, cp); cc.copy(c0).lerp(c1, Math.min(1, Math.max(0, (t - 0.25) / 0.6)));
+          for (let j = 0; j <= RS; j++) { const k = i * (RS + 1) + j; tp.setXYZ(k, cp.x + (tp.getX(k) - cp.x) * rad, cp.y + (tp.getY(k) - cp.y) * rad, cp.z + (tp.getZ(k) - cp.z) * rad); cc.toArray(col, k * 3); }
+        }
+        tube.setAttribute('color', new THREE.BufferAttribute(col, 3)); tube.computeVertexNormals();
+        const st = new THREE.Mesh(tube, M.stem); st.castShadow = true; S.add(st); this.own(p, st);
+        // a spray of small leaves around the bud
+        const n = 3 + Math.floor(r() * 4), list = buds.get(grp) || buds.set(grp, { p, m: [] }).get(grp);
+        for (let i = 0; i < n; i++) {
+          const sz = 1.4 + r() * 1.8, yaw = Math.atan2(h.z, h.x) + (r() - 0.5) * 2.6, pitch = 0.25 + r() * 0.7;
+          const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 0.6 - 0.3, -yaw, pitch, 'YZX'));
+          list.m.push(new THREE.Matrix4().compose(curve.getPointAt(0.15 + r() * 0.25), q, new THREE.Vector3(sz, sz, sz)));
+        }
       }
       const box = { x0: C.x - 2, x1: C.x + 2, y0: y - 0.6, y1: y + 0.15, z0: C.z - 2, z1: C.z + 2 }; // hook the leaf, too
       this.rayBoxes.push(box); p.rays.push(box);
@@ -281,14 +300,14 @@ export class Arena {
         for (const side of [1, -1]) if (r() < 0.62) { // big leaves off either side
           const la = a + side * (1.1 + r() * 0.5), len = 13 + r() * 6, wid = 7.5 + r() * 3.5;
           const C = { x: B.x + Math.cos(la) * (w / 2 + len * 0.45), z: B.z + Math.sin(la) * (w / 2 + len * 0.45) };
-          if (Math.hypot(C.x, C.z) < 104) linkP(p, leaf(C, len, wid, la, B.y + 0.2 + r() * 0.6, grp, B));
+          if (Math.hypot(C.x, C.z) < 104) linkP(p, leaf(C, len, wid, la, B.y + 0.2 + r() * 0.6, grp, B, w * 0.46));
         }
         if (depth < 1 && s >= 2 && r() < 0.3) grow(B, a + (r() < 0.5 ? 1 : -1) * (0.6 + r() * 0.6), 3 + Math.floor(r() * 3), depth + 1, p);
         A = B;
       }
       if (prev) { // a big leaf at the tip
         const len = 15 + r() * 4, wid = 8.5 + r() * 2.5, C = { x: A.x + Math.cos(a) * len * 0.48, z: A.z + Math.sin(a) * len * 0.48 };
-        if (Math.hypot(C.x, C.z) < 106) linkP(prev, leaf(C, len, wid, a, A.y + 0.3, prev.group, A));
+        if (Math.hypot(C.x, C.z) < 106) linkP(prev, leaf(C, len, wid, a, A.y + 0.3, prev.group, A, prev.d * 0.46));
       }
     };
     // limbs radiate from the central trunk at several heights, and reach in from the outer trunks
@@ -297,6 +316,11 @@ export class Arena {
     for (let i = 1; i < trunks.length; i++) {
       const t = trunks[i], toC = Math.atan2(-t.z, -t.x);
       for (let k = 0; k < 2; k++) { const a = toC + (k - 0.5) * 1.1 + (r() - 0.5) * 0.3; grow({ x: t.x + Math.cos(a) * (t.r + 0.5), y: ys[(i + k * 2) % ys.length] + (r() - 0.5) * 4, z: t.z + Math.sin(a) * (t.r + 0.5) }, a, 5 + Math.floor(r() * 2), 0, null); }
+    }
+    { // the little bud leaves: a small leaf shape, base at the origin pointing along +x
+      const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.quadraticCurveTo(0.45, 0.32, 1, 0); sh.quadraticCurveTo(0.45, -0.32, 0, 0);
+      const g = new THREE.ExtrudeGeometry(sh, { depth: 0.04, bevelEnabled: false, curveSegments: 6 }); g.rotateX(-Math.PI / 2);
+      for (const { p, m } of buds.values()) { const im = new THREE.InstancedMesh(g, M.leaf, m.length); m.forEach((x, i) => im.setMatrixAt(i, x)); S.add(im); this.own(p, im); }
     }
     // where branches cross at about the same height you can walk from one to the other
     for (const a of plats) for (const b of plats) {

@@ -66,7 +66,7 @@ Fewer, much bigger platforms for larger battles:
 ### Great Canopy
 Same size as the other maps: a giant forest canopy high above a misty floor.
 - **Multi-armed tree branches** grow out from five huge trunks and stretch across the map. They climb, dip and level out again, on several layers (about 16 m below to 29 m above the middle). Run along them and fight on them.
-- **Wide branches** (5 to 7 m) and **lots of big, thick leaves** spread through them: landing pads for getting onto a branch.
+- **Wide branches** (5 to 7 m) and **lots of big, thick leaves** spread through them: landing pads for getting onto a branch. Each grows on a curved stalk that swells out of the bark, with a spray of small leaves at the bud.
 - **Skinny bamboo stalks** run from the floor up to the leaf roof all over the map. They are the grapple points. You and your dash pass straight through them; only the sword cuts them (a cut piece drops out) and only the grapple attaches.
 - Branches you can hook too. In Last Blade Standing a whole branch with its leaves crumbles at once.
 
