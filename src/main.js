@@ -429,12 +429,12 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? 'You fell' : `Cut down by ${kn}`; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
-    if (bladeFor((rosterGet(S.myId)?.k || 0) + 1) > bladeFor(rosterGet(S.myId)?.k)) showBanner('BLADE GROWS');
+    const st = rosterGet(S.myId)?.streak || 0; if (bladeFor(st + 1) > bladeFor(st)) showBanner('BLADE GROWS');
   }
   if (S.host) {
     const kr = kId ? rosterGet(kId) : null, vr = rosterGet(vId);
-    if (kr && kId !== vId) kr.k++;
-    if (vr) vr.d++;
+    if (kr && kId !== vId) { kr.k++; kr.streak = (kr.streak || 0) + 1; } // streak: kills since your last death (sets blade length)
+    if (vr) { vr.d++; vr.streak = 0; } // dying puts your blade back to its starting length
     if (S.mode === 'ffa') v.respawnAt = now() + 3;
     else v.respawnAt = v.isBot ? Infinity : Infinity;
     if (v.isBot && S.mode === 'horde') setTimeout(() => { S.roster = S.roster.filter((r) => r.id !== vId); syncFighters(); sendRoster(); }, 4000);
@@ -459,6 +459,7 @@ function spawnPoint(f) {
 }
 function spawn(f, p, yaw) {
   f.pos.copy(p); f.vel.set(0, 0, 0); f.yaw = yaw; f.pitch = 0; f.alive = true; f.prot = 1.5; f.hook = null; f.dashT = 0;
+  f.bladeLen = bladeFor(rosterGet(f.id)?.streak); // come back with the blade your streak earns (the starting one after a death)
   f.stam = 100; f.s.x = GUARD.x; f.s.y = GUARD.y; f.noCut = true; f.anim = null; f.respawnAt = Infinity; f.onGround = true; f.stagger = 0;
   f.group.visible = true; f.trail.length = 0;
   if (f === me) { view.yaw = yaw; view.pitch = 0; twist.yaw = 0; twist.pitch = 0; }
@@ -748,7 +749,7 @@ function botThink(b, dt) {
 function newRosterEntry(id, name, human) {
   const used = new Set(S.roster.map((r) => r.col));
   let col = 0; while (used.has(col) && col < 20) col++;
-  return { id, name, human, col, team: S.mode === 'ffa' ? id : (human ? 'H' : 'R'), k: 0, d: 0, horde: !human && S.mode === 'horde' };
+  return { id, name, human, col, team: S.mode === 'ffa' ? id : (human ? 'H' : 'R'), k: 0, d: 0, streak: 0, horde: !human && S.mode === 'horde' };
 }
 function fillBots() {
   if (S.mode !== 'ffa') return; // horde bots come and go with the waves
@@ -764,7 +765,7 @@ function startMatch() {
   useMap(S.map);
   clearWorld();
   if (S.mode === 'horde') S.roster = S.roster.filter((r) => r.human);
-  for (const r of S.roster) { r.k = 0; r.d = 0; r.team = S.mode === 'ffa' ? r.id : (r.human ? 'H' : 'R'); r.horde = !r.human && S.mode === 'horde'; }
+  for (const r of S.roster) { r.k = 0; r.d = 0; r.streak = 0; r.team = S.mode === 'ffa' ? r.id : (r.human ? 'H' : 'R'); r.horde = !r.human && S.mode === 'horde'; }
   fillBots();
   S.timeLeft = FFA_TIME; S.wave = 0; S.waveT = 3; S.waveActive = false; S.queue = 0; S.ended = false;
   syncFighters();
@@ -1070,7 +1071,7 @@ function updateHud(dt) {
     const left = [...fighters.values()].filter((f) => f.isBot && f.alive).length + (S.host ? S.queue : 0);
     $('topbar').textContent = `Wave ${Math.max(1, S.wave)} · ${left} oni left`;
   }
-  $('myscore').innerHTML = `${mr ? mr.k : 0}<small>kills · ${mr ? mr.d : 0} deaths · blade ${bladeFor(mr?.k).toFixed(2)} m</small>`;
+  $('myscore').innerHTML = `${mr ? mr.k : 0}<small>kills · ${mr ? mr.d : 0} deaths · blade ${bladeFor(mr?.streak).toFixed(2)} m</small>`;
   if (me) {
     $('stamBar').style.width = me.stam + '%';
     $('pipDash').classList.toggle('on', me.dashCd <= 0 && me.stam >= 22);
@@ -1165,7 +1166,7 @@ function tick(rdt, tt) {
     pushApart();
     for (const f of fighters.values()) {
       if (!f.alive) { f.updateTrail(tt); continue; }
-      const want = bladeFor(rosterGet(f.id)?.k);
+      const want = bladeFor(rosterGet(f.id)?.streak);
       f.bladeLen += (want - f.bladeLen) * Math.min(1, rdt * 4);
       if (f.onGround) { const p = platUnder(f.pos); if (p) f.plat = p.i; } // which platform they're on
       f.pose(rdt);
