@@ -14,7 +14,7 @@ A third-person 3D sword arena that runs in the browser. Swing your sword with th
 | Tap left mouse | Quick slash (alternates left and right) |
 | Hold right mouse | Grappling hook: grabs whatever is in front of you (with a little aim assist) and reels you in. Swing on it, and let go to fly off with your momentum |
 | Shift | Dash where you're looking. Cuts through anyone in your path |
-| Space | Jump |
+| Space | Jump. On a glowing jump pad, launches you to the next platform |
 | Tab | Scoreboard |
 | Esc | Menu |
 
@@ -31,7 +31,7 @@ The crosshair glows cyan when the hook has something to grab. Swords that cross 
 
 Solo games are you plus bots (0 to 7, Easy / Normal / Hard).
 
-Bots use the grappling hook too: to climb up to anyone standing above them, to fly across the map toward a far-off target, and to swing back to safety when they go off the edge. Harder bots grapple more often.
+Bots use the grappling hook too: to climb onto a higher platform, to swing across toward a far-off target, and to hook back onto a platform when they fall. Harder bots grapple more often.
 
 ## Multiplayer
 
@@ -45,13 +45,16 @@ Click **Multiplayer** on the home screen.
 
 ## The map
 
-A floating island above a sea of clouds:
+A big sky arena (about 200 m across) above a sea of clouds, made of 23 floating platforms at different heights:
 
-- A stepped ziggurat in the middle with ramps up every side.
-- The **crown**: a floating platform above the ziggurat, held up on four columns, with a spire rising out of it.
-- Four **towers** (7 m) with ramps up their sides and battlements on top, each joined to the crown by a **sky bridge**.
-- **Jump pads** at the four corners that launch you onto the crown.
-- **Sky pillars** that rise far into the sky (marked with glowing rings), on the island and out over the void, to grapple and swing around. Fall off the island and you're out.
+- A large **hub** in the middle, a ring of platforms around it, and an outer ring further out, each at its own height.
+- **High perches** floating above the others and **low platforms** hanging below them.
+- Low walls and stone blocks on each platform for cover.
+- **Jump pads** (the glowing discs near platform edges) link every platform into one network. Stand on one and press **Space** to launch onto the next platform.
+- About 90 **sky pillars** all over the arena, rising far above and below the platforms (marked with glowing rings), to grapple and swing between. Grapple the edge of a platform and the hook pulls you up and over onto it.
+- Fall into the clouds and you're out.
+
+Fights happen platform by platform: whoever lands on a platform fights whoever's there, then swings or pads on to the next one. Bots go for enemies on their own platform or the next one over first, climb up to higher platforms by grappling their edge, and use the pads to get around.
 
 ## How the slicing works
 

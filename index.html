@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261112232350">
+<meta name="build" content="20261112234554">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -98,12 +98,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "./src/main.js": "./src/main.js?v=20261112232350",
-  "./src/arena.js": "./src/arena.js?v=20261112232350",
-  "./src/fighter.js": "./src/fighter.js?v=20261112232350",
-  "./src/slice.js": "./src/slice.js?v=20261112232350",
-  "./src/audio.js": "./src/audio.js?v=20261112232350",
-  "./src/net.js": "./src/net.js?v=20261112232350"
+  "./src/main.js": "./src/main.js?v=20261112234554",
+  "./src/arena.js": "./src/arena.js?v=20261112234554",
+  "./src/fighter.js": "./src/fighter.js?v=20261112234554",
+  "./src/slice.js": "./src/slice.js?v=20261112234554",
+  "./src/audio.js": "./src/audio.js?v=20261112234554",
+  "./src/net.js": "./src/net.js?v=20261112234554"
 } }
 </script>
 </head>
@@ -132,7 +132,7 @@ window.severVersion.check();
       <b>Tap left mouse</b><span>Quick slash</span>
       <b>Hold right mouse</b><span>Grappling hook: grabs what's in front of you and pulls you in. Swing, then let go to fly</span>
       <b>Shift</b><span>Dash where you're looking: cuts through anyone in your path</span>
-      <b>Space</b><span>Jump</span>
+      <b>Space</b><span>Jump. On a glowing pad, launches you to the next platform</span>
       <b>Kills</b><span>Every kill makes your sword longer, so your reach grows</span>
       <b>Tab</b><span>Scores</span>
       <b>Esc</b><span>Menu</span>
@@ -219,12 +219,12 @@ window.severVersion.check();
   <div id="center"></div>
   <div id="banner"></div>
   <div id="board" class="hidden"></div>
-  <div id="hint">Hold left mouse and drag to swing · Right mouse grapple · Shift dash · Space jump · Kills grow your sword</div>
+  <div id="hint">Hold left mouse and drag to swing · Right mouse grapple · Shift dash · Space jump (on a pad: launch) · Kills grow your sword</div>
 </div>
 <div id="clickPlay" class="hidden">Click to fight</div>
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261112232350"></script>
+<script type="module" src="src/main.js?v=20261112234554"></script>
 </body>
 </html>

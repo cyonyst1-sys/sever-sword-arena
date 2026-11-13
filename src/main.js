@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Arena, ISLAND_R } from './arena.js';
+import { Arena } from './arena.js';
 import { Fighter, PALETTE, GUARD } from './fighter.js';
 import { bakeMeshes, Pieces, Particles } from './slice.js';
 import { sfx, ensureAudio, setListener, setVolume } from './audio.js';
@@ -188,7 +188,15 @@ function applyHook(f, dt) {
   f.hook.len = Math.max(1.2, Math.min(f.hook.len, L) - REEL * dt);
   const vr = f.vel.dot(d); if (L > f.hook.len && vr < 0) f.vel.addScaledVector(d, -vr);
   const sp = f.vel.length(); if (sp > 36) f.vel.multiplyScalar(36 / sp);
-  if (L < 1.7) { f.hook = null; f.vel.y = Math.max(f.vel.y, 6); }
+  if (L < 1.7) { // reeled all the way in: pop up, and if it's a platform's edge, onto its top
+    const a = f.hook.p; f.hook = null;
+    const lip = arena.plats.find((p) => Math.abs(a.y - p.y) < 0.6 && Math.abs(a.x - p.x) < p.w / 2 + 0.3 && Math.abs(a.z - p.z) < p.d / 2 + 0.3);
+    if (lip) {
+      const cx = lip.x - f.pos.x, cz = lip.z - f.pos.z, cl = Math.hypot(cx, cz) || 1;
+      f.vel.set(cx / cl * 4.5, Math.max(8, f.vel.y * 0.3), cz / cl * 4.5);
+      f.mantle = { x: cx / cl * 4.5, z: cz / cl * 4.5, t: 0.35 }; // keep climbing over the lip
+    } else { f.vel.y = Math.max(f.vel.y, 7); f.vel.x += d.x * 3; f.vel.z += d.z * 3; }
+  }
 }
 function stepFighter(f, dt, wish, sprint, jump) {
   f.dashCd -= dt; f.padCd -= dt; f.prot -= dt; f.stagger -= dt; f.hookCd = (f.hookCd || 0) - dt; f.swishCd -= dt;
@@ -206,10 +214,16 @@ function stepFighter(f, dt, wish, sprint, jump) {
       f.vel.x += wish.x * 14 * dt; f.vel.z += wish.z * 14 * dt;
       const ns = Math.hypot(f.vel.x, f.vel.z), cap = Math.max(hs, WALK);
       if (ns > cap) { f.vel.x *= cap / ns; f.vel.z *= cap / ns; }
-      f.vel.x *= 1 - 0.12 * dt; f.vel.z *= 1 - 0.12 * dt;
+      if (!f.padFlight) { f.vel.x *= 1 - 0.12 * dt; f.vel.z *= 1 - 0.12 * dt; } // pad jumps fly their exact arc
     }
     f.vel.y -= G * dt;
-    if (jump && f.onGround) { f.vel.y = JUMP_V; f.onGround = false; sfx.jump(f.pos); }
+    if (f.mantle) { f.mantle.t -= dt; f.vel.x = f.mantle.x; f.vel.z = f.mantle.z; if (f.mantle.t <= 0 || f.onGround || f.hook) f.mantle = null; }
+    if (jump && f.onGround) {
+      const p = f.padCd <= 0 && arena.padAt(f.pos);
+      if (p) { f.vel.copy(p.v); f.padCd = 0.8; f.hook = null; f.padFlight = true; sfx.pad(f.pos); } // jump on a pad to launch
+      else { f.vel.y = JUMP_V; sfx.jump(f.pos); }
+      f.onGround = false;
+    }
     if (f.hook) applyHook(f, dt);
   }
   f.prevPos.copy(f.pos);
@@ -222,7 +236,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
     if (f.onGround && f.hook.p.y > f.pos.y + 1) f.onGround = false;
   }
   if (f.onGround && !was && fallV < -6) sfx.land(f.pos);
-  if (f.padCd <= 0) { const p = arena.padAt(f.pos); if (p) { f.vel.copy(p.v); f.onGround = false; f.padCd = 0.8; f.dashT = 0; f.hook = null; sfx.pad(f.pos); } }
+  if (f.onGround || f.hook || f.dashT > 0) f.padFlight = false;
   f.stamDelay -= dt; if (f.stamDelay <= 0) f.stam = Math.min(100, f.stam + 30 * dt);
   f.stam = Math.max(0, f.stam);
 }
@@ -440,12 +454,18 @@ function hostSpawn(f) {
 }
 
 // ---------- bots ----------
+function targetCost(b, g) {
+  let d = g.pos.distanceTo(b.pos);
+  const pb = b.plat ?? null, pg = g.plat ?? null;
+  if (pb !== null && pg !== null) d += arena.hops[pb][pg] * 22; // fight on your own platform or the next one over
+  if (!isFinite(ground(g.pos.x, g.pos.z, g.pos.y))) d += 30;
+  return d;
+}
 function nearestEnemy(b) {
   let best = null, bd = Infinity;
   for (const g of fighters.values()) {
     if (g === b || !g.alive || !isEnemy(b, g)) continue;
-    let d = g.pos.distanceTo(b.pos);
-    if (!isFinite(ground(g.pos.x, g.pos.z, g.pos.y))) d += 30; // out over the void: hard to reach
+    let d = targetCost(b, g);
     d += Math.abs(g.pos.y - b.pos.y) * 1.5;
     if (d < bd) { bd = d; best = g; }
   }
@@ -453,9 +473,15 @@ function nearestEnemy(b) {
 }
 // Bots grapple to reach enemies above them, to cross big distances fast, and to save themselves when
 // they go off the edge. Returns movement input while hanging on the rope, or null to walk as usual.
-const overGround = (p) => isFinite(ground(p.x, p.z, 1000));
-function botFireHook(b, dir, maxT, why) {
+// is there floor (no big drop) `dist` metres ahead in direction (x,z)?
+function floorAhead(b, x, z, dist) {
+  const l = Math.hypot(x, z) || 1, px = b.pos.x + x / l * dist, pz = b.pos.z + z / l * dist;
+  return ground(px, pz, b.pos.y) > b.pos.y - 1.5;
+}
+// aim is a direction, or (isPoint) a point to hook straight at
+function botFireHook(b, aim, maxT, why, isPoint) {
   const o = b.pos.clone(); o.y += 1.5;
+  const dir = isPoint ? aim.clone().sub(o) : aim.clone();
   if (!fireHook(b, o, dir.normalize())) { b.hookCd2 = 0.8; return false; }
   b.hookT = 0; b.hookMax = maxT; b.hookWhy = why;
   return true;
@@ -466,8 +492,10 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     b.hookT += dt;
     const arrived = dh < b.bladeLen + 3 && b.pos.y > t.pos.y - 0.6;
     const passed = b.hook.p.y < b.pos.y - 0.3; // swung up past the anchor
-    const safe = overGround(b.pos) || b.hookWhy === 'save' && b.pos.y > 0.5;
-    if ((arrived || passed || b.hookT > b.hookMax) && safe) {
+    // only let go over a platform we'd be happy to land on
+    const below = ground(b.pos.x, b.pos.z, b.pos.y);
+    const safe = isFinite(below) && below > b.pos.y - 9 && (b.hookWhy === 'save' || below >= t.pos.y - 3);
+    if (((arrived || passed || b.hookT > b.hookMax) && safe) || b.hookT > 6) {
       releaseHook(b, true); b.hookCd2 = D.hookCd * (0.7 + Math.random() * 0.6); b.repath = 0;
       return null;
     }
@@ -475,24 +503,55 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     const l = dh || 1;
     return { wish: { x: dx / l * 0.5, z: dz / l * 0.5 }, jump: false, sprint: false };
   }
-  // off the edge and falling: grab anything back toward the island
-  if (!b.onGround && b.vel.y < -3 && !overGround(b.pos) && (b.hookCd || 0) <= 0) {
-    const dir = new THREE.Vector3(-b.pos.x, 9 - b.pos.y, -b.pos.z);
-    if (botFireHook(b, dir, 3, 'save')) return { wish: { x: 0, z: 0 }, jump: false, sprint: false };
+  // falling with nothing close below: hook the rim of the nearest platform we can get onto
+  const under = ground(b.pos.x, b.pos.z, b.pos.y);
+  if (!b.onGround && !b.padFlight && b.vel.y < -7 && !(isFinite(under) && under > b.pos.y - 12) && (b.hookCd || 0) <= 0) {
+    let best = null, bd = Infinity;
+    for (const p of arena.plats) {
+      if (insidePlat(p, b.pos, 0.5) && p.y > b.pos.y) continue; // can't hook up through it
+      const d = rimDist(p, b.pos) + Math.max(0, b.pos.y - p.y - 4) * 0.4 + Math.max(0, p.y - b.pos.y) * 0.9;
+      if (d < bd) { bd = d; best = p; }
+    }
+    if (best && botFireHook(b, rimPoint(best, b.pos), 5, 'save', true)) return { wish: { x: 0, z: 0 }, jump: false, sprint: false };
   }
   if (b.hookCd2 > 0 || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
-  const needUp = dy > 2.2 && dh < 32; // enemy is on something higher
-  const roam = dh > 16 && Math.abs(dy) < 3 && Math.random() < dt * D.roam; // long way off: fly there
-  if (!needUp && !roam) return null;
-  const aim = new THREE.Vector3(dx, dy + (needUp ? 2.5 : 0), dz);
-  aim.normalize(); aim.y += needUp ? 0.25 : 0.45;
-  if (!botFireHook(b, aim, needUp ? 2.2 : 1.6, needUp ? 'up' : 'roam')) return null;
-  return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
+  // enemy up on a higher platform: hook its rim and get pulled up over the edge
+  if (dy > 2.2 && dy < 15) {
+    const tp = platUnder(t.pos);
+    if (tp && !insidePlat(tp, b.pos, 1.0) && rimDist(tp, b.pos) < 14) {
+      if (botFireHook(b, rimPoint(tp, b.pos), 5, 'up', true)) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
+      return null;
+    }
+  }
+  // long way off on about the same level: swing over there
+  if (dh > 16 && Math.abs(dy) < 3 && Math.random() < dt * D.roam) {
+    const aim = new THREE.Vector3(dx, 0, dz).normalize(); aim.y = 0.45;
+    if (botFireHook(b, aim, 1.6, 'roam')) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
+  }
+  return null;
+}
+const insidePlat = (p, q, m) => Math.abs(q.x - p.x) < p.w / 2 + m && Math.abs(q.z - p.z) < p.d / 2 + m;
+const platUnder = (q) => { let best = null; for (const p of arena.plats) if (insidePlat(p, q, 0.4) && p.y <= q.y + 0.6 && (!best || p.y > best.y)) best = p; return best; };
+function rimDist(p, q) { const cx = Math.max(p.x - p.w / 2, Math.min(q.x, p.x + p.w / 2)), cz = Math.max(p.z - p.d / 2, Math.min(q.z, p.z + p.d / 2)); return Math.hypot(cx - q.x, cz - q.z); }
+// the point on a platform's top lip closest to q (its top slab's side face)
+function rimPoint(p, q) {
+  const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2, z0 = p.z - p.d / 2, z1 = p.z + p.d / 2;
+  let cx = Math.max(x0, Math.min(q.x, x1)), cz = Math.max(z0, Math.min(q.z, z1));
+  if (cx > x0 && cx < x1 && cz > z0 && cz < z1) { // above/below it: use the nearest side
+    const o = [cx - x0, x1 - cx, cz - z0, z1 - cz], i = o.indexOf(Math.min(...o));
+    if (i === 0) cx = x0; else if (i === 1) cx = x1; else if (i === 2) cz = z0; else cz = z1;
+  }
+  return new THREE.Vector3(cx, p.y - 0.15, cz);
 }
 function botThink(b, dt) {
   const D = DIFF[S.diff] || DIFF[1];
   b.think = (b.think || 0) - dt; b.atkCd = (b.atkCd ?? 1) - dt; b.repath = (b.repath || 0) - dt;
-  if (!b.target || !b.target.alive || b.think <= 0) { b.target = nearestEnemy(b); b.think = 0.8 + Math.random() * 0.4; }
+  if (!b.target || !b.target.alive || b.think <= 0) {
+    // stick with the current fight unless a much closer one turns up
+    const nb = nearestEnemy(b);
+    if (!b.target || !b.target.alive || !nb || targetCost(b, nb) < targetCost(b, b.target) - 15) b.target = nb;
+    b.think = 1.5 + Math.random();
+  }
   const t = b.target;
   const wish = { x: 0, z: 0 }; let jump = false, sprint = false;
   if (!t) { b.yaw += dt * 0.3; return { wish, jump, sprint }; }
@@ -506,6 +565,12 @@ function botThink(b, dt) {
   // grappling hook
   const g = botGrapple(b, t, D, dt, dx, dy, dz, dh);
   if (g) return g;
+  // two bots on different platforms hunting each other: one holds its ground and lets the other come
+  if (b.onGround && b.plat != null && t.plat != null && b.plat !== t.plat && t.isBot && t.target === b && b.id < t.id) {
+    const p = arena.plats[b.plat], cx = p.x - b.pos.x, cz = p.z - b.pos.z, cl = Math.hypot(cx, cz);
+    if (cl > 2) { wish.x = cx / cl * 0.5; wish.z = cz / cl * 0.5; }
+    return { wish, jump, sprint };
+  }
   // where to go
   let goal = t.pos;
   const reach = b.bladeLen + 0.5; // how far this bot's sword reaches from its body
@@ -517,7 +582,8 @@ function botThink(b, dt) {
       if (!b.path || b.repath <= 0) { b.path = arena.path(b.pos, t.pos); b.repath = 0.8; }
       while (b.path && b.path.length) {
         const n = b.path[0], hd = Math.hypot(n.p.x - b.pos.x, n.p.z - b.pos.z);
-        if (hd < 1.1 && Math.abs(n.p.y - b.pos.y) < 1.8) b.path.shift(); else break;
+        const isPad = n.name[0] === 'D';
+        if (hd < (isPad ? 0.7 : 1.1) && Math.abs(n.p.y - b.pos.y) < 1.8) { b.path.shift(); if (isPad && b.onGround) jump = true; } else break;
       }
       if (b.path && b.path.length) goal = b.path[0].p;
     }
@@ -537,20 +603,28 @@ function botThink(b, dt) {
   }
   // dash-cut in from mid range
   if (!close && dh > 3.5 && dh < 7.5 && Math.abs(dy) < 1 && b.dashCd <= 0 && Math.random() < dt * D.dash * 2) {
-    const dir = new THREE.Vector3(dx, dy, dz).normalize(); tryDash(b, dir);
+    const dir = new THREE.Vector3(dx, dy, dz).normalize(); if (floorAhead(b, dx, dz, 4.8)) tryDash(b, dir);
   }
   // dodge a swing that's coming
   if (t.anim && t.anim.phase === 'wind' && dh < 3 && b.dashCd <= 0 && !b.evaded) {
     b.evaded = true;
-    if (Math.random() < D.evade) { const s = Math.random() < 0.5 ? 1 : -1; tryDash(b, new THREE.Vector3(-dz * s - dx, 0, dx * s - dz).normalize()); }
+    if (Math.random() < D.evade) {
+      const s = Math.random() < 0.5 ? 1 : -1, ev = new THREE.Vector3(-dz * s - dx, 0, dx * s - dz).normalize();
+      if (floorAhead(b, ev.x, ev.z, 4.8)) tryDash(b, ev);
+    }
   }
   if (!t.anim) b.evaded = false;
   // stuck? hop
   b.stuck = (b.stuck || 0) + ((wish.x || wish.z) && Math.hypot(b.vel.x, b.vel.z) < 0.6 && b.onGround ? dt : -dt);
   if (b.stuck > 0.8) { jump = true; b.stuck = 0; b.repath = 0; }
-  // stay off the edge
-  const r = Math.hypot(b.pos.x, b.pos.z);
-  if (r > ISLAND_R - 2 && b.pos.y < 0.5) { wish.x -= b.pos.x / r * 1.5; wish.z -= b.pos.z / r * 1.5; const l = Math.hypot(wish.x, wish.z); wish.x /= l; wish.z /= l; }
+  // don't walk off the platform: if there's no floor ahead, try sideways, else stop
+  if (b.onGround && (wish.x || wish.z) && !floorAhead(b, wish.x, wish.z, 1.4)) {
+    const a = { x: -wish.z, z: wish.x }, c = { x: wish.z, z: -wish.x };
+    if (floorAhead(b, a.x, a.z, 1.4)) { wish.x = a.x; wish.z = a.z; }
+    else if (floorAhead(b, c.x, c.z, 1.4)) { wish.x = c.x; wish.z = c.z; }
+    else { wish.x = 0; wish.z = 0; }
+    b.stuck = 0;
+  }
   return { wish, jump, sprint };
 }
 
@@ -900,7 +974,13 @@ function updateHud(dt) {
 let camDist = 3.4, hookAimT = 0;
 const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
 function updateCamera(dt) {
-  if (!me) { camera.position.set(0, 26, 46); camera.lookAt(0, 4, 0); return; }
+  if (!me) { // slow fly-around of the arena behind the menus
+    const a = now() * 0.05;
+    camera.position.set(Math.cos(a) * 75, 34, Math.sin(a) * 75); camera.lookAt(0, 4, 0);
+    arena.follow(new THREE.Vector3(0, 0, 0));
+    return;
+  }
+  arena.follow(me.alive ? me.pos : deathAt);
   if (!me.alive) { // circle the place you died
     const a = now() * 0.25;
     camPos.set(deathAt.x + Math.cos(a) * 6, deathAt.y + 3.5, deathAt.z + Math.sin(a) * 6);
@@ -955,7 +1035,7 @@ function tick(rdt, tt) {
         updateSword(f, rdt);
       } else if (S.host && f.isBot) {
         const b = botThink(f, rdt);
-        stepFighter(f, rdt, b.wish, b.sprint, b.jump);
+        stepFighter(f, rdt, f.padFlight ? { x: 0, z: 0 } : b.wish, b.sprint, b.jump);
         updateSword(f, rdt);
       } else remoteUpdate(f, rdt);
     }
@@ -964,10 +1044,11 @@ function tick(rdt, tt) {
       if (!f.alive) { f.updateTrail(tt); continue; }
       const want = bladeFor(rosterGet(f.id)?.k);
       f.bladeLen += (want - f.bladeLen) * Math.min(1, rdt * 4);
+      if (f.onGround) { const p = platUnder(f.pos); if (p) f.plat = p.i; } // which platform they're on
       f.pose(rdt);
       if (isLocal(f)) {
         bladeSweep(f, rdt); dashSweep(f);
-        if (f.pos.y < -30) selfFell(f);
+        if (f.pos.y < arena.killY) selfFell(f);
       }
       f.prevHand.copy(f.hand); f.prevTip.copy(f.tip);
       f.updateTrail(tt);
