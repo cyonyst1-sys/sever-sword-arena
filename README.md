@@ -20,7 +20,7 @@ A third-person 3D sword arena that runs in the browser. Swing your sword with th
 
 Everyone moves at full speed all the time, so there's no sprint.
 
-**Your sword grows with every kill:** it starts at 1.12 m and gets 14 cm longer per kill (up to 4 m), so your reach grows as you rack up kills. Your blade length shows under your score. Lengths reset each match.
+**Your sword grows with every kill:** it starts at 1.12 m and gets 8 cm longer per kill (up to 3 m), so your reach grows as you rack up kills. Your blade length shows under your score. Lengths reset each match.
 
 The crosshair glows cyan when the hook has something to grab. Swords that cross clash and knock both fighters back, so holding your blade in the way blocks a swing.
 

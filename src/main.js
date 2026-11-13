@@ -38,7 +38,7 @@ const G = 24, JUMP_V = 8.8, WALK = 9.4, DASH_V = 22, DASH_T = 0.2, CUT_SPD = 7, 
 const PULL = 34, REEL = 11, HOOK_MAX = 60;
 const FFA_KILLS = 15, FFA_TIME = 300, MAX_PLAYERS = 8;
 // every kill makes your sword longer (and your reach with it)
-const BLADE_BASE = 1.12, BLADE_PER_KILL = 0.14, BLADE_MAX = 4.0;
+const BLADE_BASE = 1.12, BLADE_PER_KILL = 0.08, BLADE_MAX = 3.0;
 const bladeFor = (k) => Math.min(BLADE_MAX, BLADE_BASE + (k || 0) * BLADE_PER_KILL);
 const BOT_NAMES = ['Kaito', 'Ren', 'Hana', 'Jiro', 'Mika', 'Sora', 'Yuki', 'Taro', 'Aki', 'Nobu', 'Kenji', 'Rin', 'Daichi', 'Emi'];
 const DIFF = [
