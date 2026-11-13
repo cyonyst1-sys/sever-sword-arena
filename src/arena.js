@@ -329,10 +329,11 @@ export class Arena {
     return false;
   }
   /** Push a standing cylinder (feet at pos.y) out of walls; handles ceilings. Returns true if grounded. */
-  collide(pos, vel, rad, h, wasGround) {
+  collide(pos, vel, rad, h, wasGround, prevY = pos.y) {
+    const top = Math.max(pos.y, prevY); // fast falls can pass a floor in one frame: judge floors from where we were too
     for (let it = 0; it < 2; it++) {
       for (const b of this.boxes) {
-        if (b.y1 <= pos.y + STEP || b.y0 >= pos.y + h) continue;
+        if (b.y1 <= top + STEP || b.y0 >= pos.y + h) continue;
         const cx = Math.max(b.x0, Math.min(pos.x, b.x1)), cz = Math.max(b.z0, Math.min(pos.z, b.z1));
         let dx = pos.x - cx, dz = pos.z - cz; const d2 = dx * dx + dz * dz;
         if (d2 >= rad * rad) continue;
@@ -347,7 +348,7 @@ export class Arena {
       }
       for (const r of this.ramps) { // the high sides of ramps are walls too
         const hh = this.rampH(r, pos.x, pos.z);
-        if (hh === null || hh <= pos.y + STEP || r.base >= pos.y + h) continue;
+        if (hh === null || hh <= top + STEP || r.base >= pos.y + h) continue;
         const cx = Math.max(r.x0, Math.min(pos.x, r.x1)), cz = Math.max(r.z0, Math.min(pos.z, r.z1));
         const o = [pos.x - r.x0, r.x1 - pos.x, pos.z - r.z0, r.z1 - pos.z], i = o.indexOf(Math.min(...o));
         if (i === 0) pos.x = r.x0 - rad; else if (i === 1) pos.x = r.x1 + rad; else if (i === 2) pos.z = r.z0 - rad; else pos.z = r.z1 + rad;
@@ -359,7 +360,7 @@ export class Arena {
       if (pos.x < b.x0 || pos.x > b.x1 || pos.z < b.z0 || pos.z > b.z1) continue;
       if (b.y0 > pos.y + STEP && pos.y + h > b.y0) { pos.y = b.y0 - h; vel.y = 0; }
     }
-    const g = this.groundHeight(pos.x, pos.z, pos.y);
+    const g = this.groundHeight(pos.x, pos.z, top);
     if (vel.y <= 0 && pos.y <= g + 0.02) { pos.y = g; vel.y = 0; return true; }
     if (wasGround && vel.y <= 0 && pos.y - g < 0.4) { pos.y = g; vel.y = 0; return true; } // stick to ramps going down
     return false;

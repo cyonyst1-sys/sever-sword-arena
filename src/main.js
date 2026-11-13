@@ -34,7 +34,7 @@ const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravi
 const pieces = new Pieces(scene, ground, blood);
 
 // ---------- constants ----------
-const G = 24, JUMP_V = 8.8, WALK = 9.4, DASH_V = 22, DASH_T = 0.2, CUT_SPD = 7, RAD = 0.38, HGT = 1.8;
+const G = 24, JUMP_V = 8.8, WALK = 12.5, DASH_V = 22, DASH_T = 0.2, CUT_SPD = 7, RAD = 0.38, HGT = 1.8;
 const PULL = 34, REEL = 11, HOOK_MAX = 60;
 const FFA_KILLS = 15, FFA_TIME = 300, MAX_PLAYERS = 8;
 // every kill makes your sword longer (and your reach with it)
@@ -211,7 +211,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
       f.vel.x += (wish.x * spd - f.vel.x) * k; f.vel.z += (wish.z * spd - f.vel.z) * k;
     } else { // air: keep momentum, steer a little
       const hs = Math.hypot(f.vel.x, f.vel.z);
-      f.vel.x += wish.x * 14 * dt; f.vel.z += wish.z * 14 * dt;
+      f.vel.x += wish.x * 32 * dt; f.vel.z += wish.z * 32 * dt; // strong air steering to line up landings
       const ns = Math.hypot(f.vel.x, f.vel.z), cap = Math.max(hs, WALK);
       if (ns > cap) { f.vel.x *= cap / ns; f.vel.z *= cap / ns; }
       if (!f.padFlight) { f.vel.x *= 1 - 0.12 * dt; f.vel.z *= 1 - 0.12 * dt; } // pad jumps fly their exact arc
@@ -229,7 +229,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
   f.prevPos.copy(f.pos);
   f.pos.addScaledVector(f.vel, dt);
   const was = f.onGround, fallV = f.vel.y;
-  f.onGround = arena.collide(f.pos, f.vel, RAD, HGT, was && f.dashT <= 0 && !f.hook);
+  f.onGround = arena.collide(f.pos, f.vel, RAD, HGT, was && f.dashT <= 0 && !f.hook, f.prevPos.y);
   if (f.hook) { // rope can't stretch
     const c = _t.copy(f.pos); c.y += 1.3; const d = _t2.subVectors(f.hook.p, c); const L = d.length();
     if (L > f.hook.len + 0.05) f.pos.addScaledVector(d.divideScalar(L), L - f.hook.len);
@@ -618,10 +618,10 @@ function botThink(b, dt) {
   b.stuck = (b.stuck || 0) + ((wish.x || wish.z) && Math.hypot(b.vel.x, b.vel.z) < 0.6 && b.onGround ? dt : -dt);
   if (b.stuck > 0.8) { jump = true; b.stuck = 0; b.repath = 0; }
   // don't walk off the platform: if there's no floor ahead, try sideways, else stop
-  if (b.onGround && (wish.x || wish.z) && !floorAhead(b, wish.x, wish.z, 1.4)) {
+  if (b.onGround && (wish.x || wish.z) && !floorAhead(b, wish.x, wish.z, 1.9)) {
     const a = { x: -wish.z, z: wish.x }, c = { x: wish.z, z: -wish.x };
-    if (floorAhead(b, a.x, a.z, 1.4)) { wish.x = a.x; wish.z = a.z; }
-    else if (floorAhead(b, c.x, c.z, 1.4)) { wish.x = c.x; wish.z = c.z; }
+    if (floorAhead(b, a.x, a.z, 1.9)) { wish.x = a.x; wish.z = a.z; }
+    else if (floorAhead(b, c.x, c.z, 1.9)) { wish.x = c.x; wish.z = c.z; }
     else { wish.x = 0; wish.z = 0; }
     b.stuck = 0;
   }
