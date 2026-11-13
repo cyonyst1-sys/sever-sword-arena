@@ -42,9 +42,9 @@ const BLADE_BASE = 1.12, BLADE_PER_KILL = 0.08, BLADE_MAX = 3.0;
 const bladeFor = (k) => Math.min(BLADE_MAX, BLADE_BASE + (k || 0) * BLADE_PER_KILL);
 const BOT_NAMES = ['Kaito', 'Ren', 'Hana', 'Jiro', 'Mika', 'Sora', 'Yuki', 'Taro', 'Aki', 'Nobu', 'Kenji', 'Rin', 'Daichi', 'Emi'];
 const DIFF = [
-  { wind: 0.62, cd: [1.0, 1.8], evade: 0.12, dash: 0.12, turn: 5 },
-  { wind: 0.48, cd: [0.7, 1.3], evade: 0.3, dash: 0.25, turn: 7.5 },
-  { wind: 0.36, cd: [0.4, 0.9], evade: 0.5, dash: 0.45, turn: 11 },
+  { wind: 0.62, cd: [1.0, 1.8], evade: 0.12, dash: 0.12, turn: 5, hookCd: 6, roam: 0.15 },
+  { wind: 0.48, cd: [0.7, 1.3], evade: 0.3, dash: 0.25, turn: 7.5, hookCd: 3.5, roam: 0.35 },
+  { wind: 0.36, cd: [0.4, 0.9], evade: 0.5, dash: 0.45, turn: 11, hookCd: 2, roam: 0.6 },
 ];
 const PATTERNS = [
   [{ x: -1.0, y: 0.25 }, { x: 1.0, y: -0.15 }], [{ x: 1.0, y: 0.25 }, { x: -1.0, y: -0.15 }],
@@ -451,6 +451,44 @@ function nearestEnemy(b) {
   }
   return best;
 }
+// Bots grapple to reach enemies above them, to cross big distances fast, and to save themselves when
+// they go off the edge. Returns movement input while hanging on the rope, or null to walk as usual.
+const overGround = (p) => isFinite(ground(p.x, p.z, 1000));
+function botFireHook(b, dir, maxT, why) {
+  const o = b.pos.clone(); o.y += 1.5;
+  if (!fireHook(b, o, dir.normalize())) { b.hookCd2 = 0.8; return false; }
+  b.hookT = 0; b.hookMax = maxT; b.hookWhy = why;
+  return true;
+}
+function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
+  b.hookCd2 = (b.hookCd2 ?? 1 + Math.random() * 2) - dt;
+  if (b.hook) {
+    b.hookT += dt;
+    const arrived = dh < b.bladeLen + 3 && b.pos.y > t.pos.y - 0.6;
+    const passed = b.hook.p.y < b.pos.y - 0.3; // swung up past the anchor
+    const safe = overGround(b.pos) || b.hookWhy === 'save' && b.pos.y > 0.5;
+    if ((arrived || passed || b.hookT > b.hookMax) && safe) {
+      releaseHook(b, true); b.hookCd2 = D.hookCd * (0.7 + Math.random() * 0.6); b.repath = 0;
+      return null;
+    }
+    // steer a little toward the target while swinging
+    const l = dh || 1;
+    return { wish: { x: dx / l * 0.5, z: dz / l * 0.5 }, jump: false, sprint: false };
+  }
+  // off the edge and falling: grab anything back toward the island
+  if (!b.onGround && b.vel.y < -3 && !overGround(b.pos) && (b.hookCd || 0) <= 0) {
+    const dir = new THREE.Vector3(-b.pos.x, 9 - b.pos.y, -b.pos.z);
+    if (botFireHook(b, dir, 3, 'save')) return { wish: { x: 0, z: 0 }, jump: false, sprint: false };
+  }
+  if (b.hookCd2 > 0 || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
+  const needUp = dy > 2.2 && dh < 32; // enemy is on something higher
+  const roam = dh > 16 && Math.abs(dy) < 3 && Math.random() < dt * D.roam; // long way off: fly there
+  if (!needUp && !roam) return null;
+  const aim = new THREE.Vector3(dx, dy + (needUp ? 2.5 : 0), dz);
+  aim.normalize(); aim.y += needUp ? 0.25 : 0.45;
+  if (!botFireHook(b, aim, needUp ? 2.2 : 1.6, needUp ? 'up' : 'roam')) return null;
+  return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
+}
 function botThink(b, dt) {
   const D = DIFF[S.diff] || DIFF[1];
   b.think = (b.think || 0) - dt; b.atkCd = (b.atkCd ?? 1) - dt; b.repath = (b.repath || 0) - dt;
@@ -465,6 +503,9 @@ function botThink(b, dt) {
   const turn = (b.anim && b.anim.phase === 'strike' ? D.turn * 0.5 : D.turn) * dt;
   b.yaw += Math.max(-turn, Math.min(turn, da));
   b.pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(dy, Math.max(0.5, dh))));
+  // grappling hook
+  const g = botGrapple(b, t, D, dt, dx, dy, dz, dh);
+  if (g) return g;
   // where to go
   let goal = t.pos;
   const reach = b.bladeLen + 0.5; // how far this bot's sword reaches from its body
