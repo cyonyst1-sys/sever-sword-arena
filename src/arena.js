@@ -217,19 +217,20 @@ export class Arena {
       return p;
     };
     const linkP = (a, b) => this.link('P' + a.i, 'P' + b.i);
-    const branch = (A, B, width, grp) => {
+    const branch = (A, B, wA, grp, wB = wA) => {
+      const width = (wA + wB) / 2;
       const dx = B.x - A.x, dz = B.z - A.z, L = Math.hypot(dx, dz), ang = Math.atan2(dz, dx);
       const p = addPlat({ kind: 'branch', x: (A.x + B.x) / 2, z: (A.z + B.z) / 2, y: (A.y + B.y) / 2, ya: A.y, yb: B.y, w: L, d: width, ang, group: grp });
       this.tag = p;
       // walkable top (no walls: you can step off the side of a branch)
       this.addRamp(A.x, A.z, B.x, B.z, A.y, B.y, width, Math.min(A.y, B.y) - 1.2, null, { visual: false, noWall: true });
       // the log itself: its top runs just above the walking surface
-      const R = width * 0.55, a3 = new THREE.Vector3(A.x, A.y - R * 0.8, A.z), b3 = new THREE.Vector3(B.x, B.y - R * 0.8, B.z);
+      const R = width * 0.55, Ra = wA * 0.55, Rb = wB * 0.55, a3 = new THREE.Vector3(A.x, A.y - Ra * 0.8, A.z), b3 = new THREE.Vector3(B.x, B.y - Rb * 0.8, B.z);
       const dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.92, R, len + R * 0.5, 12, 1), M.bark);
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(Rb, Ra, len + R * 0.5, 12, 1), M.bark);
       log.position.copy(a3).add(b3).multiplyScalar(0.5); log.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
       log.castShadow = log.receiveShadow = true; S.add(log); this.own(p, log);
-      const knot = new THREE.Mesh(new THREE.SphereGeometry(R * 1.02, 12, 8), M.bark); knot.position.copy(b3); knot.castShadow = true; S.add(knot); this.own(p, knot);
+      const knot = new THREE.Mesh(new THREE.SphereGeometry(Rb * 1.02, 12, 8), M.bark); knot.position.copy(b3); knot.castShadow = true; S.add(knot); this.own(p, knot);
       // grapple-only boxes along the log, so you can hook the branch (but never bump into them)
       for (let s = 0; s <= len; s += 5) {
         const c = a3.clone().addScaledVector(dir, s);
@@ -281,23 +282,26 @@ export class Arena {
       return p;
     };
     let group = 0;
+    // branch thickness: skinnier the higher up it grows, and tapering toward the end of each limb
+    const wAt = (y, s, segs, depth) => Math.max(1.3, (depth === 0 ? 3.4 : 2.6) * (y <= 0 ? 1 : Math.max(0.5, 1 - y / 30 * 0.55)) * (1 - Math.min(1, s / segs) * 0.5));
     // a limb: runs level, climbs or dips for a stretch, then levels out again; sprouts leaves and side arms
     const grow = (start, angle, segs, depth, startPlat) => {
       const grp = group++;
       let A = start, a = angle, mode = 'level', prev = startPlat;
       for (let s = 0; s < segs; s++) {
-        if (s % 2 === 0) { const rr = r(); mode = rr < 0.4 ? 'level' : rr < 0.7 ? 'up' : 'down'; }
-        let dy = mode === 'level' ? 0 : (mode === 'up' ? 1 : -1) * (2.5 + r() * 3.5);
+        const low = A.y < 6; // lower limbs run flatter, for easy running
+        if (s % 2 === 0) { const rr = r(); mode = rr < (low ? 0.72 : 0.4) ? 'level' : rr < 0.7 ? 'up' : 'down'; }
+        let dy = mode === 'level' ? 0 : (mode === 'up' ? 1 : -1) * (2.5 + r() * 3.5) * (low ? 0.45 : 1);
         if (A.y + dy > 30 || A.y + dy < -20) dy = -dy * 0.5;
         const L = 10 + r() * 6; a += (r() - 0.5) * 0.45;
         const B = { x: A.x + Math.cos(a) * L, y: A.y + dy, z: A.z + Math.sin(a) * L };
         if (Math.hypot(B.x, B.z) > 100) break;
         if (trunks.some((t) => Math.hypot(B.x - t.x, B.z - t.z) < t.r + 2)) break; // don't run into a trunk
-        const w = Math.max(2.6, (depth === 0 ? 4.4 : 3.4) - s * 0.12);
-        const p = branch(A, B, w, grp);
+        const wA = wAt(A.y, s, segs, depth), wB = wAt(B.y, s + 1, segs, depth), w = (wA + wB) / 2;
+        const p = branch(A, B, wA, grp, wB);
         if (prev) linkP(prev, p);
         prev = p;
-        if (r() < 0.3) { // a big leaf off one side
+        if (r() < 0.14) { // now and then, a big leaf off one side
           const side = r() < 0.5 ? 1 : -1, la = a + side * (1.1 + r() * 0.5), len = 13 + r() * 6, wid = 7.5 + r() * 3.5;
           const C = { x: B.x + Math.cos(la) * (w / 2 + len * 0.45), z: B.z + Math.sin(la) * (w / 2 + len * 0.45) };
           if (Math.hypot(C.x, C.z) < 104) linkP(p, leaf(C, len, wid, la, B.y + 0.2 + r() * 0.6, grp, B, w * 0.55));
@@ -305,7 +309,7 @@ export class Arena {
         if (depth < 1 && s >= 2 && r() < 0.3) grow(B, a + (r() < 0.5 ? 1 : -1) * (0.6 + r() * 0.6), 3 + Math.floor(r() * 3), depth + 1, p);
         A = B;
       }
-      if (prev) { // a big leaf at the tip
+      if (prev && r() < 0.5) { // sometimes a big leaf at the tip
         const len = 15 + r() * 4, wid = 8.5 + r() * 2.5, C = { x: A.x + Math.cos(a) * len * 0.48, z: A.z + Math.sin(a) * len * 0.48 };
         if (Math.hypot(C.x, C.z) < 106) linkP(prev, leaf(C, len, wid, a, A.y + 0.3, prev.group, A, prev.d * 0.55));
       }
