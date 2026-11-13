@@ -31,7 +31,7 @@ The crosshair glows cyan when the hook has something to grab. Swords that cross 
 
 Solo games are you plus bots (0 to 7, Easy / Normal / Hard).
 
-Bots use the grappling hook too: to climb onto a higher platform, to swing across toward a far-off target, and to hook back onto a platform when they fall. Harder bots grapple more often.
+Bots get around mainly by grappling: they hook the edge of the platform their enemy is on (or the next one on the way) and swing over, climb onto higher platforms the same way, and hook back onto a platform when they fall. They only take the jump pads when there is no clean line to grapple. Harder bots grapple more often.
 
 ## Multiplayer
 

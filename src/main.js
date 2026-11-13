@@ -42,9 +42,9 @@ const BLADE_BASE = 1.12, BLADE_PER_KILL = 0.08, BLADE_MAX = 3.0;
 const bladeFor = (k) => Math.min(BLADE_MAX, BLADE_BASE + (k || 0) * BLADE_PER_KILL);
 const BOT_NAMES = ['Kaito', 'Ren', 'Hana', 'Jiro', 'Mika', 'Sora', 'Yuki', 'Taro', 'Aki', 'Nobu', 'Kenji', 'Rin', 'Daichi', 'Emi'];
 const DIFF = [
-  { wind: 0.62, cd: [1.0, 1.8], evade: 0.12, dash: 0.12, turn: 5, hookCd: 6, roam: 0.15 },
-  { wind: 0.48, cd: [0.7, 1.3], evade: 0.3, dash: 0.25, turn: 7.5, hookCd: 3.5, roam: 0.35 },
-  { wind: 0.36, cd: [0.4, 0.9], evade: 0.5, dash: 0.45, turn: 11, hookCd: 2, roam: 0.6 },
+  { wind: 0.62, cd: [1.0, 1.8], evade: 0.12, dash: 0.12, turn: 5, hookCd: 3, roam: 0.3, cross: 0.8 },
+  { wind: 0.48, cd: [0.7, 1.3], evade: 0.3, dash: 0.25, turn: 7.5, hookCd: 1.4, roam: 0.6, cross: 2.5 },
+  { wind: 0.36, cd: [0.4, 0.9], evade: 0.5, dash: 0.45, turn: 11, hookCd: 0.8, roam: 0.9, cross: 4 },
 ];
 const PATTERNS = [
   [{ x: -1.0, y: 0.25 }, { x: 1.0, y: -0.15 }], [{ x: 1.0, y: 0.25 }, { x: -1.0, y: -0.15 }],
@@ -488,6 +488,7 @@ function botFireHook(b, aim, maxT, why, isPoint) {
 }
 function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   b.hookCd2 = (b.hookCd2 ?? 1 + Math.random() * 2) - dt;
+  b.padOk = (b.padOk || 0) - dt; // > 0 while pads are allowed (after a grapple couldn't be made)
   if (b.hook) {
     b.hookT += dt;
     const arrived = dh < b.bladeLen + 3 && b.pos.y > t.pos.y - 0.6;
@@ -495,7 +496,8 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     // only let go over a platform we'd be happy to land on
     const below = ground(b.pos.x, b.pos.z, b.pos.y);
     const safe = isFinite(below) && below > b.pos.y - 9 && (b.hookWhy === 'save' || below >= t.pos.y - 3);
-    if (((arrived || passed || b.hookT > b.hookMax) && safe) || b.hookT > 6) {
+    const rim = b.hookWhy !== 'roam'; // rim grabs ride the rope until it pops them onto the edge
+    if ((((!rim && (arrived || passed)) || b.hookT > b.hookMax) && safe) || b.hookT > 6) {
       releaseHook(b, true); b.hookCd2 = D.hookCd * (0.7 + Math.random() * 0.6); b.repath = 0;
       return null;
     }
@@ -520,8 +522,18 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     const tp = platUnder(t.pos);
     if (tp && !insidePlat(tp, b.pos, 1.0) && rimDist(tp, b.pos) < 14) {
       if (botFireHook(b, rimPoint(tp, b.pos), 5, 'up', true)) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
+      b.padOk = 2.5;
       return null;
     }
+  }
+  // enemy on another platform: grapple across to that platform's edge (pads are the fallback)
+  if (t.plat != null && b.plat != null && t.plat !== b.plat && Math.random() < dt * D.cross * 4) {
+    // head for the target's platform, or the next platform on the way if it's out of reach
+    let tp = arena.plats[t.plat];
+    const reachable = (p) => p && !insidePlat(p, b.pos, 1.0) && rimDist(p, b.pos) < 40 && p.y - b.pos.y < 16 && p.y - b.pos.y > -14;
+    if (!reachable(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && +q.name.slice(1) !== b.plat); tp = n ? arena.plats[+n.name.slice(1)] : null; }
+    if (reachable(tp) && botFireHook(b, rimPoint(tp, b.pos), 5, 'cross', true)) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
+    b.padOk = 2.5; // no clean line to that edge: take the pads this time
   }
   // long way off on about the same level: swing over there
   if (dh > 16 && Math.abs(dy) < 3 && Math.random() < dt * D.roam) {
@@ -583,6 +595,7 @@ function botThink(b, dt) {
       while (b.path && b.path.length) {
         const n = b.path[0], hd = Math.hypot(n.p.x - b.pos.x, n.p.z - b.pos.z);
         const isPad = n.name[0] === 'D';
+        if (isPad && hd < 0.7 && !(b.padOk > 0)) break; // wait on the pad: grappling comes first
         if (hd < (isPad ? 0.7 : 1.1) && Math.abs(n.p.y - b.pos.y) < 1.8) { b.path.shift(); if (isPad && b.onGround) jump = true; } else break;
       }
       if (b.path && b.path.length) goal = b.path[0].p;
