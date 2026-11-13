@@ -78,7 +78,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 - `index.html`: page, menus, HUD and styles
 - `src/main.js`: game loop, controls, grappling hook, combat, bots, match rules, networking
 - `src/arena.js`: both maps (Sky Spires and Sky Plateaus), collision, grapple targeting and the bots' navigation graph
-- `src/fighter.js`: the procedural samurai model, walk cycle, IK arms and legs, sword and trail
+- `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail
 - `src/slice.js`: mesh slicing, cut caps, piece physics, blood and sparks
 - `src/audio.js`: procedural sound effects. Movement sounds (sword whooshes, jumps, landings, dashes) are only heard within about 15 m of your character; slices, clashes and hooks carry about 32 m
 - `src/net.js`: peer-to-peer rooms and the open rooms list (adapted from Splatline Paintball)
