@@ -1338,7 +1338,7 @@ function updateCamera(dt) {
   for (let i = 1; i <= 14; i++) { // pull in if a wall is in the way
     const d = 3.4 * i / 14;
     const x = pivot.x - look.x * d, y = pivot.y - look.y * d + 0.25 * i / 14, z = pivot.z - look.z * d;
-    if (arena.wallAt(x, z, y - 0.1, 0.2, 0.15) || y < ground(x, z, y) + 0.1) { dist = Math.max(0.6, d - 0.25); break; }
+    if (arena.wallAt(x, z, y - 0.1, 0.2, 0.15) || y < ground(x, z, y) + 0.1 || arena.inLog(x, y, z)) { dist = Math.max(0.6, d - 0.25); break; }
   }
   camDist = dist;
   camera.position.set(pivot.x - look.x * dist, pivot.y - look.y * dist + 0.25 * dist / 3.4, pivot.z - look.z * dist);

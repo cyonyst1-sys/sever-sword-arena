@@ -225,9 +225,10 @@ export class Arena {
       // walkable top (no walls: you can step off the side of a branch)
       this.addRamp(A.x, A.z, B.x, B.z, A.y, B.y, width, Math.min(A.y, B.y) - 1.2, null, { visual: false, noWall: true });
       // the log itself: its top runs just above the walking surface
-      const R = width * 0.55, Ra = wA * 0.55, Rb = wB * 0.55, a3 = new THREE.Vector3(A.x, A.y - Ra * 0.8, A.z), b3 = new THREE.Vector3(B.x, B.y - Rb * 0.8, B.z);
+      const R = width * 0.55, Ra = wA * 0.55, Rb = wB * 0.55, k = Math.hypot(L, B.y - A.y) / L; // on a slope a round log stands taller: sink it so its top stays at your feet
+      const a3 = new THREE.Vector3(A.x, A.y - Ra * (k - 0.15), A.z), b3 = new THREE.Vector3(B.x, B.y - Rb * (k - 0.15), B.z);
       const dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(Rb, Ra, len + R * 0.5, 12, 1), M.bark);
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(Rb, Ra, len + R * 0.15, 12, 1), M.bark);
       log.position.copy(a3).add(b3).multiplyScalar(0.5); log.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
       log.castShadow = log.receiveShadow = true; S.add(log); this.own(p, log);
       const knot = new THREE.Mesh(new THREE.SphereGeometry(Rb * 1.02, 12, 8), M.bark); knot.position.copy(b3); knot.castShadow = true; S.add(knot); this.own(p, knot);
@@ -342,12 +343,12 @@ export class Arena {
         .slice(0, 3).forEach(([b]) => this.link('P' + a.i, 'P' + b.i, 'swing'));
     }
     // bamboo everywhere, floor to roof, kept clear of branches, leaves and trunks
-    for (let gx = -108; gx <= 108; gx += 11) for (let gz = -108; gz <= 108; gz += 11) {
-      const x = gx + (r() - 0.5) * 8, z = gz + (r() - 0.5) * 8;
-      if (Math.hypot(x, z) > 112 || r() < 0.2) continue;
+    for (let gx = -108; gx <= 108; gx += 7.5) for (let gz = -108; gz <= 108; gz += 7.5) {
+      const x = gx + (r() - 0.5) * 5.5, z = gz + (r() - 0.5) * 5.5;
+      if (Math.hypot(x, z) > 112 || r() < 0.15) continue;
       if (trunks.some((t) => Math.hypot(x - t.x, z - t.z) < t.r + 3)) continue;
       if (plats.some((p) => this.inPlat(p, { x, z }, 1.6))) continue;
-      const rad = 0.28 + r() * 0.14, s = this.bamboo.length;
+      const rad = 0.15 + r() * 0.07, s = this.bamboo.length;
       this.bamboo.push({ x, z, r: rad, segs: [] });
       this.addBambooSeg(s, -62, 78);
       this.pillars.push({ x, z, w: rad * 2 });
@@ -597,6 +598,11 @@ export class Arena {
     return g;
   }
   /** Is there a wall at (x,z) for a body standing at feet height y? */
+  /** Is (x, y, z) inside a branch log (canopy)? Keeps the camera out of them. */
+  inLog(x, y, z) {
+    for (const p of this.plats) if (p.kind === 'branch' && !p.gone && this.inPlat(p, { x, z }, 0.1)) { const t = this.platTop(p, { x, z }); if (y < t + 0.15 && y > t - p.d * 1.2) return true; }
+    return false;
+  }
   wallAt(x, z, y, h = 1.7, m = 0.3) {
     for (const b of this.boxes) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 > y + STEP && b.y0 < y + h) return true;
     return false;
