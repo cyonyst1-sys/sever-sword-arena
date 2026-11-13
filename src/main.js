@@ -316,16 +316,22 @@ function segSeg(p1, q1, p2, q2, c1, c2) {
 }
 const _A = new THREE.Vector3(), _B = new THREE.Vector3(), _c1 = new THREE.Vector3(), _c2 = new THREE.Vector3(), _a0 = new THREE.Vector3(), _a1 = new THREE.Vector3();
 function cutNormal(f) {
-  const bd = _t.subVectors(f.tip, f.hand), mv = _t2.subVectors(f.tip, f.prevTip);
+  const bd = _t.subVectors(f.tip, f.hand), mv = _t2.subVectors(f.tip, f.prevTip).sub(f.pos).add(f.prevPos); // the swing itself, not the run
   const n = new THREE.Vector3().crossVectors(bd, mv);
   if (n.lengthSq() < 1e-8) n.crossVectors(bd, new THREE.Vector3(0, 1, 0));
   if (n.lengthSq() < 1e-8) n.set(1, 0, 0);
   return n.normalize();
 }
 function bladeSweep(f, dt) {
-  if (f.noCut) { f.noCut = false; return; }
-  const tipSpd = f.tip.distanceTo(f.prevTip) / dt;
-  if (tipSpd > 9 && f.swishCd <= 0) { sfx.swish(tipSpd, f.tip); f.swishCd = 0.22; }
+  if (f.noCut) { f.noCut = false; f.prevS = { x: f.s.x, y: f.s.y }; return; } // a snap into position isn't a swing
+  // how fast the blade moves relative to the fighter's own body: running with the sword out isn't a swing
+  const body = _t3.subVectors(f.pos, f.prevPos);
+  const relSpd = (a, b) => Math.hypot(b.x - a.x - body.x, b.y - a.y - body.y, b.z - a.z - body.z) / dt;
+  const tipSpd = relSpd(f.prevTip, f.tip);
+  // the whoosh comes only from the swing itself (the sword moving in the hand), never from running or turning
+  const ps = f.prevS || f.s, swing = Math.hypot(f.s.x - ps.x, f.s.y - ps.y) / dt * 1.6 * (f.bladeLen + 0.1);
+  f.prevS = { x: f.s.x, y: f.s.y };
+  if (swing > 11 && f.swishCd <= 0) { sfx.swish(swing, f.tip); f.swishCd = 0.22; }
   if (tipSpd < CUT_SPD || !f.armed) return;
   for (const g of fighters.values()) {
     if (g === f || !g.alive || g.prot > 0 || !isEnemy(f, g)) continue;
@@ -335,7 +341,7 @@ function bladeSweep(f, dt) {
     for (let k = 0; k <= 6; k++) {
       const t = 0.12 + 0.88 * k / 6;
       _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
-      if (_A.distanceTo(_B) / dt < CUT_SPD * 0.6) continue;
+      if (relSpd(_A, _B) < CUT_SPD * 0.6) continue;
       if (!parry && segSeg(_A, _B, g.hand, g.tip, _c1, _c2) < 0.075 * 0.075) parry = _c1.clone();
       if (!hit && segSeg(_A, _B, _a0, _a1, _c1, _c2) < 0.34 * 0.34) hit = _c1.clone();
     }
@@ -1165,7 +1171,7 @@ function tick(rdt, tt) {
   pieces.update(pdt); blood.update(pdt); sparks.update(pdt);
   shake *= Math.exp(-9 * rdt); punch *= Math.exp(-6 * rdt);
   updateCamera(rdt);
-  setListener(camera.position);
+  setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it
   updateHud(rdt);
   $('vignette').style.boxShadow = me && !me.alive ? 'inset 0 0 200px rgba(140,0,0,.55)' : 'inset 0 0 160px rgba(160,0,0,0)';
   renderer.render(scene, camera);
@@ -1176,4 +1182,4 @@ $('clickPlay').onclick = () => { ensureAudio(); lockPointer(); };
 $('loading').remove();
 requestAnimationFrame(frame);
 // handy for debugging in the console
-window.__sever = { S, fighters, pieces, arena, camera, tick, applyKill, botSwingTo, willLand, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
+window.__sever = { S, fighters, pieces, arena, camera, tick, applyKill, botSwingTo, willLand, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };

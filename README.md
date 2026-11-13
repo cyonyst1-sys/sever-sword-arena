@@ -67,7 +67,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 - `src/arena.js`: the map, collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai model, walk cycle, IK arms and legs, sword and trail
 - `src/slice.js`: mesh slicing, cut caps, piece physics, blood and sparks
-- `src/audio.js`: procedural sound effects
+- `src/audio.js`: procedural sound effects. Movement sounds (sword whooshes, jumps, landings, dashes) are only heard within about 15 m of your character; slices, clashes and hooks carry about 32 m
 - `src/net.js`: peer-to-peer rooms and the open rooms list (adapted from Splatline Paintball)
 
 Every push to `main` redeploys the site on GitHub Pages within about a minute. Before committing changes to `src/` or `index.html`, run `tools/bump-version.sh` so browsers load the new files together.
