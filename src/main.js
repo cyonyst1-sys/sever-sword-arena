@@ -488,59 +488,113 @@ function botFireHook(b, aim, maxT, why, isPoint) {
 }
 function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   b.hookCd2 = (b.hookCd2 ?? 1 + Math.random() * 2) - dt;
-  b.padOk = (b.padOk || 0) - dt; // > 0 while pads are allowed (after a grapple couldn't be made)
+  b.padOk = (b.padOk || 0) - dt; // > 0 while pads are allowed (after a swing couldn't be set up)
+  if (b.onGround && (b.landOn || b.wasTravelling)) b.stayUntil = now() + 1.2 + Math.random() * 1.5; // just arrived: hold this platform a moment
+  b.wasTravelling = !b.onGround && (!!b.landOn || !!b.padFlight || !!b.dest);
+  if (b.onGround) b.landOn = null;
+  const idle = { wish: { x: 0, z: 0 }, jump: false, sprint: false };
   if (b.hook) {
     b.hookT += dt;
-    const arrived = dh < b.bladeLen + 3 && b.pos.y > t.pos.y - 0.6;
-    const passed = b.hook.p.y < b.pos.y - 0.3; // swung up past the anchor
-    // only let go over a platform we'd be happy to land on
-    const below = ground(b.pos.x, b.pos.z, b.pos.y);
-    const safe = isFinite(below) && below > b.pos.y - 9 && (b.hookWhy === 'save' || below >= t.pos.y - 3);
-    const rim = b.hookWhy !== 'roam'; // rim grabs ride the rope until it pops them onto the edge
-    if ((((!rim && (arrived || passed)) || b.hookT > b.hookMax) && safe) || b.hookT > 6) {
-      releaseHook(b, true); b.hookCd2 = D.hookCd * (0.7 + Math.random() * 0.6); b.repath = 0;
-      return null;
+    if (b.dest) {
+      // let go the moment the arc will drop us onto the platform
+      if (willLand(b, b.dest)) { releaseHook(b, false); b.landOn = b.dest; b.dest = null; b.hookCd2 = D.hookCd * (0.7 + Math.random() * 0.6); b.repath = 0; return null; }
+      // reached the pillar without a landing lined up: kick off it in an arc onto the platform
+      const c = _t.copy(b.pos); c.y += 1.3;
+      if (b.hook.p.distanceTo(c) < 4.5) {
+        const p = b.dest, tx = p.x - b.pos.x, ty = p.y - b.pos.y, tz = p.z - b.pos.z, T = Math.min(1.6, Math.max(0.7, Math.hypot(tx, tz) / 15));
+        releaseHook(b, false);
+        b.vel.set(tx / T, (ty + 12 * T * T) / T, tz / T).clampLength(0, 34);
+        b.landOn = p; b.dest = null; b.hookCd2 = D.hookCd; b.repath = 0;
+        return null;
+      }
+      // hooked to the platform's top but sunk below its rim: let go rather than haul up over the edge
+      const topHook = Math.abs(b.hook.p.y - b.dest.y) < 0.3;
+      if (b.hookT > 6 || (topHook && b.pos.y < b.dest.y - 0.4)) { releaseHook(b, false); b.dest = null; b.hookCd = 0; b.noTopUntil = now() + 3; return null; }
+      return idle;
     }
-    // steer a little toward the target while swinging
+    // a free swing (roam): let go over somewhere safe
+    const below = ground(b.pos.x, b.pos.z, b.pos.y);
+    const safe = isFinite(below) && below > b.pos.y - 9 && below >= t.pos.y - 3;
+    if ((b.hook.p.y < b.pos.y - 0.3 || b.hookT > b.hookMax) && safe || b.hookT > 6) { releaseHook(b, true); b.hookCd2 = D.hookCd; b.repath = 0; return null; }
     const l = dh || 1;
     return { wish: { x: dx / l * 0.5, z: dz / l * 0.5 }, jump: false, sprint: false };
   }
-  // falling with nothing close below: hook the rim of the nearest platform we can get onto
+  // flying after letting go: steer for the middle of the platform we're landing on
+  if (!b.onGround && b.landOn) {
+    const p = b.landOn, cx = p.x - b.pos.x, cz = p.z - b.pos.z, cl = Math.hypot(cx, cz) || 1;
+    return cl > 0.8 ? { wish: { x: cx / cl, z: cz / cl }, jump: false, sprint: false } : idle;
+  }
+  // falling with nothing close below: swing to the nearest platform and land on it
   const under = ground(b.pos.x, b.pos.z, b.pos.y);
   if (!b.onGround && !b.padFlight && b.vel.y < -7 && !(isFinite(under) && under > b.pos.y - 12) && (b.hookCd || 0) <= 0) {
-    let best = null, bd = Infinity;
-    for (const p of arena.plats) {
-      if (insidePlat(p, b.pos, 0.5) && p.y > b.pos.y) continue; // can't hook up through it
-      const d = rimDist(p, b.pos) + Math.max(0, b.pos.y - p.y - 4) * 0.4 + Math.max(0, p.y - b.pos.y) * 0.9;
-      if (d < bd) { bd = d; best = p; }
-    }
-    if (best && botFireHook(b, rimPoint(best, b.pos), 5, 'save', true)) return { wish: { x: 0, z: 0 }, jump: false, sprint: false };
+    const order = arena.plats.filter((p) => !(insidePlat(p, b.pos, 0.5) && p.y > b.pos.y))
+      .map((p) => ({ p, d: Math.hypot(p.x - b.pos.x, p.z - b.pos.z) + Math.max(0, p.y - b.pos.y) * 0.9 })).sort((u, v) => u.d - v.d);
+    for (const { p } of order.slice(0, 4)) if (botSwingTo(b, p, 'save')) return idle;
   }
   if (b.hookCd2 > 0 || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
-  // enemy up on a higher platform: hook its rim and get pulled up over the edge
-  if (dy > 2.2 && dy < 15) {
-    const tp = platUnder(t.pos);
-    if (tp && !insidePlat(tp, b.pos, 1.0) && rimDist(tp, b.pos) < 14) {
-      if (botFireHook(b, rimPoint(tp, b.pos), 5, 'up', true)) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
-      b.padOk = 2.5;
-      return null;
-    }
-  }
-  // enemy on another platform: grapple across to that platform's edge (pads are the fallback)
-  if (t.plat != null && b.plat != null && t.plat !== b.plat && Math.random() < dt * D.cross * 4) {
-    // head for the target's platform, or the next platform on the way if it's out of reach
+  // enemy on another platform: swing over and land on it (pads are the fallback)
+  if (t.plat != null && b.plat != null && t.plat !== b.plat && !(b.stayUntil > now()) && Math.random() < dt * D.cross * 4) {
+    const ok = (p) => p && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -16 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 48;
     let tp = arena.plats[t.plat];
-    const reachable = (p) => p && !insidePlat(p, b.pos, 1.0) && rimDist(p, b.pos) < 40 && p.y - b.pos.y < 16 && p.y - b.pos.y > -14;
-    if (!reachable(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && +q.name.slice(1) !== b.plat); tp = n ? arena.plats[+n.name.slice(1)] : null; }
-    if (reachable(tp) && botFireHook(b, rimPoint(tp, b.pos), 5, 'cross', true)) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
-    b.padOk = 2.5; // no clean line to that edge: take the pads this time
+    if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && +q.name.slice(1) !== b.plat); tp = n ? arena.plats[+n.name.slice(1)] : null; }
+    if (ok(tp) && botSwingTo(b, tp, 'cross')) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
+    b.padOk = 2.5;
   }
-  // long way off on about the same level: swing over there
+  // long way off on about the same level: a free swing for show
   if (dh > 16 && Math.abs(dy) < 3 && Math.random() < dt * D.roam) {
     const aim = new THREE.Vector3(dx, 0, dz).normalize(); aim.y = 0.45;
-    if (botFireHook(b, aim, 1.6, 'roam')) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
+    if (botFireHook(b, aim, 1.6, 'roam')) { b.dest = null; return { wish: { x: 0, z: 0 }, jump: true, sprint: false }; }
   }
   return null;
+}
+// Would a bot let go right now and come down on platform p (not into its underside)?
+function willLand(b, p) {
+  let x = b.pos.x, y = b.pos.y, z = b.pos.z, vx = b.vel.x, vy = b.vel.y, vz = b.vel.z;
+  const h = 1 / 30, m = 1.2;
+  for (let i = 0; i < 150; i++) {
+    const py = y;
+    vy -= 24 * h; x += vx * h; y += vy * h; z += vz * h;
+    const over = Math.abs(x - p.x) < p.w / 2 + 0.5 && Math.abs(z - p.z) < p.d / 2 + 0.5;
+    if (over && py < p.y - 2.2 && y >= p.y - 2.2) return false; // would hit it from below
+    if (vy < 0 && py > p.y && y <= p.y) return Math.abs(x - p.x) < p.w / 2 - m && Math.abs(z - p.z) < p.d / 2 - m; // comes down onto the top
+    if (vy < 0 && y < p.y - 2.2) return false; // already dropping past it
+
+  }
+  return false;
+}
+// Hook something that will carry the bot over platform tp: its top if we're above it, otherwise a sky
+// pillar beside or beyond it, high up, so the swing passes over the platform.
+function botSwingTo(b, tp, why) {
+  const o = b.pos.clone(); o.y += 1.5;
+  const cands = [];
+  // well above it: hook its top and get pulled straight down onto it (from too far out the rope dips under the rim)
+  if (b.onGround && !(b.noTopUntil > now()) && b.pos.y - tp.y > 2 + rimDist(tp, b.pos) * 0.45) cands.push({ p: new THREE.Vector3(tp.x, tp.y, tp.z), s: -1 });
+  const ux = tp.x - b.pos.x, uz = tp.z - b.pos.z, ul = Math.hypot(ux, uz) || 1;
+  for (const pl of arena.pillars) {
+    const d = Math.hypot(pl.x - tp.x, pl.z - tp.z); if (d > 26) continue;
+    const along = ((pl.x - b.pos.x) * ux + (pl.z - b.pos.z) * uz) / ul;
+    if (along < ul * 0.6) continue; // behind or short of the platform: the swing wouldn't carry over it
+    const fx = b.pos.x - pl.x, fz = b.pos.z - pl.z, fl = Math.hypot(fx, fz) || 1;
+    // anchor a set height above the platform itself (never relative to the bot, or swings ratchet up the pillars)
+    const pt = new THREE.Vector3(pl.x + fx / fl * pl.w / 2, tp.y + 10, pl.z + fz / fl * pl.w / 2);
+    if (pt.distanceTo(o) > HOOK_MAX - 2) continue;
+    // the rope line has to pass well above the platform's near half, or the swing sags into its side
+    const lx = pt.x - o.x, lz = pt.z - o.z, ll = Math.hypot(lx, lz) || 1;
+    const k = Math.max(0, Math.min(1, (rimDist(tp, o) + 0.5) / ll));
+    if (o.y + (pt.y - o.y) * k < tp.y + 3.5) continue;
+    cands.push({ p: pt, s: d + Math.abs(along - ul) * 0.3 });
+  }
+  cands.sort((a, c) => a.s - c.s);
+  for (const c of cands.slice(0, 6)) {
+    const dir = c.p.clone().sub(o).normalize();
+    const hit = arena.raycast(o, dir, HOOK_MAX);
+    if (!hit || hit.point.distanceTo(c.p) > 1.4) continue; // something in the way
+    if (!fireHook(b, o, dir)) return false;
+    b.hookT = 0; b.hookMax = 5; b.hookWhy = why; b.dest = tp;
+    if (b.vel.y < 9) b.vel.y = 9; // hop as the hook fires, so the swing starts high
+    return true;
+  }
+  return false;
 }
 const insidePlat = (p, q, m) => Math.abs(q.x - p.x) < p.w / 2 + m && Math.abs(q.z - p.z) < p.d / 2 + m;
 const platUnder = (q) => { let best = null; for (const p of arena.plats) if (insidePlat(p, q, 0.4) && p.y <= q.y + 0.6 && (!best || p.y > best.y)) best = p; return best; };
@@ -578,7 +632,8 @@ function botThink(b, dt) {
   const g = botGrapple(b, t, D, dt, dx, dy, dz, dh);
   if (g) return g;
   // two bots on different platforms hunting each other: one holds its ground and lets the other come
-  if (b.onGround && b.plat != null && t.plat != null && b.plat !== t.plat && t.isBot && t.target === b && b.id < t.id) {
+  // (also: a bot that just arrived on a platform holds it for a few seconds instead of leaving straight away)
+  if (b.onGround && b.plat != null && t.plat != null && b.plat !== t.plat && ((t.isBot && t.target === b && b.id < t.id) || b.stayUntil > now())) {
     const p = arena.plats[b.plat], cx = p.x - b.pos.x, cz = p.z - b.pos.z, cl = Math.hypot(cx, cz);
     if (cl > 2) { wish.x = cx / cl * 0.5; wish.z = cz / cl * 0.5; }
     return { wish, jump, sprint };
@@ -1091,4 +1146,4 @@ $('clickPlay').onclick = () => { ensureAudio(); lockPointer(); };
 $('loading').remove();
 requestAnimationFrame(frame);
 // handy for debugging in the console
-window.__sever = { S, fighters, pieces, arena, camera, tick, applyKill, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
+window.__sever = { S, fighters, pieces, arena, camera, tick, applyKill, botSwingTo, willLand, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
