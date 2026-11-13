@@ -845,7 +845,7 @@ function hostTick(dt) {
 
 // ---------- game modes: the host runs the rules, everyone draws the objectives ----------
 const ZERO = new THREE.Vector3();
-const THRONE_TIME = 40, LBS_GRACE = 12, LBS_WARN = 5;
+const THRONE_TIME = 40, LBS_GRACE = 5, LBS_WARN = 3;
 const freshObj = () => ({ throne: -1, throneIn: 0, jugg: null, shrines: [], tokens: [], warn: -1, gone: [], crumbleIn: 0 });
 let until = { throne: 0, crumble: 0, warnEnd: 0 }, scoreT = 0;
 function objForSend() {
@@ -953,7 +953,7 @@ function modeTick(dt) {
       // the outermost platform still standing goes next (ties broken at random)
       const pick = left.map((p) => ({ p, d: Math.hypot(p.x, p.z) + Math.random() * 6 })).sort((a, b) => b.d - a.d)[0].p;
       o.warn = pick.i; until.warnEnd = t + LBS_WARN;
-      until.crumble = t + LBS_WARN + Math.max(5, 90 / Math.max(1, arena.plats.length - 1));
+      until.crumble = t + LBS_WARN + Math.max(1, 24 / Math.max(1, arena.plats.length - 1)); // a platform every few seconds
       sendObj();
     }
     checkEnd();

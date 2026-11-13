@@ -526,7 +526,7 @@ export class Arena {
     let v = 0;
     this.anim.push((t, dt) => {
       if (!falling.length) return;
-      v += 18 * (dt || 1 / 60);
+      v += 45 * (dt || 1 / 60); // plunges fast
       for (const m of falling) { m.position.y -= v * (dt || 1 / 60); m.rotation.z += 0.002; }
       if (falling[0].position.y < -200) { for (const m of falling) { this.scene.remove(m); } falling.length = 0; }
     });
