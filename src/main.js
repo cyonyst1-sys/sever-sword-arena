@@ -167,10 +167,17 @@ function lookDir(f, out) {
 
 // ---------- movement ----------
 const _t = new THREE.Vector3(), _t2 = new THREE.Vector3(), _t3 = new THREE.Vector3();
+// the canopy branch a fighter is standing on (or just above), if any
+function branchUnder(f) {
+  let best = null, bd = 0.9;
+  for (const p of arena.plats) if (p.kind === 'branch' && !p.gone && arena.inPlat(p, f.pos, 0.4)) { const d = Math.abs(arena.platTop(p, f.pos) - f.pos.y); if (d < bd) { bd = d; best = p; } }
+  return best;
+}
 function tryDash(f, dir) {
   if (f.dashCd > 0 || f.stam < 22 || !f.alive) return false;
   const d = dir.clone(); d.y = Math.max(-0.35, Math.min(0.55, d.y)); d.normalize();
   f.preDash = f.vel.length(); // a dash out of a fast swing keeps that speed afterwards
+  f.dashGround = f.onGround || !!branchUnder(f);
   f.dashDir.copy(d); f.dashT = DASH_T; f.dashCd = 0.9; f.stam -= 22; f.stamDelay = 0.6;
   if (f.hook) releaseHook(f, false);
   f.dashVictims = new Set();
@@ -219,6 +226,17 @@ function stepFighter(f, dt, wish, sprint, jump) {
   const wl = Math.hypot(wish.x, wish.z);
   if (f.dashT > 0) {
     f.dashT -= dt; f.vel.copy(f.dashDir).multiplyScalar(DASH_V);
+    // dashing along a branch: follow it round its bends and up or down its slope instead of flying off straight
+    const br = f.dashGround && branchUnder(f);
+    if (br) {
+      const ax = Math.cos(br.ang), az = Math.sin(br.ang), dp = f.dashDir.x * ax + f.dashDir.z * az;
+      if (Math.abs(dp) > 0.55) {
+        const sg = Math.sign(dp), lat = arena.platFrame(br, f.pos)[1];
+        let hx = ax * sg + az * lat * 0.6, hz = az * sg - ax * lat * 0.6; const hl = Math.hypot(hx, hz); hx /= hl; hz /= hl; // and drift back to the middle
+        f.dashDir.set(hx, 0, hz);
+        f.vel.set(hx * DASH_V, (br.yb - br.ya) / br.w * sg * DASH_V, hz * DASH_V);
+      }
+    }
     if (f.dashT <= 0) f.vel.copy(f.dashDir).multiplyScalar(Math.max(DASH_V * 0.45, Math.min(f.preDash || 0, 36)));
   } else {
     if (f.onGround && !f.hook) {

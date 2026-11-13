@@ -317,10 +317,10 @@ export class Arena {
     };
     // limbs radiate from the central trunk at several heights, and reach in from the outer trunks
     const ys = [-12, -2, 8, 18, 26];
-    for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + r() * 0.4, t = trunks[0]; grow({ x: t.x + Math.cos(a) * (t.r + 0.5), y: ys[k % ys.length], z: t.z + Math.sin(a) * (t.r + 0.5) }, a, 6 + Math.floor(r() * 2), 0, null); }
+    for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + r() * 0.4, t = trunks[0]; grow({ x: t.x + Math.cos(a) * (t.r * 0.7), y: ys[k % ys.length], z: t.z + Math.sin(a) * (t.r * 0.7) }, a, 6 + Math.floor(r() * 2), 0, null); }
     for (let i = 1; i < trunks.length; i++) {
       const t = trunks[i], toC = Math.atan2(-t.z, -t.x);
-      for (let k = 0; k < 2; k++) { const a = toC + (k - 0.5) * 1.1 + (r() - 0.5) * 0.3; grow({ x: t.x + Math.cos(a) * (t.r + 0.5), y: ys[(i + k * 2) % ys.length] + (r() - 0.5) * 4, z: t.z + Math.sin(a) * (t.r + 0.5) }, a, 5 + Math.floor(r() * 2), 0, null); }
+      for (let k = 0; k < 2; k++) { const a = toC + (k - 0.5) * 1.1 + (r() - 0.5) * 0.3; grow({ x: t.x + Math.cos(a) * (t.r * 0.7), y: ys[(i + k * 2) % ys.length] + (r() - 0.5) * 4, z: t.z + Math.sin(a) * (t.r * 0.7) }, a, 5 + Math.floor(r() * 2), 0, null); }
     }
     { // the little bud leaves: a small leaf shape, base at the origin pointing along +x
       const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.quadraticCurveTo(0.45, 0.32, 1, 0); sh.quadraticCurveTo(0.45, -0.32, 0, 0);
