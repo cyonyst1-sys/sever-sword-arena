@@ -45,6 +45,20 @@ const woodTex = () => canvasTex((g, S) => {
   for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(40,24,10,0.25)'; g.fillRect(r() * S, r() * S, 10 + r() * 40, 1); }
 });
 
+const barkTex = () => canvasTex((g, S) => {
+  const r = rng(17); g.fillStyle = '#4a3624'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 70; i++) { const x = r() * S, w = 2 + r() * 7, sh = 50 + r() * 40 | 0; g.fillStyle = `rgb(${sh + 20},${sh},${sh * 0.6 | 0})`; g.fillRect(x, 0, w, S); }
+  for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(20,12,6,${0.2 + r() * 0.3})`; g.fillRect(r() * S, r() * S, 1 + r() * 3, 6 + r() * 26); }
+  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(90,120,60,${0.15 + r() * 0.2})`; g.beginPath(); g.arc(r() * S, r() * S, 3 + r() * 10, 0, Math.PI * 2); g.fill(); } // moss
+});
+const bambooTex = () => canvasTex((g, S) => {
+  const grd = g.createLinearGradient(0, 0, S, 0);
+  grd.addColorStop(0, '#5e8a2c'); grd.addColorStop(0.45, '#9dc35a'); grd.addColorStop(0.55, '#a9cc66'); grd.addColorStop(1, '#5a8428');
+  g.fillStyle = grd; g.fillRect(0, 0, S, S);
+  g.fillStyle = 'rgba(40,60,15,0.9)'; g.fillRect(0, 0, S, S * 0.035); // the node ring
+  g.fillStyle = 'rgba(220,235,170,0.6)'; g.fillRect(0, S * 0.035, S, S * 0.015);
+  for (let i = 0; i < 30; i++) { g.fillStyle = 'rgba(60,90,25,0.25)'; g.fillRect(Math.random() * S, S * 0.05, 1, S * 0.95); }
+}, 128);
 function worldUV(geo, sc) {
   const p = geo.attributes.position, n = geo.attributes.normal, uv = geo.attributes.uv;
   for (let i = 0; i < p.count; i++) {
@@ -61,6 +75,7 @@ function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; 
 export const MAPS = {
   spire: { name: 'Sky Spires', blurb: '23 small platforms at many heights: swing from one fight to the next' },
   plateaus: { name: 'Sky Plateaus', blurb: '7 huge platforms at slightly different heights: big brawls with room to dash' },
+  canopy: { name: 'Great Canopy', blurb: 'giant tree branches to run along, big leaves to land on, and bamboo to swing from (and cut through)' },
 };
 
 export class Arena {
@@ -68,7 +83,7 @@ export class Arena {
     // everything the map adds lives under one group, so switching maps can remove it all
     this.realScene = scene; this.root = new THREE.Group(); scene.add(this.root);
     this.scene = this.root; this.quality = quality; this.mapId = MAPS[mapId] ? mapId : 'spire';
-    this.boxes = []; this.ramps = []; this.pads = []; this.nodes = []; this.nodeMap = new Map(); this.spawns = []; this.anim = [];
+    this.boxes = []; this.ramps = []; this.rayBoxes = []; this.bamboo = []; this.pads = []; this.nodes = []; this.nodeMap = new Map(); this.spawns = []; this.anim = [];
     this.mats = {
       stone: new THREE.MeshStandardMaterial({ map: stoneTex(150, 5), roughness: 0.92 }),
       dark: new THREE.MeshStandardMaterial({ map: stoneTex(110, 9), roughness: 0.95 }),
@@ -103,12 +118,14 @@ export class Arena {
     return this.addBox(Math.min(ax, bx), Math.max(ax, bx), y0, y1, Math.min(az, bz), Math.max(az, bz), mat, opts);
   }
   // a ramp rising from point L (height hL) to point H (height hH), w wide, sitting on `base`
-  addRamp(lx, lz, hx, hz, hL, hH, w, base, mat) {
+  addRamp(lx, lz, hx, hz, hL, hH, w, base, mat, opts = {}) {
     const dx = hx - lx, dz = hz - lz, len = Math.hypot(dx, dz), ux = dx / len, uz = dz / len;
     const px = -uz * w / 2, pz = ux * w / 2;
     const xs = [lx + px, lx - px, hx + px, hx - px], zs = [lz + pz, lz - pz, hz + pz, hz - pz];
     const r = { lx, lz, ux, uz, len, w, hL, hH, base, x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
-    this.ramps.push(r);
+    r.noWall = !!opts.noWall; this.ramps.push(r);
+    if (this.tag) (this.tag.ramps ||= []).push(r);
+    if (opts.visual === false) return r; // (branches and leaves draw themselves)
     const geo = new THREE.BoxGeometry(r.x1 - r.x0, 1, r.z1 - r.z0);
     geo.translate((r.x0 + r.x1) / 2, 0.5, (r.z0 + r.z1) / 2);
     const p = geo.attributes.position;
@@ -144,7 +161,174 @@ export class Arena {
     A.edges.push({ to: B, type }); if (both) B.edges.push({ to: A, type });
   }
 
+  // ---------- the Great Canopy: giant trunks, branches to run along, big leaves, bamboo to swing from ----------
+  buildCanopy() {
+    const S = this.scene, M = this.mats, r = rng(424242);
+    M.bark = new THREE.MeshStandardMaterial({ map: barkTex(), roughness: 0.95 });
+    M.bamboo = new THREE.MeshStandardMaterial({ map: bambooTex(), roughness: 0.55 });
+    M.leaf = new THREE.MeshStandardMaterial({ color: 0x4f8f3a, roughness: 0.7, side: THREE.DoubleSide });
+    M.leafDark = new THREE.MeshStandardMaterial({ color: 0x2c5a26, roughness: 0.9, flatShading: true });
+    M.vein = new THREE.MeshStandardMaterial({ color: 0x9ccf74, roughness: 0.7 });
+    // green forest light under a leafy roof
+    this.realScene.background = new THREE.Color(0x7d9c74);
+    this.realScene.fog = new THREE.Fog(0x7b9a72, 45, 240);
+    S.add(new THREE.HemisphereLight(0xd8f0c8, 0x2b3622, 0.95));
+    const sun = new THREE.DirectionalLight(0xffe7b8, 1.7);
+    this.sun = sun; this.sunOff = new THREE.Vector3(25, 55, 12); sun.position.copy(this.sunOff);
+    if (this.quality !== 'low') {
+      sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+      const c = sun.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 170;
+      sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+    }
+    S.add(sun); S.add(sun.target);
+    this.killY = -45;
+    // the forest floor far below, with mist above it
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(420, 32).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x24301c, roughness: 1 }));
+    floor.position.y = -62; S.add(floor);
+    const mist = new THREE.Mesh(new THREE.CircleGeometry(420, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xdde8d6, transparent: true, opacity: 0.45, depthWrite: false }));
+    mist.position.y = -40; S.add(mist);
+    // the leafy roof
+    for (let i = 0; i < 110; i++) {
+      const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 150, s = 10 + r() * 16;
+      const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 1), M.leafDark);
+      m.position.set(Math.cos(a) * d, 70 + r() * 14, Math.sin(a) * d); m.scale.y = 0.35; m.rotation.y = r() * 3; S.add(m);
+    }
+    const plats = this.plats = []; this.pillars = [];
+    // giant trunks from the floor to the roof: one in the middle, four around it
+    const trunks = [{ x: 0, z: 0, r: 6 }];
+    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.4 + (r() - 0.5) * 0.3, d = 66 + r() * 10; trunks.push({ x: Math.cos(a) * d, z: Math.sin(a) * d, r: 4.5 }); }
+    for (const t of trunks) {
+      const g = new THREE.CylinderGeometry(t.r * 0.85, t.r * 1.25, 150, 18, 8);
+      const gp = g.attributes.position;
+      for (let i = 0; i < gp.count; i++) { const s = 1 + (r() - 0.5) * 0.12; gp.setX(i, gp.getX(i) * s); gp.setZ(i, gp.getZ(i) * s); }
+      g.computeVertexNormals(); g.translate(t.x, 5, t.z);
+      const m = new THREE.Mesh(g, M.bark); m.castShadow = m.receiveShadow = true; S.add(m);
+      const h = t.r * 0.8; this.boxes.push({ x0: t.x - h, x1: t.x + h, y0: -70, y1: 80, z0: t.z - h, z1: t.z + h }); // solid, and grapple-able
+    }
+    this.trunks = trunks;
+
+    // ---- branches and leaves ----
+    const mid = (p) => (p.ya !== undefined ? (p.ya + p.yb) / 2 : p.y);
+    const addPlat = (p) => {
+      p.i = plats.length; p.meshes = []; p.boxes = []; p.ramps = []; p.rays = []; plats.push(p);
+      this.node('P' + p.i, p.x, mid(p), p.z).plat = p.i;
+      const sp = new THREE.Vector3(p.x, mid(p), p.z); sp.plat = p.i; this.spawns.push(sp);
+      return p;
+    };
+    const linkP = (a, b) => this.link('P' + a.i, 'P' + b.i);
+    const branch = (A, B, width, grp) => {
+      const dx = B.x - A.x, dz = B.z - A.z, L = Math.hypot(dx, dz), ang = Math.atan2(dz, dx);
+      const p = addPlat({ kind: 'branch', x: (A.x + B.x) / 2, z: (A.z + B.z) / 2, y: (A.y + B.y) / 2, ya: A.y, yb: B.y, w: L, d: width, ang, group: grp });
+      this.tag = p;
+      // walkable top (no walls: you can step off the side of a branch)
+      this.addRamp(A.x, A.z, B.x, B.z, A.y, B.y, width, Math.min(A.y, B.y) - 1.2, null, { visual: false, noWall: true });
+      // the log itself: its top runs just above the walking surface
+      const R = width * 0.55, a3 = new THREE.Vector3(A.x, A.y - R * 0.8, A.z), b3 = new THREE.Vector3(B.x, B.y - R * 0.8, B.z);
+      const dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.92, R, len + R * 0.5, 12, 1), M.bark);
+      log.position.copy(a3).add(b3).multiplyScalar(0.5); log.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      log.castShadow = log.receiveShadow = true; S.add(log); this.own(p, log);
+      const knot = new THREE.Mesh(new THREE.SphereGeometry(R * 1.02, 12, 8), M.bark); knot.position.copy(b3); knot.castShadow = true; S.add(knot); this.own(p, knot);
+      // grapple-only boxes along the log, so you can hook the branch (but never bump into them)
+      for (let s = 0; s <= len; s += 5) {
+        const c = a3.clone().addScaledVector(dir, s);
+        const box = { x0: c.x - R * 0.7, x1: c.x + R * 0.7, y0: c.y - R * 0.7, y1: c.y + R * 0.9, z0: c.z - R * 0.7, z1: c.z + R * 0.7 };
+        this.rayBoxes.push(box); p.rays.push(box);
+      }
+      this.tag = null;
+      return p;
+    };
+    const leaf = (C, len, wid, ang, y, grp, from) => {
+      const p = addPlat({ kind: 'leaf', x: C.x, z: C.z, y, w: len, d: wid, ang, group: grp });
+      this.tag = p;
+      const ux = Math.cos(ang), uz = Math.sin(ang);
+      this.addRamp(C.x - ux * len * 0.42, C.z - uz * len * 0.42, C.x + ux * len * 0.42, C.z + uz * len * 0.42, y, y, wid * 0.78, y - 0.6, null, { visual: false, noWall: true });
+      const sh = new THREE.Shape();
+      sh.moveTo(-len / 2, 0); sh.quadraticCurveTo(-len * 0.1, wid * 0.75, len / 2, 0); sh.quadraticCurveTo(-len * 0.1, -wid * 0.75, -len / 2, 0);
+      const g = new THREE.ShapeGeometry(sh, 12); g.rotateX(-Math.PI / 2);
+      const gp = g.attributes.position; // droops a little at the tip and the edges
+      for (let i = 0; i < gp.count; i++) { const x = gp.getX(i), z = gp.getZ(i); gp.setY(i, -Math.pow(Math.max(0, x / (len / 2)), 2) * 0.3 - Math.abs(z) / wid * 0.2); }
+      g.computeVertexNormals();
+      const m = new THREE.Mesh(g, M.leaf); m.rotation.y = -ang; m.position.set(C.x, y + 0.06, C.z); m.castShadow = m.receiveShadow = true; S.add(m); this.own(p, m);
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(len * 0.92, 0.08, 0.2), M.vein); rib.rotation.y = -ang; rib.position.set(C.x, y + 0.1, C.z); S.add(rib); this.own(p, rib);
+      if (from) { // the stem back to the branch
+        const base = new THREE.Vector3(C.x - ux * len / 2, y - 0.05, C.z - uz * len / 2), f = new THREE.Vector3(from.x, from.y - 0.4, from.z);
+        const d = base.clone().sub(f), l = d.length();
+        if (l > 0.3) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, l, 6), M.bark); st.position.copy(f).add(base).multiplyScalar(0.5); st.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); S.add(st); this.own(p, st); }
+      }
+      const box = { x0: C.x - 1.2, x1: C.x + 1.2, y0: y - 0.5, y1: y + 0.15, z0: C.z - 1.2, z1: C.z + 1.2 }; // hook the leaf, too
+      this.rayBoxes.push(box); p.rays.push(box);
+      this.tag = null;
+      return p;
+    };
+    let group = 0;
+    // a limb: runs level, climbs or dips for a stretch, then levels out again; sprouts leaves and side arms
+    const grow = (start, angle, segs, depth, startPlat) => {
+      const grp = group++;
+      let A = start, a = angle, mode = 'level', prev = startPlat;
+      for (let s = 0; s < segs; s++) {
+        if (s % 2 === 0) { const rr = r(); mode = rr < 0.4 ? 'level' : rr < 0.7 ? 'up' : 'down'; }
+        let dy = mode === 'level' ? 0 : (mode === 'up' ? 1 : -1) * (2.5 + r() * 3.5);
+        if (A.y + dy > 30 || A.y + dy < -20) dy = -dy * 0.5;
+        const L = 10 + r() * 6; a += (r() - 0.5) * 0.45;
+        const B = { x: A.x + Math.cos(a) * L, y: A.y + dy, z: A.z + Math.sin(a) * L };
+        if (Math.hypot(B.x, B.z) > 100) break;
+        if (trunks.some((t) => Math.hypot(B.x - t.x, B.z - t.z) < t.r + 2)) break; // don't run into a trunk
+        const w = Math.max(2.6, (depth === 0 ? 4.4 : 3.4) - s * 0.12);
+        const p = branch(A, B, w, grp);
+        if (prev) linkP(prev, p);
+        prev = p;
+        if (r() < 0.3) { // a big leaf off one side
+          const side = r() < 0.5 ? 1 : -1, la = a + side * (1.1 + r() * 0.5), len = 11 + r() * 5, wid = 6 + r() * 3;
+          const C = { x: B.x + Math.cos(la) * (w / 2 + len * 0.45), z: B.z + Math.sin(la) * (w / 2 + len * 0.45) };
+          if (Math.hypot(C.x, C.z) < 104) linkP(p, leaf(C, len, wid, la, B.y + 0.2 + r() * 0.6, grp, B));
+        }
+        if (depth < 1 && s >= 2 && r() < 0.3) grow(B, a + (r() < 0.5 ? 1 : -1) * (0.6 + r() * 0.6), 3 + Math.floor(r() * 3), depth + 1, p);
+        A = B;
+      }
+      if (prev) { // a big leaf at the tip
+        const len = 13 + r() * 4, wid = 7 + r() * 2, C = { x: A.x + Math.cos(a) * len * 0.48, z: A.z + Math.sin(a) * len * 0.48 };
+        if (Math.hypot(C.x, C.z) < 106) linkP(prev, leaf(C, len, wid, a, A.y + 0.3, prev.group, A));
+      }
+    };
+    // limbs radiate from the central trunk at several heights, and reach in from the outer trunks
+    const ys = [-12, -2, 8, 18, 26];
+    for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + r() * 0.4, t = trunks[0]; grow({ x: t.x + Math.cos(a) * (t.r + 0.5), y: ys[k % ys.length], z: t.z + Math.sin(a) * (t.r + 0.5) }, a, 6 + Math.floor(r() * 2), 0, null); }
+    for (let i = 1; i < trunks.length; i++) {
+      const t = trunks[i], toC = Math.atan2(-t.z, -t.x);
+      for (let k = 0; k < 2; k++) { const a = toC + (k - 0.5) * 1.1 + (r() - 0.5) * 0.3; grow({ x: t.x + Math.cos(a) * (t.r + 0.5), y: ys[(i + k * 2) % ys.length] + (r() - 0.5) * 4, z: t.z + Math.sin(a) * (t.r + 0.5) }, a, 5 + Math.floor(r() * 2), 0, null); }
+    }
+    // where branches cross at about the same height you can walk from one to the other
+    for (const a of plats) for (const b of plats) {
+      if (a.i >= b.i || a.group === b.group) continue;
+      if (Math.abs(mid(a) - mid(b)) < 1.2 && (this.inPlat(a, b, 0.5) || this.inPlat(b, a, 0.5))) linkP(a, b);
+    }
+    // bots' sense of distance between surfaces: walking connected, or roughly how many swings apart
+    const comp = plats.map(() => -1);
+    for (const p of plats) if (comp[p.i] < 0) { const q = [p.i]; comp[p.i] = p.i; while (q.length) { const u = q.shift(); for (const e of this.nodeMap.get('P' + u).edges) { const v = e.to.plat; if (v !== undefined && comp[v] < 0) { comp[v] = p.i; q.push(v); } } } }
+    this.hops = plats.map((p) => plats.map((q) => Math.round(Math.hypot(p.x - q.x, p.z - q.z) / 25) + (comp[p.i] === comp[q.i] ? 0 : 1)));
+    // swing routes for bots: each surface to its 3 nearest surfaces on other limbs within grapple reach
+    for (const a of plats) {
+      plats.filter((b) => comp[b.i] !== comp[a.i] && Math.abs(mid(b) - mid(a)) < 14)
+        .map((b) => [b, Math.hypot(a.x - b.x, a.z - b.z)]).filter(([, d]) => d < 34).sort((u, v) => u[1] - v[1])
+        .slice(0, 3).forEach(([b]) => this.link('P' + a.i, 'P' + b.i, 'swing'));
+    }
+    // bamboo everywhere, floor to roof, kept clear of branches, leaves and trunks
+    for (let gx = -108; gx <= 108; gx += 11) for (let gz = -108; gz <= 108; gz += 11) {
+      const x = gx + (r() - 0.5) * 8, z = gz + (r() - 0.5) * 8;
+      if (Math.hypot(x, z) > 112 || r() < 0.2) continue;
+      if (trunks.some((t) => Math.hypot(x - t.x, z - t.z) < t.r + 3)) continue;
+      if (plats.some((p) => this.inPlat(p, { x, z }, 1.6))) continue;
+      const rad = 0.28 + r() * 0.14, s = this.bamboo.length;
+      this.bamboo.push({ x, z, r: rad, segs: [] });
+      this.addBambooSeg(s, -62, 78);
+      this.pillars.push({ x, z, w: rad * 2 });
+    }
+    this.arcPts = [];
+  }
+
   build() {
+    if (this.mapId === 'canopy') return this.buildCanopy();
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     this.realScene.background = new THREE.Color(0x9cc4e4);
@@ -409,7 +593,7 @@ export class Arena {
       }
       for (const r of this.ramps) { // the high sides of ramps are walls too
         const hh = this.rampH(r, pos.x, pos.z);
-        if (hh === null || hh <= top + STEP || r.base >= pos.y + h) continue;
+        if (r.noWall || hh === null || hh <= top + STEP || r.base >= pos.y + h) continue;
         const cx = Math.max(r.x0, Math.min(pos.x, r.x1)), cz = Math.max(r.z0, Math.min(pos.z, r.z1));
         const o = [pos.x - r.x0, r.x1 - pos.x, pos.z - r.z0, r.z1 - pos.z], i = o.indexOf(Math.min(...o));
         if (i === 0) pos.x = r.x0 - rad; else if (i === 1) pos.x = r.x1 + rad; else if (i === 2) pos.z = r.z0 - rad; else pos.z = r.z1 + rad;
@@ -472,10 +656,10 @@ export class Arena {
     out.unshift(s);
     return out;
   }
-  /** First solid hit along a ray (boxes only: platforms, towers, pillars). */
+  /** First hit along a ray: solid boxes, plus grapple-only things (bamboo, branch logs) you can hook but pass through. */
   raycast(o, d, max) {
     let best = max, hit = null;
-    for (const b of this.boxes) {
+    for (const list of [this.boxes, this.rayBoxes]) for (const b of list) {
       let t0 = 0, t1 = best;
       for (const [oa, da, lo, hi] of [[o.x, d.x, b.x0, b.x1], [o.y, d.y, b.y0, b.y1], [o.z, d.z, b.z0, b.z1]]) {
         if (Math.abs(da) < 1e-9) { if (oa < lo || oa > hi) { t0 = Infinity; break; } continue; }
@@ -503,33 +687,108 @@ export class Arena {
     }
     return best;
   }
-  // ---------- crumbling platforms (Last Blade Standing) ----------
-  /** Show (or clear, with -1) the red "about to fall" glow on a platform. */
-  warnPlatform(i) {
-    for (const p of this.plats) if (p.warn && p.i !== i) { this.scene.remove(p.warn); p.warn.geometry.dispose(); p.warn = null; }
-    const p = this.plats[i]; if (!p || p.gone || p.warn) return;
-    const m = new THREE.Mesh(new THREE.BoxGeometry(p.w + 0.3, 0.12, p.d + 0.3), new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.35, depthWrite: false }));
-    m.position.set(p.x, p.y + 0.07, p.z); this.scene.add(m); p.warn = m;
-    this.anim.push((t) => { if (p.warn === m) m.material.opacity = 0.2 + 0.25 * (0.5 + 0.5 * Math.sin(t * 14)); });
+
+  // ---------- platforms that can be rotated (and, for branches, sloped) ----------
+  // A platform is a rectangle w long (along angle `ang`) by d wide, centred on (x, z); a branch also
+  // slopes from height ya at one end to yb at the other.
+  platFrame(p, q) { const a = p.ang || 0, ux = Math.cos(a), uz = Math.sin(a), dx = q.x - p.x, dz = q.z - p.z; return [dx * ux + dz * uz, -dx * uz + dz * ux]; }
+  inPlat(p, q, m) { const [a, b] = this.platFrame(p, q); return Math.abs(a) < p.w / 2 + m && Math.abs(b) < p.d / 2 + m; }
+  platTop(p, q) { if (p.ya === undefined) return p.y; const [a] = this.platFrame(p, q); const t = Math.max(0, Math.min(1, a / p.w + 0.5)); return p.ya + (p.yb - p.ya) * t; }
+  rimDist(p, q) {
+    const [a, b] = this.platFrame(p, q);
+    const ca = Math.max(-p.w / 2, Math.min(a, p.w / 2)), cb = Math.max(-p.d / 2, Math.min(b, p.d / 2));
+    return Math.hypot(a - ca, b - cb);
   }
-  /** Remove a platform: it stops being solid, its pads and waypoints go, and it falls into the clouds. */
+  // the point on a platform's top edge closest to q
+  rimPoint(p, q) {
+    const [a, b] = this.platFrame(p, q);
+    let ca = Math.max(-p.w / 2, Math.min(a, p.w / 2)), cb = Math.max(-p.d / 2, Math.min(b, p.d / 2));
+    if (Math.abs(ca) < p.w / 2 && Math.abs(cb) < p.d / 2) { // above/below it: use the nearest side
+      const o = [ca + p.w / 2, p.w / 2 - ca, cb + p.d / 2, p.d / 2 - cb], i = o.indexOf(Math.min(...o));
+      if (i === 0) ca = -p.w / 2; else if (i === 1) ca = p.w / 2; else if (i === 2) cb = -p.d / 2; else cb = p.d / 2;
+    }
+    const an = p.ang || 0, ux = Math.cos(an), uz = Math.sin(an);
+    const x = p.x + ux * ca - uz * cb, z = p.z + uz * ca + ux * cb;
+    return new THREE.Vector3(x, this.platTop(p, { x, z }) - 0.15, z);
+  }
+
+  // ---------- crumbling platforms (Last Blade Standing) ----------
+  // On the canopy a whole branch (its segments and leaves) crumbles together.
+  groupOf(i) { const p = this.plats[i]; return !p ? [] : p.group === undefined ? [p] : this.plats.filter((q) => q.group === p.group); }
+  /** Show (or clear, with -1) the red "about to fall" glow on a platform (or branch). */
+  warnPlatform(i) {
+    const keep = new Set(this.groupOf(i));
+    for (const p of this.plats) if (p.warn && !keep.has(p)) { this.scene.remove(p.warn); p.warn.geometry.dispose(); p.warn = null; }
+    for (const p of keep) {
+      if (p.gone || p.warn) continue;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(p.w + 0.3, 0.14, p.d + 0.3), new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.35, depthWrite: false }));
+      const an = p.ang || 0, ux = Math.cos(an), uz = Math.sin(an);
+      if (p.ya !== undefined) { // follow the branch's slope
+        const dir = new THREE.Vector3(ux * p.w, p.yb - p.ya, uz * p.w).normalize();
+        m.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir);
+      } else m.rotation.y = -an;
+      m.position.set(p.x, (p.ya !== undefined ? (p.ya + p.yb) / 2 : p.y) + 0.08, p.z); this.scene.add(m); p.warn = m;
+      this.anim.push((t) => { if (p.warn === m) m.material.opacity = 0.2 + 0.25 * (0.5 + 0.5 * Math.sin(t * 14)); });
+    }
+  }
+  /** Remove a platform (and the rest of its branch): it stops being solid, its pads and waypoints go, and it falls. */
   dropPlatform(i) {
-    const p = this.plats[i]; if (!p || p.gone) return;
-    p.gone = true; this.dirty = true;
-    if (p.warn) { this.scene.remove(p.warn); p.warn = null; }
-    const dead = new Set(p.boxes);
-    this.boxes = this.boxes.filter((b) => !dead.has(b));
-    const falling = [...p.meshes];
-    for (const pad of this.pads) if (pad.from === i || pad.to === i) { pad.gone = true; falling.push(...pad.meshes); }
+    const group = this.groupOf(i).filter((p) => !p.gone); if (!group.length) return;
+    this.dirty = true;
+    const falling = [];
+    for (const p of group) {
+      p.gone = true;
+      if (p.warn) { this.scene.remove(p.warn); p.warn = null; }
+      const deadB = new Set(p.boxes), deadR = new Set(p.ramps || []), deadRay = new Set(p.rays || []);
+      this.boxes = this.boxes.filter((b) => !deadB.has(b));
+      this.ramps = this.ramps.filter((r) => !deadR.has(r));
+      this.rayBoxes = this.rayBoxes.filter((b) => !deadRay.has(b));
+      falling.push(...p.meshes);
+      for (const pad of this.pads) if (pad.from === p.i || pad.to === p.i) { pad.gone = true; falling.push(...pad.meshes); }
+      for (const n of this.nodes) if (n.plat === p.i || n.to === p.i) n.gone = true;
+    }
     this.pads = this.pads.filter((pad) => !pad.gone);
-    for (const n of this.nodes) if (n.plat === i || n.to === i) n.gone = true;
     let v = 0;
     this.anim.push((t, dt) => {
       if (!falling.length) return;
       v += 45 * (dt || 1 / 60); // plunges fast
-      for (const m of falling) { m.position.y -= v * (dt || 1 / 60); m.rotation.z += 0.002; }
-      if (falling[0].position.y < -200) { for (const m of falling) { this.scene.remove(m); } falling.length = 0; }
+      for (const m of falling) { m.position.y -= v * (dt || 1 / 60); }
+      if (v > 140) { for (const m of falling) this.scene.remove(m); falling.length = 0; }
     });
+  }
+
+  // ---------- bamboo (canopy): grapple onto it, pass through it, cut it with a sword ----------
+  addBambooSeg(s, y0, y1) {
+    const st = this.bamboo[s], len = y1 - y0; if (len < 0.4) return;
+    const geo = new THREE.CylinderGeometry(st.r, st.r, len, 8, 1);
+    const uv = geo.attributes.uv, pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) uv.setY(i, (pos.getY(i) + (y0 + y1) / 2) / 2.6); // nodes every 2.6 m, wherever it's cut
+    uv.needsUpdate = true;
+    const m = new THREE.Mesh(geo, this.mats.bamboo); m.position.set(st.x, (y0 + y1) / 2, st.z); m.castShadow = false;
+    this.scene.add(m);
+    const box = { x0: st.x - st.r, x1: st.x + st.r, y0, y1, z0: st.z - st.r, z1: st.z + st.r, bamboo: s };
+    this.rayBoxes.push(box);
+    st.segs.push({ y0, y1, mesh: m, box });
+  }
+  /** Cut stalk s at height y: a short piece drops out, leaving the parts above (hanging from the roof) and below. */
+  cutBamboo(s, y) {
+    const st = this.bamboo[s]; if (!st) return null;
+    const seg = st.segs.find((g) => y > g.y0 + 0.2 && y < g.y1 - 0.2); if (!seg) return null;
+    st.segs = st.segs.filter((g) => g !== seg);
+    this.scene.remove(seg.mesh); seg.mesh.geometry.dispose();
+    this.rayBoxes = this.rayBoxes.filter((b) => b !== seg.box);
+    this.addBambooSeg(s, seg.y0, y - 0.55); this.addBambooSeg(s, y + 0.55, seg.y1);
+    // the cut-out piece tumbles away
+    const chunk = new THREE.Mesh(new THREE.CylinderGeometry(st.r, st.r, 1.1, 8), this.mats.bamboo);
+    chunk.position.set(st.x, y, st.z); this.scene.add(chunk);
+    const vx = (Math.random() - 0.5) * 4, vz = (Math.random() - 0.5) * 4, spin = (Math.random() - 0.5) * 10; let vy = 2, life = 4;
+    this.anim.push((t, dt) => {
+      if (life <= 0) return; dt = dt || 1 / 60; life -= dt;
+      vy -= 24 * dt; chunk.position.x += vx * dt; chunk.position.z += vz * dt; chunk.position.y += vy * dt; chunk.rotation.z += spin * dt; chunk.rotation.x += spin * 0.6 * dt;
+      if (life <= 0) { this.scene.remove(chunk); chunk.geometry.dispose(); }
+    });
+    this.dirty = true;
+    return new THREE.Vector3(st.x, y, st.z);
   }
   update(t) { const dt = this.lastT ? Math.min(0.1, t - this.lastT) : 0; this.lastT = t; for (const f of this.anim) f(t, dt); }
 }

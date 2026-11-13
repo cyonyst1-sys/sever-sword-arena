@@ -35,6 +35,7 @@ function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id && !ar
 const ground = (x, z, y) => arena.groundHeight(x, z, y);
 const blood = new Particles(scene, ground, { color: 0x8a0a10, size: 0.07, decals: true, max: 2400 });
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
+const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 300 }); // bamboo chips
 const pieces = new Pieces(scene, ground, blood);
 const fx = new ModeFx(scene); // throne, shrines, heads
 
@@ -205,7 +206,7 @@ function applyHook(f, dt) {
   const sp = f.vel.length(); if (sp > 36) f.vel.multiplyScalar(36 / sp);
   if (L < 1.7) { // reeled all the way in: pop up, and if it's a platform's edge, onto its top
     const a = f.hook.p; f.hook = null;
-    const lip = arena.plats.find((p) => Math.abs(a.y - p.y) < 0.6 && Math.abs(a.x - p.x) < p.w / 2 + 0.3 && Math.abs(a.z - p.z) < p.d / 2 + 0.3);
+    const lip = arena.plats.find((p) => !p.gone && arena.inPlat(p, a, 0.3) && Math.abs(a.y - arena.platTop(p, a)) < 0.6);
     if (lip) {
       const cx = lip.x - f.pos.x, cz = lip.z - f.pos.z, cl = Math.hypot(cx, cz) || 1;
       f.vel.set(cx / cl * 4.5, Math.max(8, f.vel.y * 0.3), cz / cl * 4.5);
@@ -376,6 +377,26 @@ function bladeSweep(f, dt) {
       }
     }
   }
+  // and the bamboo (canopy): a swing through a stalk cuts a piece out of it
+  for (let s = 0; s < arena.bamboo.length; s++) {
+    const st = arena.bamboo[s];
+    if (Math.hypot(st.x - f.pos.x, st.z - f.pos.z) > f.bladeLen + 1.8 || (st.cutCd || 0) > now()) continue;
+    for (let k = 0; k <= 6; k++) {
+      const t = 0.12 + 0.88 * k / 6;
+      _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
+      if (relSpd(_A, _B) < CUT_SPD) continue;
+      _a0.set(st.x, f.pos.y - 3, st.z); _a1.set(st.x, f.pos.y + 5, st.z);
+      if (segSeg(_A, _B, _a0, _a1, _c1, _c2) < (st.r + 0.06) ** 2) { st.cutCd = now() + 0.3; cutBamboo(s, +_c2.y.toFixed(2), true); break; }
+    }
+  }
+}
+// cut stalk s at height y (and tell everyone if we did it)
+function cutBamboo(s, y, mine) {
+  const at = arena.cutBamboo(s, y); if (!at) return;
+  (S.bambooCuts ||= []).push([s, y]);
+  sfx.chop(at);
+  for (let i = 0; i < 18; i++) leafBits.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6, 0.8);
+  if (mine) { if (S.host) net.broadcast({ t: 'bamboo', s, y }); else net.send({ t: 'bamboo', s, y }); }
 }
 function dashSweep(f) {
   if (f.dashT <= 0) return;
@@ -519,6 +540,8 @@ function botFireHook(b, aim, maxT, why, isPoint) {
   b.hookT = 0; b.hookMax = maxT; b.hookWhy = why;
   return true;
 }
+// the same "place" for bots: a platform, or (on the canopy) a whole limb of connected branches
+const grp = (i) => (i == null || !arena.plats[i] ? i : arena.plats[i].group ?? i);
 function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   b.hookCd2 = (b.hookCd2 ?? 1 + Math.random() * 2) - dt;
   b.padOk = (b.padOk || 0) - dt; // > 0 while pads are allowed (after a swing couldn't be set up)
@@ -570,6 +593,8 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     }
   }
   if (b.onGround) b.airDashed = false;
+  // dropped below the platform we were going for: forget it, so the rescue swing below can kick in
+  if (!b.onGround && b.landOn && b.vel.y < 0 && b.pos.y < arena.platTop(b.landOn, b.pos) - 2.5) b.landOn = null;
   // flying after letting go: steer for the middle of the platform we're landing on
   if (!b.onGround && b.landOn) {
     const p = b.landOn, cx = p.x - b.pos.x, cz = p.z - b.pos.z, cl = Math.hypot(cx, cz) || 1;
@@ -584,10 +609,10 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   }
   if (b.hookCd2 > 0 || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
   // enemy on another platform: swing over and land on it (pads are the fallback)
-  if (t.plat != null && b.plat != null && t.plat !== b.plat && !(b.stayUntil > now()) && Math.random() < dt * D.cross * 4) {
+  if (t.plat != null && b.plat != null && grp(t.plat) !== grp(b.plat) && !(b.stayUntil > now()) && Math.random() < dt * D.cross * 4) {
     const ok = (p) => p && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -16 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 48;
     let tp = arena.plats[t.plat];
-    if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && +q.name.slice(1) !== b.plat); tp = n ? arena.plats[+n.name.slice(1)] : null; }
+    if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && grp(+q.name.slice(1)) !== grp(b.plat)); tp = n ? arena.plats[+n.name.slice(1)] : null; }
     if (ok(tp) && botSwingTo(b, tp, 'cross')) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
     b.padOk = 2.5;
   }
@@ -601,15 +626,15 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
 // Would a bot let go right now and come down on platform p (not into its underside)?
 function willLand(b, p) {
   let x = b.pos.x, y = b.pos.y, z = b.pos.z, vx = b.vel.x, vy = b.vel.y, vz = b.vel.z;
-  const h = 1 / 30, m = 1.2;
+  const h = 1 / 30, m = Math.min(1.2, p.d * 0.2), q = { x: 0, z: 0 };
   for (let i = 0; i < 150; i++) {
     const py = y;
     vy -= 24 * h; x += vx * h; y += vy * h; z += vz * h;
-    const over = Math.abs(x - p.x) < p.w / 2 + 0.5 && Math.abs(z - p.z) < p.d / 2 + 0.5;
-    if (over && py < p.y - 2.2 && y >= p.y - 2.2) return false; // would hit it from below
-    if (vy < 0 && py > p.y && y <= p.y) return Math.abs(x - p.x) < p.w / 2 - m && Math.abs(z - p.z) < p.d / 2 - m; // comes down onto the top
-    if (vy < 0 && y < p.y - 2.2) return false; // already dropping past it
-
+    q.x = x; q.z = z;
+    const top = arena.platTop(p, q), over = arena.inPlat(p, q, 0.5);
+    if (over && py < top - 2.2 && y >= top - 2.2) return false; // would hit it from below
+    if (vy < 0 && py > top && y <= top) return arena.inPlat(p, q, -m); // comes down onto the top
+    if (vy < 0 && y < top - 2.2) return false; // already dropping past it
   }
   return false;
 }
@@ -647,19 +672,12 @@ function botSwingTo(b, tp, why) {
   }
   return false;
 }
-const insidePlat = (p, q, m) => Math.abs(q.x - p.x) < p.w / 2 + m && Math.abs(q.z - p.z) < p.d / 2 + m;
-const platUnder = (q) => { let best = null; for (const p of arena.plats) if (!p.gone && insidePlat(p, q, 0.4) && p.y <= q.y + 0.6 && (!best || p.y > best.y)) best = p; return best; };
-function rimDist(p, q) { const cx = Math.max(p.x - p.w / 2, Math.min(q.x, p.x + p.w / 2)), cz = Math.max(p.z - p.d / 2, Math.min(q.z, p.z + p.d / 2)); return Math.hypot(cx - q.x, cz - q.z); }
-// the point on a platform's top lip closest to q (its top slab's side face)
-function rimPoint(p, q) {
-  const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2, z0 = p.z - p.d / 2, z1 = p.z + p.d / 2;
-  let cx = Math.max(x0, Math.min(q.x, x1)), cz = Math.max(z0, Math.min(q.z, z1));
-  if (cx > x0 && cx < x1 && cz > z0 && cz < z1) { // above/below it: use the nearest side
-    const o = [cx - x0, x1 - cx, cz - z0, z1 - cz], i = o.indexOf(Math.min(...o));
-    if (i === 0) cx = x0; else if (i === 1) cx = x1; else if (i === 2) cz = z0; else cz = z1;
-  }
-  return new THREE.Vector3(cx, p.y - 0.15, cz);
-}
+// platform helpers (platforms can be rotated, and canopy branches slope)
+const insidePlat = (p, q, m) => arena.inPlat(p, q, m);
+const platUnder = (q) => { let best = null, bt = -Infinity; for (const p of arena.plats) { if (p.gone || !insidePlat(p, q, 0.4)) continue; const t = arena.platTop(p, q); if (t <= q.y + 0.6 && t > bt) { bt = t; best = p; } } return best; };
+const rimDist = (p, q) => arena.rimDist(p, q);
+// the point on a platform's top lip closest to q
+const rimPoint = (p, q) => arena.rimPoint(p, q);
 function botThink(b, dt) {
   const D = DIFF[S.diff] || DIFF[1];
   b.think = (b.think || 0) - dt; b.atkCd = (b.atkCd ?? 1) - dt; b.repath = (b.repath || 0) - dt;
@@ -686,7 +704,7 @@ function botThink(b, dt) {
   if (g) return g;
   // two bots on different platforms hunting each other: one holds its ground and lets the other come
   // (also: a bot that just arrived on a platform holds it for a few seconds instead of leaving straight away)
-  if (b.onGround && b.plat != null && t.plat != null && b.plat !== t.plat && !t.flee && ((t.isBot && t.target === b && b.id < t.id) || b.stayUntil > now())) {
+  if (b.onGround && b.plat != null && t.plat != null && grp(b.plat) !== grp(t.plat) && !t.flee && ((t.isBot && t.target === b && b.id < t.id) || b.stayUntil > now())) {
     const p = arena.plats[b.plat], cx = p.x - b.pos.x, cz = p.z - b.pos.z, cl = Math.hypot(cx, cz);
     if (cl > 2) { wish.x = cx / cl * 0.5; wish.z = cz / cl * 0.5; }
     return { wish, jump, sprint };
@@ -776,7 +794,7 @@ function fillBots() {
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
   useMap(S.map);
-  clearWorld(); fx.clear();
+  clearWorld(); fx.clear(); S.bambooCuts = [];
   if (coop()) S.roster = S.roster.filter((r) => r.human);
   for (const r of S.roster) { r.k = 0; r.d = 0; r.streak = 0; r.pts = 0; r.carry = 0; r.team = coop() ? (r.human ? 'H' : 'R') : r.id; r.horde = !r.human && coop(); }
   fillBots();
@@ -865,7 +883,7 @@ function applyObj(o) {
   fx.setTokens(o.tokens || []);
 }
 function pickThrone(prev) {
-  let ok = arena.plats.filter((p) => !p.gone && p.i !== prev && Math.min(p.w, p.d) >= 10); // big enough to fight on
+  let ok = arena.plats.filter((p) => !p.gone && p.i !== prev && p.w * p.d >= 80); // big enough to fight on
   if (!ok.length) ok = arena.plats.filter((p) => !p.gone && p.i !== prev);
   return ok.length ? ok[(Math.random() * ok.length) | 0].i : -1;
 }
@@ -874,7 +892,7 @@ function initObjective() {
   if (S.mode === 'koth') { S.obj.throne = pickThrone(-1); until.throne = now() + THRONE_TIME; }
   if (S.mode === 'lbs') until.crumble = now() + LBS_GRACE;
   if (S.mode === 'hunt') { // two shrines, on big platforms as far apart as possible
-    const big = arena.plats.filter((p) => Math.min(p.w, p.d) >= 10 && p.kind !== 'hub');
+    const big = arena.plats.filter((p) => p.w * p.d >= 80 && p.kind !== 'hub');
     let best = null, bd = -1;
     for (const a of big) for (const b of big) { const d = Math.hypot(a.x - b.x, a.z - b.z); if (a !== b && d > bd) { bd = d; best = [a, b]; } }
     S.obj.shrines = (best || arena.plats.slice(0, 2)).map((p) => [p.x, p.y, p.z, p.i]);
@@ -1036,7 +1054,7 @@ function hostMsg(from, d) {
     const e = newRosterEntry(from, name, true); S.roster.push(e);
     if (S.phase === 'game') fillBots();
     syncFighters();
-    net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby', obj: S.phase === 'game' ? objForSend() : null });
+    net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby', obj: S.phase === 'game' ? objForSend() : null, bamboo: S.bambooCuts || [] });
     if (S.phase === 'game') { const f = fighters.get(from); f.respawnAt = !coop() && S.mode !== 'lbs' ? now() + 1 : Infinity; if (S.mode === 'horde' && !S.waveActive) f.respawnAt = now() + 1; for (const g of fighters.values()) if (g.alive) net.sendTo(from, { t: 'spawn', id: g.id, p: arr(g.pos), y: +g.yaw.toFixed(3) }); }
     toast(`${name} joined`);
     sendRoster(); if (S.online) net.dirSetRoom(roomInfo());
@@ -1044,6 +1062,7 @@ function hostMsg(from, d) {
   }
   const f = fighters.get(from); if (!f) return;
   if (d.t === 'p' && Array.isArray(d.s)) applyState(f, d.s);
+  else if (d.t === 'bamboo' && Number.isInteger(d.s) && typeof d.y === 'number') { cutBamboo(d.s, d.y); net.broadcast({ t: 'bamboo', s: d.s, y: d.y }, from); }
   else if (d.t === 'cut') {
     const v = fighters.get(d.v);
     if (v && v.alive && f.alive && Array.isArray(d.n) && Array.isArray(d.p)) {
@@ -1053,10 +1072,10 @@ function hostMsg(from, d) {
   } else if (d.t === 'fell') { if (applyKill(from, null, null, null, null, true)) net.broadcast({ t: 'kill', v: from, k: null, fell: 1 }, from); }
 }
 function clientMsg(d) {
-  if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); if (d.obj) applyObj(d.obj); syncFighters(); enterGame(); } else showLobby(); }
+  if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); S.bambooCuts = []; if (d.obj) applyObj(d.obj); for (const [s, y] of d.bamboo || []) cutBamboo(s, y); syncFighters(); enterGame(); } else showLobby(); }
   else if (d.t === 'full') { toast('That room is full.'); toMenu(); }
   else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
-  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; syncFighters(); enterGame(); }
+  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; S.bambooCuts = []; syncFighters(); enterGame(); }
   else if (d.t === 's') {
     S.timeLeft = d.tl; S.wave = d.wv;
     for (const s of d.f) { const f = fighters.get(s[0]); if (f && f !== me) applyState(f, s.slice(1)); }
@@ -1067,6 +1086,7 @@ function clientMsg(d) {
   else if (d.t === 'wave') { S.wave = d.n; showBanner('WAVE ' + d.n); sfx.gong(); }
   else if (d.t === 'banner') showBanner(d.s);
   else if (d.t === 'obj') applyObj(d.o);
+  else if (d.t === 'bamboo') cutBamboo(d.s, d.y);
   else if (d.t === 'feed') feed(d.s);
 }
 function netTick(dt) {
@@ -1389,7 +1409,7 @@ function tick(rdt, tt) {
     netTick(rdt);
   } else if (S.phase === 'game') netTick(rdt);
   const pdt = hitstop > 0 ? rdt * 0.08 : rdt; hitstop -= rdt;
-  pieces.update(pdt); blood.update(pdt); sparks.update(pdt);
+  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt);
   shake *= Math.exp(-9 * rdt); punch *= Math.exp(-6 * rdt);
   updateCamera(rdt);
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it

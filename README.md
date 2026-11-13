@@ -63,6 +63,13 @@ Fewer, much bigger platforms for larger battles:
 - Wide open floor built for **dashing**: bots dash across the plateaus constantly here.
 - Fighters respawn near the action rather than far away, and bots head for the plateau where the most fighters are, so brawls of 3 to 6 fighters break out.
 
+### Great Canopy
+Same size as the other maps: a giant forest canopy high above a misty floor.
+- **Multi-armed tree branches** grow out from five huge trunks and stretch across the map. They climb, dip and level out again, on several layers (about 16 m below to 29 m above the middle). Run along them and fight on them.
+- **Big leaves** spread through the branches act as landing pads for getting onto a branch.
+- **Skinny bamboo stalks** run from the floor up to the leaf roof all over the map. They are the grapple points. You and your dash pass straight through them; only the sword cuts them (a cut piece drops out) and only the grapple attaches.
+- Branches you can hook too. In Last Blade Standing a whole branch with its leaves crumbles at once.
+
 ### Sky Spires
 
 A sky arena made of 23 floating platforms at different heights:
@@ -84,7 +91,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 
 - `index.html`: page, menus, HUD and styles
 - `src/main.js`: game loop, controls, grappling hook, combat, bots, match rules, networking
-- `src/arena.js`: both maps (Sky Spires and Sky Plateaus), collision, grapple targeting and the bots' navigation graph
+- `src/arena.js`: all three maps (Sky Spires, Sky Plateaus, Great Canopy), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail
 - `src/slice.js`: mesh slicing, cut caps, piece physics, blood and sparks
 - `src/audio.js`: procedural sound effects. Movement sounds (sword whooshes, jumps, landings, dashes) are only heard within about 15 m of your character; slices, clashes and hooks carry about 32 m
