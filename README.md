@@ -58,7 +58,7 @@ Fights happen platform by platform: whoever lands on a platform fights whoever's
 
 ## How the slicing works
 
-Every fighter is built from simple convex shapes (boxes, spheres, cylinders). When a blade connects, the game takes the plane swept by the blade that frame, bakes the posed model into world-space triangles, splits every triangle by that plane, and caps each cut part with the convex hull of the points where the plane crossed it (flesh-red for the body, steel for swords). Each side becomes a rigid piece with its own physics. Pieces keep their materials and can be sliced again.
+Every fighter is built from simple convex shapes (boxes, spheres, cylinders). When a blade connects, the game takes the plane swept by the blade that frame, bakes the posed model into world-space triangles, splits every triangle by that plane, and caps each cut part with the convex hull of the points where the plane crossed it (flesh-red for the body, steel for swords). Each side becomes a rigid piece with its own physics. Pieces lying on the floor nudge each other apart so they come to rest separately instead of piling through each other. Pieces keep their materials and can be sliced again.
 
 ## Code
 

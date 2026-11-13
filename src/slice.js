@@ -228,6 +228,7 @@ export class Pieces {
         if (Math.random() < dt * 25 * Math.min(1, p.bleed)) this.blood.emit(m.position.x, m.position.y, m.position.z, (Math.random() - 0.5) * 1.5 + p.vel.x * 0.3, 0.5 + Math.random(), (Math.random() - 0.5) * 1.5 + p.vel.z * 0.3, 2);
       }
       if (p.asleep) continue;
+      p.onFloor = false;
       p.vel.y -= 24 * dt;
       m.position.addScaledVector(p.vel, dt);
       const wl = p.w.length();
@@ -241,6 +242,7 @@ export class Pieces {
         if (g - tmp.y > pen) { pen = g - tmp.y; cp = tmp.clone(); }
       }
       if (cp) {
+        p.onFloor = true;
         m.position.y += pen;
         r.subVectors(cp, m.position);
         vc.crossVectors(p.w, r).add(p.vel);
@@ -251,8 +253,34 @@ export class Pieces {
           p.vel.y += j;
           p.w.add(tmp.crossVectors(r, UPV).multiplyScalar(j / I));
         }
-        const f = Math.min(1, 7 * dt); p.vel.x *= 1 - f; p.vel.z *= 1 - f; p.w.multiplyScalar(1 - Math.min(1, 3 * dt));
-        if (p.vel.lengthSq() < 0.04 && p.w.lengthSq() < 0.09) { p.sleep += dt; if (p.sleep > 0.6) { p.asleep = true; p.vel.set(0, 0, 0); p.w.set(0, 0, 0); } } else p.sleep = 0;
+        const f = Math.min(1, 7 * dt); p.vel.x *= 1 - f; p.vel.z *= 1 - f; p.w.multiplyScalar(1 - Math.min(1, 6 * dt));
+        // nearly still: settle for good (stops pieces rocking in place forever)
+        if (p.vel.lengthSq() < 0.09 && p.w.lengthSq() < 0.36) { p.sleep += dt; if (p.sleep > 0.5) { p.asleep = true; p.vel.set(0, 0, 0); p.w.set(0, 0, 0); } } else p.sleep = 0;
+      }
+    }
+    this.spread(dt);
+  }
+
+  // Pieces lying on the floor push each other apart and slide off to rest separately, instead of
+  // piling into and through each other.
+  spread(dt) {
+    const L = this.list;
+    for (let i = 0; i < L.length; i++) {
+      const a = L[i]; if (!(a.onFloor || a.asleep)) continue;
+      const pa = a.mesh.position, ra = a.r * 0.55;
+      for (let j = i + 1; j < L.length; j++) {
+        const b = L[j]; if (!(b.onFloor || b.asleep)) continue;
+        const pb = b.mesh.position, rb = b.r * 0.55;
+        if (Math.abs(pa.y - pb.y) > ra + rb) continue;
+        let dx = pb.x - pa.x, dz = pb.z - pa.z; const min = ra + rb, d2 = dx * dx + dz * dz;
+        if (d2 >= min * min) continue;
+        let d = Math.sqrt(d2);
+        if (d < 1e-3) { const ang = (i * 7 + j * 13) % 6.283; dx = Math.cos(ang); dz = Math.sin(ang); d = 1; } else { dx /= d; dz /= d; d = Math.sqrt(d2); }
+        const over = min - d, push = Math.min(4, over * 6); // a gentle shove that fades as they part
+        const wa = b.r * b.r / (a.r * a.r + b.r * b.r), wb = 1 - wa; // smaller pieces move more
+        a.vel.x -= dx * push * wa; a.vel.z -= dz * push * wa;
+        b.vel.x += dx * push * wb; b.vel.z += dz * push * wb;
+        if (over > 0.03) { a.asleep = b.asleep = false; a.sleep = b.sleep = 0; }
       }
     }
   }
