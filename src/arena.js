@@ -58,9 +58,16 @@ function worldUV(geo, sc) {
 // rotate a point a quarter turn k times around the centre
 function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; } return [x, z]; }
 
+export const MAPS = {
+  spire: { name: 'Sky Spires', blurb: '23 small platforms at many heights: swing from one fight to the next' },
+  plateaus: { name: 'Sky Plateaus', blurb: '7 huge platforms at slightly different heights: big brawls with room to dash' },
+};
+
 export class Arena {
-  constructor(scene, quality) {
-    this.scene = scene; this.quality = quality;
+  constructor(scene, quality, mapId = 'spire') {
+    // everything the map adds lives under one group, so switching maps can remove it all
+    this.realScene = scene; this.root = new THREE.Group(); scene.add(this.root);
+    this.scene = this.root; this.quality = quality; this.mapId = MAPS[mapId] ? mapId : 'spire';
     this.boxes = []; this.ramps = []; this.pads = []; this.nodes = []; this.nodeMap = new Map(); this.spawns = []; this.anim = [];
     this.mats = {
       stone: new THREE.MeshStandardMaterial({ map: stoneTex(150, 5), roughness: 0.92 }),
@@ -70,6 +77,11 @@ export class Arena {
       rock: new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 1, flatShading: true }),
     };
     this.build();
+  }
+  dispose() {
+    this.realScene.remove(this.root);
+    this.root.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    for (const m of Object.values(this.mats)) { if (m.map) m.map.dispose(); m.dispose(); }
   }
 
   // ---------- building ----------
@@ -129,8 +141,9 @@ export class Arena {
   build() {
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
-    S.background = new THREE.Color(0x9cc4e4);
-    S.fog = new THREE.Fog(0xa9cbe6, 90, 320);
+    this.realScene.background = new THREE.Color(0x9cc4e4);
+    this.realScene.fog = new THREE.Fog(0xa9cbe6, 90, 320);
+    const big = this.mapId === 'plateaus';
     S.add(new THREE.HemisphereLight(0xd8ecff, 0x5a4a38, 0.85));
     const sun = new THREE.DirectionalLight(0xfff0d8, 2.0);
     this.sun = sun; this.sunOff = new THREE.Vector3(30, 50, 18);
@@ -164,23 +177,33 @@ export class Arena {
       return true;
     };
     const add = (x, z, y, w, d, kind) => { if (!fits(x, z, y, w, d)) return false; plats.push({ x, z, y, w, d, kind, i: plats.length }); return true; };
-    add(0, 0, 0, 20, 20, 'hub');
-    const ring = (n, R0, R1, y0, y1, s0, s1, kind, off) => {
-      for (let i = 0; i < n; i++) for (let t = 0; t < 14; t++) {
-        const a = (i + off + r() * 0.5) / n * Math.PI * 2, R = R0 + r() * (R1 - R0);
-        if (add(Math.round(Math.cos(a) * R), Math.round(Math.sin(a) * R), Math.round(y0 + r() * (y1 - y0)), Math.round(s0 + r() * (s1 - s0)), Math.round(s0 + r() * (s1 - s0)), kind)) break;
+    if (big) {
+      // Sky Plateaus: a huge central plateau and six big ones around it, each at a slightly different height
+      plats.push({ x: 0, z: 0, y: 0, w: 46, d: 46, kind: 'hub', i: 0 });
+      const ys = [-4, 3, 7, -2, 8, 2];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + 0.3, R = 62 + (r() - 0.5) * 4;
+        plats.push({ x: Math.round(Math.cos(a) * R), z: Math.round(Math.sin(a) * R), y: ys[i], w: 36 + Math.round(r() * 8), d: 36 + Math.round(r() * 8), kind: 'plateau', i: plats.length });
       }
-    };
-    ring(6, 28, 36, -5, 12, 11, 15, 'ring', 0);
-    ring(9, 52, 66, -9, 24, 9, 14, 'outer', 0.5);
-    ring(4, 16, 42, 20, 32, 7, 9, 'perch', 0.25);
-    ring(3, 18, 44, -21, -14, 10, 13, 'low', 0.7);
+    } else {
+      add(0, 0, 0, 20, 20, 'hub');
+      const ring = (n, R0, R1, y0, y1, s0, s1, kind, off) => {
+        for (let i = 0; i < n; i++) for (let t = 0; t < 14; t++) {
+          const a = (i + off + r() * 0.5) / n * Math.PI * 2, R = R0 + r() * (R1 - R0);
+          if (add(Math.round(Math.cos(a) * R), Math.round(Math.sin(a) * R), Math.round(y0 + r() * (y1 - y0)), Math.round(s0 + r() * (s1 - s0)), Math.round(s0 + r() * (s1 - s0)), kind)) break;
+        }
+      };
+      ring(6, 28, 36, -5, 12, 11, 15, 'ring', 0);
+      ring(9, 52, 66, -9, 24, 9, 14, 'outer', 0.5);
+      ring(4, 16, 42, 20, 32, 7, 9, 'perch', 0.25);
+      ring(3, 18, 44, -21, -14, 10, 13, 'low', 0.7);
+    }
 
     for (const p of plats) {
       const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2, z0 = p.z - p.d / 2, z1 = p.z + p.d / 2;
       this.addBox(x0, x1, p.y - 0.35, p.y, z0, z1, M.floor);
       this.addBox(x0 + 0.2, x1 - 0.2, p.y - 2.2, p.y - 0.35, z0 + 0.2, z1 - 0.2, M.stone);
-      const rad = Math.min(p.w, p.d) * 0.6, h = 5 + r() * 8;
+      const rad = Math.min(p.w, p.d) * 0.6, h = big ? 14 + r() * 10 : 5 + r() * 8;
       const cone = new THREE.ConeGeometry(rad, h, 8, 3); cone.rotateX(Math.PI);
       const cp = cone.attributes.position;
       for (let i = 0; i < cp.count; i++) { const y = cp.getY(i); if (y < h / 2 - 0.01) { const s = 1 + (r() - 0.5) * 0.4; cp.setX(i, cp.getX(i) * s); cp.setZ(i, cp.getZ(i) * s); } }
@@ -188,6 +211,13 @@ export class Arena {
       S.add(new THREE.Mesh(cone, M.rock));
       this.node('P' + p.i, p.x, p.y, p.z);
       this.spawns.push(new THREE.Vector3(p.x + (r() - 0.5) * 3, p.y, p.z + (r() - 0.5) * 3));
+      if (big) { // big platforms: spawn spots and walking waypoints in each quarter too
+        for (const [qx, qz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+          const x = p.x + qx * p.w / 4, z = p.z + qz * p.d / 4;
+          this.spawns.push(new THREE.Vector3(x, p.y, z));
+          this.node(`Q${p.i}_${qx}${qz}`, x, p.y, z); this.link('P' + p.i, `Q${p.i}_${qx}${qz}`);
+        }
+      }
     }
 
     // ---- jump pads between neighbouring platforms ----
@@ -206,11 +236,14 @@ export class Arena {
       if (linked.has(key) || (cap && ((padN.get(a.i) || 0) >= cap || (padN.get(b.i) || 0) >= cap))) return false;
       // take off near the edge facing the other platform; land near the middle, well clear of its pads
       const pa = spot(a, b, 2.2), pb = spot(b, a, 2.2);
-      const la = new THREE.Vector3(b.x, b.y, b.z).lerp(pb, -0.4), lb = new THREE.Vector3(a.x, a.y, a.z).lerp(pa, -0.4);
+      // (on big platforms: land 8 m in from the near edge, well clear of the return pad)
+      const la = Math.min(b.w, b.d) > 24 ? spot(b, a, 8) : new THREE.Vector3(b.x, b.y, b.z).lerp(pb, -0.4);
+      const lb = Math.min(a.w, a.d) > 24 ? spot(a, b, 8) : new THREE.Vector3(a.x, a.y, a.z).lerp(pa, -0.4);
       if (padSpots.get(a.i).some((q) => q.distanceTo(pa) < 2.8) || padSpots.get(b.i).some((q) => q.distanceTo(pb) < 2.8)) return false;
       // long enough in the air to come down onto the far platform, never up through it from below
       const up = Math.max(0, b.y - a.y), minT = Math.sqrt(2 * (up + 3) / 24) * 1.2;
-      const base = Math.max(minT, Math.min(2.4, Math.max(1.0, d / 17 + Math.abs(b.y - a.y) / 40)));
+      const flat = big ? pa.distanceTo(la) : d; // (big map: time the jump by how far it actually carries)
+      const base = Math.max(minT, Math.min(2.4, Math.max(1.0, flat / 17 + Math.abs(b.y - a.y) / 40)));
       let T = 0, arcA = null, arcB = null;
       for (const k of [1, 1.3, 0.8, 1.6]) { T = base * k; arcA = this.arc(pa, la, T); arcB = arcA && this.arc(pb, lb, T); if (arcA && arcB) break; }
       if (!arcA || !arcB) return false;
@@ -226,7 +259,7 @@ export class Arena {
     };
     for (const a of plats) {
       const nb = plats.filter((b) => b !== a).map((b) => ({ b, d: Math.hypot(b.x - a.x, b.z - a.z) })).sort((u, v) => u.d - v.d).slice(0, 4);
-      for (const { b, d } of nb) if (d <= 46 && Math.abs(b.y - a.y) <= 22) tryLink(a, b, 3);
+      for (const { b, d } of nb) if (d <= (big ? 85 : 46) && Math.abs(b.y - a.y) <= 22) tryLink(a, b, big ? 4 : 3);
     }
     // join any platform group that's still cut off to the closest platform outside it
     for (let guard = 0; guard < plats.length; guard++) {
@@ -248,8 +281,18 @@ export class Arena {
     // ---- cover on each platform (kept off the pads, landings and centre) ----
     for (const p of plats) {
       const keep = [new THREE.Vector3(p.x, p.y, p.z), ...padSpots.get(p.i)];
-      const n = p.kind === 'perch' ? 1 : p.kind === 'hub' ? 5 : 2 + Math.floor(r() * 2);
-      for (let k = 0, tries = 0; k < n && tries < 30; tries++) {
+      if (big) { // low terraces (a step up, no jump needed) so the plateaus have levels to fight across
+        for (let k = 0, tries = 0; k < 3 && tries < 40; tries++) {
+          const tw = 8 + r() * 6, td = 8 + r() * 6;
+          const x = p.x + (r() - 0.5) * (p.w - tw - 4), z = p.z + (r() - 0.5) * (p.d - td - 4);
+          const near = (q, m) => Math.abs(q.x - x) < tw / 2 + m && Math.abs(q.z - z) < td / 2 + m;
+          if (keep.some((q) => near(q, 2.5)) || this.arcPts.some((q) => q.y < p.y + 4 && near(q, 1.5))) continue;
+          this.addBox(x - tw / 2, x + tw / 2, p.y, p.y + 0.45, z - td / 2, z + td / 2, M.stone);
+          keep.push(new THREE.Vector3(x, p.y, z)); k++;
+        }
+      }
+      const n = big ? Math.round(p.w * p.d / 70) : p.kind === 'perch' ? 1 : p.kind === 'hub' ? 5 : 2 + Math.floor(r() * 2);
+      for (let k = 0, tries = 0; k < n && tries < (big ? n * 12 : 30); tries++) {
         const x = p.x + (r() - 0.5) * (p.w - 3), z = p.z + (r() - 0.5) * (p.d - 3);
         if (keep.some((q) => Math.hypot(q.x - x, q.z - z) < 3)) continue;
         if (this.arcPts.some((q) => q.y < p.y + 4 && Math.hypot(q.x - x, q.z - z) < 2.4)) continue; // under a pad's flight path
@@ -269,7 +312,14 @@ export class Arena {
     for (let gx = -102; gx <= 102; gx += 16) for (let gz = -102; gz <= 102; gz += 16) {
       const x = gx + (r() - 0.5) * 9, z = gz + (r() - 0.5) * 9, w = 1.4 + r() * 1.0;
       if (Math.hypot(x, z) > 110 || r() < 0.2) continue;
-      if (plats.some((p) => Math.abs(p.x - x) < p.w / 2 + w / 2 + 2.5 && Math.abs(p.z - z) < p.d / 2 + w / 2 + 2.5)) continue;
+      const on = plats.find((p) => Math.abs(p.x - x) < p.w / 2 + w / 2 + 2.5 && Math.abs(p.z - z) < p.d / 2 + w / 2 + 2.5);
+      if (on) {
+        // big map: some pillars rise straight through the plateaus (cover and grapple points mid-fight)
+        if (!big || r() < 0.35) continue;
+        const inside = Math.abs(on.x - x) < on.w / 2 - 3 && Math.abs(on.z - z) < on.d / 2 - 3;
+        const clear = Math.hypot(on.x - x, on.z - z) > 5 && !padSpots.get(on.i).some((q) => Math.hypot(q.x - x, q.z - z) < 5);
+        if (!inside || !clear) continue;
+      }
       if (this.arcPts.some((q) => Math.hypot(q.x - x, q.z - z) < w / 2 + 1.8)) continue;
       const m = this.addBox(x - w / 2, x + w / 2, -90, 95, z - w / 2, z + w / 2, M.dark);
       m.castShadow = false;

@@ -43,16 +43,29 @@ Click **Multiplayer** on the home screen.
 - Up to 8 players in Free-for-all (bots fill the empty slots), 4 in Horde.
 - It's peer-to-peer (WebRTC via [PeerJS](https://peerjs.com/)): the host's browser runs the match, so the host should keep the tab open. PeerJS's free public server only introduces the browsers to each other. Some strict school or work networks block peer-to-peer connections.
 
-## The map
+## Maps
 
-A big sky arena (about 200 m across) above a sea of clouds, made of 23 floating platforms at different heights:
+Pick the map on the home screen (the host picks it in a multiplayer room). Both are about 200 m across, above a sea of clouds, with sky pillars everywhere and jump pads between platforms. Fall into the clouds and you're out.
+
+### Sky Plateaus
+
+Fewer, much bigger platforms for larger battles:
+
+- **7 huge plateaus** (about 40 m across): a 46 m central plateau and six around it, each at a slightly different height (from 4 m below to 8 m above the centre).
+- Low **terraces** (a step up, no jump needed), low walls and stone blocks spread over each plateau, and some **pillars rise straight through the plateaus** as cover and mid-fight grapple points.
+- Wide open floor built for **dashing**: bots dash across the plateaus constantly here.
+- Fighters respawn near the action rather than far away, and bots head for the plateau where the most fighters are, so brawls of 3 to 6 fighters break out.
+
+### Sky Spires
+
+A sky arena made of 23 floating platforms at different heights:
 
 - A large **hub** in the middle, a ring of platforms around it, and an outer ring further out, each at its own height.
 - **High perches** floating above the others and **low platforms** hanging below them.
 - Low walls and stone blocks on each platform for cover.
 - **Jump pads** (the glowing discs near platform edges) link every platform into one network. Stand on one and press **Space** to launch onto the next platform.
 - About 90 **sky pillars** all over the arena, rising far above and below the platforms (marked with glowing rings), to grapple and swing between. Grapple the edge of a platform and the hook pulls you up and over onto it.
-- Fall into the clouds and you're out.
+
 
 Fights happen platform by platform: whoever lands on a platform fights whoever's there, then swings or pads on to the next one. Bots go for enemies on their own platform or the next one over first, climb up to higher platforms by grappling their edge, and use the pads to get around.
 
@@ -64,7 +77,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 
 - `index.html`: page, menus, HUD and styles
 - `src/main.js`: game loop, controls, grappling hook, combat, bots, match rules, networking
-- `src/arena.js`: the map, collision, grapple targeting and the bots' navigation graph
+- `src/arena.js`: both maps (Sky Spires and Sky Plateaus), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai model, walk cycle, IK arms and legs, sword and trail
 - `src/slice.js`: mesh slicing, cut caps, piece physics, blood and sparks
 - `src/audio.js`: procedural sound effects. Movement sounds (sword whooshes, jumps, landings, dashes) are only heard within about 15 m of your character; slices, clashes and hooks carry about 32 m

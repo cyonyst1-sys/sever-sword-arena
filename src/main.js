@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Arena } from './arena.js';
+import { Arena, MAPS } from './arena.js';
 import { Fighter, PALETTE, GUARD } from './fighter.js';
 import { bakeMeshes, Pieces, Particles } from './slice.js';
 import { sfx, ensureAudio, setListener, setVolume } from './audio.js';
@@ -27,7 +27,9 @@ const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 900);
 function resize() { renderer.setSize(window.innerWidth, window.innerHeight, false); camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); }
 window.addEventListener('resize', resize); resize();
 
-const arena = new Arena(scene, settings.quality);
+let arena = new Arena(scene, settings.quality, 'spire');
+// switch maps (between matches): drop the old one and build the new
+function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id) return; arena.dispose(); arena = new Arena(scene, settings.quality, id); }
 const ground = (x, z, y) => arena.groundHeight(x, z, y);
 const blood = new Particles(scene, ground, { color: 0x8a0a10, size: 0.07, decals: true, max: 2400 });
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
@@ -54,7 +56,7 @@ const PATTERNS = [
 
 // ---------- session ----------
 const S = {
-  phase: 'menu', mode: 'ffa', bots: 5, diff: 1, host: true, online: false, pub: true,
+  phase: 'menu', mode: 'ffa', map: 'spire', bots: 5, diff: 1, host: true, online: false, pub: true,
   myId: 'host', roster: [], timeLeft: FFA_TIME, wave: 0, waveT: 3, waveActive: false, queue: 0, spawnT: 0, seq: 0, paused: false,
 };
 const fighters = new Map();
@@ -449,7 +451,8 @@ function spawnPoint(f) {
   for (const sp of arena.spawns) {
     let md = 60;
     for (const g of fighters.values()) if (g !== f && g.alive && isEnemy(f, g)) md = Math.min(md, g.pos.distanceTo(sp));
-    const sc = md + Math.random() * 6;
+    // big map: come back in near the action (about 18 m from the nearest enemy) so brawls grow; small map: far away
+    const sc = (arena.mapId === 'plateaus' ? -Math.abs(Math.min(md, 60) - 18) : md) + Math.random() * 6;
     if (sc > bs) { bs = sc; best = sp; }
   }
   return best.clone();
@@ -474,6 +477,10 @@ function targetCost(b, g) {
   const pb = b.plat ?? null, pg = g.plat ?? null;
   if (pb !== null && pg !== null) d += arena.hops[pb][pg] * 22; // fight on your own platform or the next one over
   if (!isFinite(ground(g.pos.x, g.pos.z, g.pos.y))) d += 30;
+  if (arena.mapId === 'plateaus' && pg !== null) { // big map: head for the plateau where the brawl is
+    let crowd = 0; for (const o of fighters.values()) if (o.alive && o !== b && o !== g && o.plat === pg) crowd++;
+    d -= crowd * 20;
+  }
   return d;
 }
 function nearestEnemy(b) {
@@ -604,7 +611,7 @@ function botSwingTo(b, tp, why) {
   if (b.onGround && !(b.noTopUntil > now()) && b.pos.y - tp.y > 2 + rimDist(tp, b.pos) * 0.45) cands.push({ p: new THREE.Vector3(tp.x, tp.y, tp.z), s: -1 });
   const ux = tp.x - b.pos.x, uz = tp.z - b.pos.z, ul = Math.hypot(ux, uz) || 1;
   for (const pl of arena.pillars) {
-    const d = Math.hypot(pl.x - tp.x, pl.z - tp.z); if (d > 26) continue;
+    const d = Math.hypot(pl.x - tp.x, pl.z - tp.z); if (d > Math.max(26, Math.max(tp.w, tp.d) / 2 + 12)) continue;
     const along = ((pl.x - b.pos.x) * ux + (pl.z - b.pos.z) * uz) / ul;
     if (along < ul * 0.6) continue; // behind or short of the platform: the swing wouldn't carry over it
     const fx = b.pos.x - pl.x, fz = b.pos.z - pl.z, fl = Math.hypot(fx, fz) || 1;
@@ -672,21 +679,26 @@ function botThink(b, dt) {
     return { wish, jump, sprint };
   }
   // where to go
-  let goal = t.pos;
+  let goal = t.pos, padGoal = false;
   const reach = b.bladeLen + 0.5; // how far this bot's sword reaches from its body
   const close = dh < reach + 1.1 && Math.abs(dy) < 1.3 + b.bladeLen * 0.5;
   if (!close) {
     const direct = Math.abs(dy) < 0.9 && dh < 25 && arena.directPath(b.pos, t.pos);
     if (direct) b.path = null;
     else {
-      if (!b.path || b.repath <= 0) { b.path = arena.path(b.pos, t.pos); b.repath = 0.8; }
+      if (!b.path || b.repath <= 0) {
+        b.path = arena.path(b.pos, t.pos); b.repath = 0.8;
+        // skip waypoints already behind us (otherwise every re-plan walks us back to the nearest one)
+        const hd = (p, q) => Math.hypot(p.x - q.x, p.z - q.z);
+        while (b.path.length >= 2 && Math.abs(b.path[0].p.y - b.path[1].p.y) < 1.5 && hd(b.pos, b.path[1].p) < hd(b.path[0].p, b.path[1].p)) b.path.shift();
+      }
       while (b.path && b.path.length) {
         const n = b.path[0], hd = Math.hypot(n.p.x - b.pos.x, n.p.z - b.pos.z);
         const isPad = n.name[0] === 'D';
         if (isPad && hd < 0.7 && !(b.padOk > 0)) break; // wait on the pad: grappling comes first
         if (hd < (isPad ? 0.7 : 1.1) && Math.abs(n.p.y - b.pos.y) < 1.8) { b.path.shift(); if (isPad && b.onGround) jump = true; } else break;
       }
-      if (b.path && b.path.length) goal = b.path[0].p;
+      if (b.path && b.path.length) { goal = b.path[0].p; padGoal = b.path[0].name[0] === 'D'; }
     }
     const gx = goal.x - b.pos.x, gz = goal.z - b.pos.z, gl = Math.hypot(gx, gz) || 1;
     wish.x = gx / gl; wish.z = gz / gl; sprint = gl > 8 && b.stam > 40;
@@ -719,7 +731,10 @@ function botThink(b, dt) {
   b.stuck = (b.stuck || 0) + ((wish.x || wish.z) && Math.hypot(b.vel.x, b.vel.z) < 0.6 && b.onGround ? dt : -dt);
   if (b.stuck > 0.8) { jump = true; b.stuck = 0; b.repath = 0; }
   // don't walk off the platform: if there's no floor ahead, try sideways, else stop
-  if (b.onGround && (wish.x || wish.z) && !floorAhead(b, wish.x, wish.z, 1.9)) {
+  // (walking onto a jump pad by the edge is fine: the drop just past it is where the pad sends us)
+  const padDist = Math.hypot(goal.x - b.pos.x, goal.z - b.pos.z), toPad = padGoal && padDist < 3;
+  if (toPad) { const k = Math.max(0.25, padDist / 3); wish.x *= k; wish.z *= k; } // ease onto the pad, not past it
+  if (b.onGround && (wish.x || wish.z) && !toPad && !floorAhead(b, wish.x, wish.z, 1.9)) {
     const a = { x: -wish.z, z: wish.x }, c = { x: wish.z, z: -wish.x };
     if (floorAhead(b, a.x, a.z, 1.9)) { wish.x = a.x; wish.z = a.z; }
     else if (floorAhead(b, c.x, c.z, 1.9)) { wish.x = c.x; wish.z = c.z; }
@@ -744,15 +759,16 @@ function fillBots() {
   const names = BOT_NAMES.filter((n) => !S.roster.some((r) => r.name === n));
   while (bots.length < want) { const e = newRosterEntry('b' + (++S.seq), names.shift() || 'Bot', false); S.roster.push(e); bots.push(e); }
 }
-function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
+function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
+  useMap(S.map);
   clearWorld();
   if (S.mode === 'horde') S.roster = S.roster.filter((r) => r.human);
   for (const r of S.roster) { r.k = 0; r.d = 0; r.team = S.mode === 'ffa' ? r.id : (r.human ? 'H' : 'R'); r.horde = !r.human && S.mode === 'horde'; }
   fillBots();
   S.timeLeft = FFA_TIME; S.wave = 0; S.waveT = 3; S.waveActive = false; S.queue = 0; S.ended = false;
   syncFighters();
-  net.broadcast({ t: 'start', mode: S.mode, list: S.roster });
+  net.broadcast({ t: 'start', mode: S.mode, map: S.map, list: S.roster });
   enterGame();
   for (const f of fighters.values()) if (S.mode === 'ffa' || !f.isBot) hostSpawn(f);
   if (S.online) net.dirSetRoom(roomInfo());
@@ -852,7 +868,7 @@ function hostMsg(from, d) {
     const e = newRosterEntry(from, name, true); S.roster.push(e);
     if (S.phase === 'game') fillBots();
     syncFighters();
-    net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, phase: S.phase === 'game' ? 'game' : 'lobby' });
+    net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby' });
     if (S.phase === 'game') { const f = fighters.get(from); f.respawnAt = S.mode === 'ffa' ? now() + 1 : Infinity; if (S.mode === 'horde' && !S.waveActive) f.respawnAt = now() + 1; for (const g of fighters.values()) if (g.alive) net.sendTo(from, { t: 'spawn', id: g.id, p: arr(g.pos), y: +g.yaw.toFixed(3) }); }
     toast(`${name} joined`);
     sendRoster(); if (S.online) net.dirSetRoom(roomInfo());
@@ -869,10 +885,10 @@ function hostMsg(from, d) {
   } else if (d.t === 'fell') { if (applyKill(from, null, null, null, null, true)) net.broadcast({ t: 'kill', v: from, k: null, fell: 1 }, from); }
 }
 function clientMsg(d) {
-  if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; if (d.phase === 'game') { clearWorld(); syncFighters(); enterGame(); } else showLobby(); }
+  if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); syncFighters(); enterGame(); } else showLobby(); }
   else if (d.t === 'full') { toast('That room is full.'); toMenu(); }
-  else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
-  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; clearWorld(); syncFighters(); enterGame(); }
+  else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
+  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); syncFighters(); enterGame(); }
   else if (d.t === 's') {
     S.timeLeft = d.tl; S.wave = d.wv;
     for (const s of d.f) { const f = fighters.get(s[0]); if (f && f !== me) applyState(f, s.slice(1)); }
@@ -891,7 +907,7 @@ function netTick(dt) {
     net.broadcast({ t: 's', f, tl: Math.round(S.timeLeft), wv: S.wave });
   } else if (me) net.send({ t: 'p', s: myState(me) });
 }
-function roomInfo() { return S.pub ? { code: net.net.code, name: settings.name || 'Ronin', game: S.mode, n: S.roster.filter((r) => r.human).length, max: S.mode === 'horde' ? 4 : MAX_PLAYERS, st: S.phase === 'game' ? 'playing' : 'lobby' } : null; }
+function roomInfo() { return S.pub ? { code: net.net.code, name: settings.name || 'Ronin', game: S.mode, map: S.map, n: S.roster.filter((r) => r.human).length, max: S.mode === 'horde' ? 4 : MAX_PLAYERS, st: S.phase === 'game' ? 'playing' : 'lobby' } : null; }
 
 // ---------- UI ----------
 const screens = ['home', 'mp', 'lobby', 'settings', 'pause', 'end'];
@@ -908,6 +924,8 @@ const colorOf = (r) => '#' + new THREE.Color(r.horde ? 0xff6b6b : PALETTE[r.col 
 
 $('name').value = settings.name;
 $('name').addEventListener('input', () => { settings.name = $('name').value.trim().slice(0, 14); saveSettings(); });
+$('map').value = MAPS[settings.map] ? settings.map : 'spire';
+$('map').onchange = () => { settings.map = $('map').value; saveSettings(); }; // remember the map you picked
 $('soloFfa').onclick = () => startSolo('ffa');
 $('soloHorde').onclick = () => startSolo('horde');
 $('toMp').onclick = () => { ensureAudio(); show('mp'); net.dirStart(renderRooms); };
@@ -933,13 +951,13 @@ $('againBtn').onclick = () => {
 $('joinBtn').onclick = () => joinRoom($('joinCode').value);
 $('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom($('joinCode').value); });
 $('hostBtn').onclick = hostRoom;
-$('startBtn').onclick = () => { if (S.host) { S.mode = $('lobbyModeSel').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; startMatch(); } };
+$('startBtn').onclick = () => { if (S.host) { S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; startMatch(); } };
 $('leaveBtn').onclick = () => { leaveRoom(); toMenu(); };
 $('copyLink').onclick = () => {
   const link = location.origin + location.pathname + '?room=' + net.net.code;
   (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast('Invite link copied'), () => toast(link));
 };
-for (const id of ['lobbyModeSel', 'lobbyBots', 'lobbyDiff']) $(id).onchange = () => { if (!S.host) return; S.mode = $('lobbyModeSel').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; for (const r of S.roster) r.team = S.mode === 'ffa' ? r.id : 'H'; sendRoster(); if (S.online) net.dirSetRoom(roomInfo()); };
+for (const id of ['lobbyModeSel', 'lobbyMap', 'lobbyBots', 'lobbyDiff']) $(id).onchange = () => { if (!S.host) return; S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; for (const r of S.roster) r.team = S.mode === 'ffa' ? r.id : 'H'; sendRoster(); if (S.online) net.dirSetRoom(roomInfo()); };
 
 function renderRooms(rooms) {
   const el = $('rooms');
@@ -947,7 +965,7 @@ function renderRooms(rooms) {
   el.innerHTML = '';
   for (const r of rooms) {
     const d = document.createElement('div'); d.className = 'item';
-    d.innerHTML = `<span class="grow"><b>${esc(r.name)}</b> · ${r.game === 'horde' ? 'Horde' : 'Free-for-all'} · ${r.n}/${r.max}${r.st === 'playing' ? ' · in a match' : ''}</span>`;
+    d.innerHTML = `<span class="grow"><b>${esc(r.name)}</b> · ${r.game === 'horde' ? 'Horde' : 'Free-for-all'} · ${esc(MAPS[r.map]?.name || 'Sky Spires')} · ${r.n}/${r.max}${r.st === 'playing' ? ' · in a match' : ''}</span>`;
     const b = document.createElement('button'); b.textContent = 'Join'; b.onclick = () => joinRoom(r.code); d.appendChild(b);
     el.appendChild(d);
   }
@@ -960,7 +978,8 @@ function renderLobby() {
   $('lobbyHostOpts').classList.toggle('hidden', !S.host);
   $('startBtn').classList.toggle('hidden', !S.host);
   $('lobbyWait').textContent = S.host ? 'Bots fill the empty slots in Free-for-all. Press Start when everyone is in.' : 'Waiting for the host to start…';
-  if (S.host) { $('lobbyModeSel').value = S.mode; $('lobbyBots').value = S.bots; $('lobbyDiff').value = S.diff; }
+  $('lobbyMapName').textContent = (MAPS[S.map] || MAPS.spire).name + ': ' + (MAPS[S.map] || MAPS.spire).blurb;
+  if (S.host) { $('lobbyModeSel').value = S.mode; $('lobbyMap').value = S.map; $('lobbyBots').value = S.bots; $('lobbyDiff').value = S.diff; }
 }
 function showLobby() { S.phase = 'lobby'; show('lobby'); $('hud').classList.add('hidden'); if (document.pointerLockElement) document.exitPointerLock(); renderLobby(); }
 
@@ -970,7 +989,7 @@ async function hostRoom() {
   $('hostBtn').disabled = true;
   try {
     await net.host();
-    S.online = true; S.host = true; S.myId = 'host'; S.mode = $('hostMode').value; S.pub = $('pub').checked; S.bots = 4; S.diff = 1;
+    S.online = true; S.host = true; S.myId = 'host'; S.mode = $('hostMode').value; S.map = $('map').value; S.pub = $('pub').checked; S.bots = 4; S.diff = 1;
     S.roster = [newRosterEntry('host', settings.name || 'Ronin', true)];
     showLobby();
     net.dirStart(() => {}); net.dirSetRoom(roomInfo());
@@ -996,7 +1015,7 @@ function leaveRoom() {
 function startSolo(mode) {
   ensureAudio();
   leaveRoom();
-  S.mode = mode; S.bots = +$('bots').value; S.diff = +$('diff').value;
+  S.mode = mode; S.map = $('map').value; S.bots = +$('bots').value; S.diff = +$('diff').value;
   S.roster = [newRosterEntry('host', settings.name || 'Ronin', true)];
   startMatch();
 }
@@ -1182,4 +1201,4 @@ $('clickPlay').onclick = () => { ensureAudio(); lockPointer(); };
 $('loading').remove();
 requestAnimationFrame(frame);
 // handy for debugging in the console
-window.__sever = { S, fighters, pieces, arena, camera, tick, applyKill, botSwingTo, willLand, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
+window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, tick, applyKill, botSwingTo, willLand, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
