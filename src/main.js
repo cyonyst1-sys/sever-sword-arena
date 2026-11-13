@@ -34,7 +34,7 @@ const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravi
 const pieces = new Pieces(scene, ground, blood);
 
 // ---------- constants ----------
-const G = 24, JUMP_V = 8.8, WALK = 12.5, DASH_V = 22, DASH_T = 0.2, CUT_SPD = 7, RAD = 0.38, HGT = 1.8;
+const G = 24, JUMP_V = 8.8, WALK = 12.5, DASH_V = 34, DASH_T = 0.38, CUT_SPD = 7, RAD = 0.38, HGT = 1.8;
 const PULL = 34, REEL = 11, HOOK_MAX = 60;
 const FFA_KILLS = 15, FFA_TIME = 300, MAX_PLAYERS = 8;
 // every kill makes your sword longer (and your reach with it)
@@ -113,22 +113,29 @@ window.addEventListener('mousemove', (e) => {
   if (!locked || !me || S.phase !== 'game') return;
   const dx = e.movementX || 0, dy = e.movementY || 0;
   if (Math.abs(dx) > 400 || Math.abs(dy) > 400) return; // browser glitch spikes
+  const k = 0.0022 * settings.look;
   if (mouse.lmb && me.alive && me.stagger <= 0) {
-    const k = 0.0042 * settings.blade;
-    me.s.x += dx * k; me.s.y -= dy * k;
+    // swinging: the sword takes most of the motion, the body twists less, the camera turns least
+    const ks = 0.0042 * settings.blade;
+    me.s.x += dx * ks; me.s.y -= dy * ks;
     const r = Math.hypot(me.s.x, me.s.y); if (r > 1.05) { me.s.x *= 1.05 / r; me.s.y *= 1.05 / r; }
-    mouse.drag += Math.hypot(dx, dy) * k;
+    mouse.drag += Math.hypot(dx, dy) * ks;
+    twist.yaw = Math.max(-1.3, Math.min(1.3, twist.yaw - dx * k * 0.45));
+    twist.pitch = Math.max(-0.6, Math.min(0.6, twist.pitch - dy * k * 0.35));
+    view.yaw -= dx * k * 0.15; view.pitch = Math.max(-1.25, Math.min(1.25, view.pitch - dy * k * 0.15));
   } else {
-    const k = 0.0022 * settings.look;
-    me.yaw -= dx * k; me.pitch = Math.max(-1.25, Math.min(1.25, me.pitch - dy * k));
+    view.yaw -= dx * k; view.pitch = Math.max(-1.25, Math.min(1.25, view.pitch - dy * k));
   }
 });
+// The camera's angles, and how far the body is twisted away from them while swinging.
+const view = { yaw: 0, pitch: 0 }, twist = { yaw: 0, pitch: 0 };
+function viewDir(out) { const c = Math.cos(view.pitch); return out.set(-Math.sin(view.yaw) * c, Math.sin(view.pitch), -Math.cos(view.yaw) * c); }
 window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
   keys[e.code] = true;
   if (['Space', 'Tab'].includes(e.code)) e.preventDefault();
   if (S.phase !== 'game' || !me) return;
-  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) tryDash(me, lookDir(me, new THREE.Vector3()));
+  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) tryDash(me, viewDir(new THREE.Vector3()));
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.lmb = false; if (me && me.hook) releaseHook(me, false); });
@@ -155,7 +162,7 @@ const _t = new THREE.Vector3(), _t2 = new THREE.Vector3(), _t3 = new THREE.Vecto
 function tryDash(f, dir) {
   if (f.dashCd > 0 || f.stam < 22 || !f.alive) return false;
   const d = dir.clone(); d.y = Math.max(-0.35, Math.min(0.55, d.y)); d.normalize();
-  f.dashDir.copy(d); f.dashT = DASH_T; f.dashCd = 0.65; f.stam -= 22; f.stamDelay = 0.6;
+  f.dashDir.copy(d); f.dashT = DASH_T; f.dashCd = 0.9; f.stam -= 22; f.stamDelay = 0.6;
   if (f.hook) releaseHook(f, false);
   f.dashVictims = new Set();
   sfx.dash(f.pos);
@@ -444,6 +451,7 @@ function spawn(f, p, yaw) {
   f.pos.copy(p); f.vel.set(0, 0, 0); f.yaw = yaw; f.pitch = 0; f.alive = true; f.prot = 1.5; f.hook = null; f.dashT = 0;
   f.stam = 100; f.s.x = GUARD.x; f.s.y = GUARD.y; f.noCut = true; f.anim = null; f.respawnAt = Infinity; f.onGround = true; f.stagger = 0;
   f.group.visible = true; f.trail.length = 0;
+  if (f === me) { view.yaw = yaw; view.pitch = 0; twist.yaw = 0; twist.pitch = 0; }
   f.pose(0); f.prevHand.copy(f.hand); f.prevTip.copy(f.tip); f.prevPos.copy(f.pos);
   sfx.spawn(p);
 }
@@ -670,15 +678,15 @@ function botThink(b, dt) {
     }
   }
   // dash-cut in from mid range
-  if (!close && dh > 3.5 && dh < 7.5 && Math.abs(dy) < 1 && b.dashCd <= 0 && Math.random() < dt * D.dash * 2) {
-    const dir = new THREE.Vector3(dx, dy, dz).normalize(); if (floorAhead(b, dx, dz, 4.8)) tryDash(b, dir);
+  if (!close && dh > 6 && dh < 15 && Math.abs(dy) < 1.5 && b.dashCd <= 0 && Math.random() < dt * D.dash * 2) {
+    const dir = new THREE.Vector3(dx, dy, dz).normalize(); if (floorAhead(b, dx, dz, 13) && floorAhead(b, dx, dz, 7)) tryDash(b, dir);
   }
   // dodge a swing that's coming
   if (t.anim && t.anim.phase === 'wind' && dh < 3 && b.dashCd <= 0 && !b.evaded) {
     b.evaded = true;
     if (Math.random() < D.evade) {
       const s = Math.random() < 0.5 ? 1 : -1, ev = new THREE.Vector3(-dz * s - dx, 0, dx * s - dz).normalize();
-      if (floorAhead(b, ev.x, ev.z, 4.8)) tryDash(b, ev);
+      if (floorAhead(b, ev.x, ev.z, 13) && floorAhead(b, ev.x, ev.z, 7)) tryDash(b, ev);
     }
   }
   if (!t.anim) b.evaded = false;
@@ -1055,8 +1063,8 @@ function updateCamera(dt) {
     camera.position.lerp(camPos, 1 - Math.exp(-3 * dt)); camera.lookAt(deathAt.x, deathAt.y + 0.5, deathAt.z);
     return;
   }
-  const look = lookDir(me, camLook);
-  const right = _t3.set(Math.cos(me.yaw), 0, -Math.sin(me.yaw));
+  const look = viewDir(camLook); // the camera follows its own angles, not the twisting body
+  const right = _t3.set(Math.cos(view.yaw), 0, -Math.sin(view.yaw));
   const pivot = _t.copy(me.pos); pivot.y += 1.62; pivot.addScaledVector(right, 0.55);
   let dist = 3.4;
   for (let i = 1; i <= 14; i++) { // pull in if a wall is in the way
@@ -1096,7 +1104,10 @@ function tick(rdt, tt) {
       if (f === me) {
         const fw = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
         const st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
-        const fx = -Math.sin(f.yaw), fz = -Math.cos(f.yaw), rx = Math.cos(f.yaw), rz = -Math.sin(f.yaw);
+        // body = camera + twist; the twist eases back once you stop swinging
+        if (!mouse.lmb) { const k = Math.exp(-6 * rdt); twist.yaw *= k; twist.pitch *= k; }
+        f.yaw = view.yaw + twist.yaw; f.pitch = Math.max(-1.25, Math.min(1.25, view.pitch + twist.pitch));
+        const vy = view.yaw, fx = -Math.sin(vy), fz = -Math.cos(vy), rx = Math.cos(vy), rz = -Math.sin(vy); // move relative to the camera
         let wx = fx * fw + rx * st, wz = fz * fw + rz * st; const l = Math.hypot(wx, wz); if (l > 0) { wx /= l; wz /= l; }
         stepFighter(f, rdt, { x: wx, z: wz }, false, keys.Space && locked);
         if (f.hook && !mouse.rmb) releaseHook(f, true);

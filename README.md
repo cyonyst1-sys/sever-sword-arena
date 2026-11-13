@@ -10,10 +10,10 @@ A third-person 3D sword arena that runs in the browser. Swing your sword with th
 | --- | --- |
 | WASD / arrows | Move |
 | Mouse | Look (click the game to lock the mouse) |
-| Hold left mouse + move the mouse | Swing the sword in the direction you drag. The camera holds still while you swing |
+| Hold left mouse + move the mouse | Swing the sword in the direction you drag. While you swing, the mouse still turns you: the sword moves the most, your body twists less, and the camera turns only a little. Let go and your body turns back to where the camera faces |
 | Tap left mouse | Quick slash (alternates left and right) |
 | Hold right mouse | Grappling hook: grabs whatever is in front of you (with a little aim assist) and reels you in. Swing on it, and let go to fly off with your momentum |
-| Shift | Dash where you're looking. Cuts through anyone in your path |
+| Shift | Dash about 13 m where you're looking (more with the glide after it). Cuts through anyone in your path |
 | Space | Jump. On a glowing jump pad, launches you to the next platform |
 | Tab | Scoreboard |
 | Esc | Menu |
