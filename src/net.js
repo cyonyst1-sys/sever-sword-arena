@@ -81,7 +81,7 @@ export function leave() {
 const DIR_ID = PREFIX + 'rooms';
 const dir = { on: false, peer: null, conn: null, isDir: false, rooms: [], listeners: new Map(), entries: new Map(),
   myRoom: null, retryT: null, regT: null, sweepT: null, onRooms() {} };
-const GAMES = ['ffa', 'horde'];
+const GAMES = ['ffa', 'horde', 'koth', 'jugg', 'lbs', 'hunt'];
 const cleanText = (s, n) => String(s ?? '').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, n);
 const int = (x, lo, hi) => (Number.isInteger(x) && x >= lo && x <= hi ? x : null);
 /** Validate a room listing (they come from other browsers). */

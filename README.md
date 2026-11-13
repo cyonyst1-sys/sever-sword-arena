@@ -26,6 +26,13 @@ The crosshair glows cyan when the hook has something to grab. Swords that cross 
 
 ## Modes
 
+Pick a mode on the home screen (the host picks it in a multiplayer room). Bots play every mode.
+
+- **King of the Platform:** a platform marked by a gold beam is the throne. Stand on it alone to score 1 point a second (contested = nobody scores). It moves every 40 s. First to 60, or most after 5 minutes.
+- **Juggernaut:** one crowned fighter with the max 3 m blade against everyone else. Whoever cuts them down takes the crown. The juggernaut scores 1 point a second. First to 60, or most after 5 minutes.
+- **Last Blade Standing:** no respawns. Platforms glow red, then crumble into the clouds from the outside in. Last fighter alive wins.
+- **Headhunter:** kills drop gold heads (the victim's own plus all they carried). Pick them up and bank them at a shrine (orange beam). First to 20 banked, or most after 5 minutes.
+
 - **Free-for-all:** everyone against everyone, bots included. One clean cut kills. Respawn after 3 s; first to 15 kills, or the most after 5 minutes.
 - **Horde:** you (and up to 3 friends) against waves of oni. Anyone cut down comes back at the start of the next wave; the run ends when everyone is down at once.
 

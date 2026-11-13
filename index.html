@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261113021252">
+<meta name="build" content="20261113024109">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -98,12 +98,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "./src/main.js": "./src/main.js?v=20261113021252",
-  "./src/arena.js": "./src/arena.js?v=20261113021252",
-  "./src/fighter.js": "./src/fighter.js?v=20261113021252",
-  "./src/slice.js": "./src/slice.js?v=20261113021252",
-  "./src/audio.js": "./src/audio.js?v=20261113021252",
-  "./src/net.js": "./src/net.js?v=20261113021252"
+  "./src/main.js": "./src/main.js?v=20261113024109",
+  "./src/arena.js": "./src/arena.js?v=20261113024109",
+  "./src/fighter.js": "./src/fighter.js?v=20261113024109",
+  "./src/slice.js": "./src/slice.js?v=20261113024109",
+  "./src/audio.js": "./src/audio.js?v=20261113024109",
+  "./src/net.js": "./src/net.js?v=20261113024109"
 } }
 </script>
 </head>
@@ -124,9 +124,10 @@ window.severVersion.check();
       <label>Difficulty <select id="diff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option></select></label>
     </div>
     <div class="row">
-      <button class="primary" id="soloFfa">Solo: Free-for-all</button>
-      <button class="primary" id="soloHorde">Solo: Horde</button>
+      <label>Mode <select id="mode"></select></label>
+      <button class="primary" id="playSolo" style="align-self:flex-end">Play solo</button>
     </div>
+    <div class="muted" id="modeBlurb" style="margin:-4px 0 6px"></div>
     <div class="row"><button id="toMp">Multiplayer</button><button id="toSettings">Settings</button></div>
     <div class="controls">
       <b>WASD</b><span>Move</span>
@@ -154,7 +155,7 @@ window.severVersion.check();
     </div>
     <h2 style="margin-top:18px">Host a room</h2>
     <div class="row">
-      <label>Mode <select id="hostMode"><option value="ffa">Free-for-all (everyone vs everyone)</option><option value="horde">Horde (co-op vs waves)</option></select></label>
+      <label>Mode <select id="hostMode"></select></label>
     </div>
     <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="pub" checked> Show my room in the open rooms list</label>
     <div class="row"><button class="primary" id="hostBtn">Create room</button><button id="mpBack">Back</button></div>
@@ -171,7 +172,7 @@ window.severVersion.check();
     <div class="muted" id="lobbyMapName"></div>
     <div class="list" id="lobbyPlayers"></div>
     <div class="row" id="lobbyHostOpts">
-      <label>Mode <select id="lobbyModeSel"><option value="ffa">Free-for-all</option><option value="horde">Horde</option></select></label>
+      <label>Mode <select id="lobbyModeSel"></select></label>
       <label>Map <select id="lobbyMap"><option value="spire">Sky Spires</option><option value="plateaus">Sky Plateaus</option></select></label>
       <label>Bots <select id="lobbyBots"><option>0</option><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
       <label>Difficulty <select id="lobbyDiff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option></select></label>
@@ -230,6 +231,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261113021252"></script>
+<script type="module" src="src/main.js?v=20261113024109"></script>
 </body>
 </html>

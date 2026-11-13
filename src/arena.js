@@ -91,9 +91,13 @@ export class Arena {
     worldUV(geo, 0.5);
     const m = new THREE.Mesh(geo, mat || this.mats.stone);
     m.castShadow = m.receiveShadow = true; this.scene.add(m);
-    if (opts.solid !== false) this.boxes.push({ x0, x1, y0, y1, z0, z1 });
+    const box = { x0, x1, y0, y1, z0, z1 };
+    if (opts.solid !== false) this.boxes.push(box);
+    if (this.tag) { this.tag.meshes.push(m); if (opts.solid !== false) this.tag.boxes.push(box); } // belongs to a platform (can crumble)
     return m;
   }
+  // anything else that should fall with platform p
+  own(p, ...meshes) { p.meshes.push(...meshes); }
   addBoxR(k, x0, x1, y0, y1, z0, z1, mat, opts) {
     const [ax, az] = Q(k, x0, z0), [bx, bz] = Q(k, x1, z1);
     return this.addBox(Math.min(ax, bx), Math.max(ax, bx), y0, y1, Math.min(az, bz), Math.max(az, bz), mat, opts);
@@ -120,17 +124,19 @@ export class Arena {
     const [a, b] = Q(k, lx, lz), [c, d] = Q(k, hx, hz);
     this.addRamp(a, b, c, d, hL, hH, w, base, mat);
   }
-  addPad(x, y, z, tx, ty, tz, T) {
+  addPad(x, y, z, tx, ty, tz, T, from = -1, to = -1) {
     const G = 24;
     const v = new THREE.Vector3((tx - x) / T, (ty - y + 0.5 * G * T * T) / T, (tz - z) / T);
-    this.pads.push({ x, y, z, r: 1.0, v });
+    const pad = { x, y, z, r: 1.0, v, from, to, meshes: [] };
+    this.pads.push(pad);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, 0.18, 24), this.mats.dark);
     base.position.set(x, y + 0.09, z); base.receiveShadow = true; this.scene.add(base);
     const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.06, 24), new THREE.MeshBasicMaterial({ color: 0x55e0ff }));
     glow.position.set(x, y + 0.2, z); this.scene.add(glow);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.05, 6, 28), new THREE.MeshBasicMaterial({ color: 0x9ff3ff, transparent: true, opacity: 0.8 }));
     ring.rotation.x = Math.PI / 2; ring.position.set(x, y + 0.25, z); this.scene.add(ring);
-    this.anim.push((t) => { const k = (t * 0.9) % 1; ring.position.y = y + 0.25 + k * 2.2; ring.material.opacity = 0.8 * (1 - k); ring.scale.setScalar(1 - k * 0.35); });
+    this.anim.push((t) => { if (pad.gone) return; const k = (t * 0.9) % 1; ring.position.y = y + 0.25 + k * 2.2; ring.material.opacity = 0.8 * (1 - k); ring.scale.setScalar(1 - k * 0.35); });
+    pad.meshes.push(base, glow, ring);
   }
   node(name, x, y, z) { const n = { name, id: this.nodes.length, p: new THREE.Vector3(x, y, z), edges: [] }; this.nodes.push(n); this.nodeMap.set(name, n); return n; }
   link(a, b, type = 'walk', both = true) {
@@ -200,6 +206,7 @@ export class Arena {
     }
 
     for (const p of plats) {
+      p.meshes = []; p.boxes = []; this.tag = p;
       const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2, z0 = p.z - p.d / 2, z1 = p.z + p.d / 2;
       this.addBox(x0, x1, p.y - 0.35, p.y, z0, z1, M.floor);
       this.addBox(x0 + 0.2, x1 - 0.2, p.y - 2.2, p.y - 0.35, z0 + 0.2, z1 - 0.2, M.stone);
@@ -208,17 +215,18 @@ export class Arena {
       const cp = cone.attributes.position;
       for (let i = 0; i < cp.count; i++) { const y = cp.getY(i); if (y < h / 2 - 0.01) { const s = 1 + (r() - 0.5) * 0.4; cp.setX(i, cp.getX(i) * s); cp.setZ(i, cp.getZ(i) * s); } }
       cone.translate(p.x, p.y - 2.2 - h / 2, p.z); cone.computeVertexNormals();
-      S.add(new THREE.Mesh(cone, M.rock));
-      this.node('P' + p.i, p.x, p.y, p.z);
-      this.spawns.push(new THREE.Vector3(p.x + (r() - 0.5) * 3, p.y, p.z + (r() - 0.5) * 3));
+      const rock = new THREE.Mesh(cone, M.rock); S.add(rock); this.own(p, rock);
+      this.node('P' + p.i, p.x, p.y, p.z).plat = p.i;
+      { const sp = new THREE.Vector3(p.x + (r() - 0.5) * 3, p.y, p.z + (r() - 0.5) * 3); sp.plat = p.i; this.spawns.push(sp); }
       if (big) { // big platforms: spawn spots and walking waypoints in each quarter too
         for (const [qx, qz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
           const x = p.x + qx * p.w / 4, z = p.z + qz * p.d / 4;
-          this.spawns.push(new THREE.Vector3(x, p.y, z));
-          this.node(`Q${p.i}_${qx}${qz}`, x, p.y, z); this.link('P' + p.i, `Q${p.i}_${qx}${qz}`);
+          { const sp = new THREE.Vector3(x, p.y, z); sp.plat = p.i; this.spawns.push(sp); }
+          this.node(`Q${p.i}_${qx}${qz}`, x, p.y, z).plat = p.i; this.link('P' + p.i, `Q${p.i}_${qx}${qz}`);
         }
       }
     }
+    this.tag = null;
 
     // ---- jump pads between neighbouring platforms ----
     this.arcPts = [];
@@ -250,9 +258,10 @@ export class Arena {
       comp[root(a.i)] = root(b.i);
       linked.add(key); padN.set(a.i, (padN.get(a.i) || 0) + 1); padN.set(b.i, (padN.get(b.i) || 0) + 1);
         this.arcPts.push(...arcA, ...arcB);
-        this.addPad(pa.x, a.y, pa.z, la.x, b.y, la.z, T); this.addPad(pb.x, b.y, pb.z, lb.x, a.y, lb.z, T);
+        this.addPad(pa.x, a.y, pa.z, la.x, b.y, la.z, T, a.i, b.i); this.addPad(pb.x, b.y, pb.z, lb.x, a.y, lb.z, T, b.i, a.i);
         padSpots.get(a.i).push(pa, lb); padSpots.get(b.i).push(pb, la);
-        this.node(`D${a.i}_${b.i}`, pa.x, a.y, pa.z); this.node(`D${b.i}_${a.i}`, pb.x, b.y, pb.z);
+        const na = this.node(`D${a.i}_${b.i}`, pa.x, a.y, pa.z), nb = this.node(`D${b.i}_${a.i}`, pb.x, b.y, pb.z);
+        na.plat = a.i; na.to = b.i; nb.plat = b.i; nb.to = a.i;
         this.link('P' + a.i, `D${a.i}_${b.i}`); this.link(`D${a.i}_${b.i}`, 'P' + b.i, 'pad', false);
         this.link('P' + b.i, `D${b.i}_${a.i}`); this.link(`D${b.i}_${a.i}`, 'P' + a.i, 'pad', false);
       return true;
@@ -280,6 +289,7 @@ export class Arena {
 
     // ---- cover on each platform (kept off the pads, landings and centre) ----
     for (const p of plats) {
+      this.tag = p;
       const keep = [new THREE.Vector3(p.x, p.y, p.z), ...padSpots.get(p.i)];
       if (big) { // low terraces (a step up, no jump needed) so the plateaus have levels to fight across
         for (let k = 0, tries = 0; k < 3 && tries < 40; tries++) {
@@ -303,9 +313,10 @@ export class Arena {
       // glowing crystal on each corner for readability from afar
       for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
         const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.35, 0), new THREE.MeshStandardMaterial({ color: 0x7fe8ff, emissive: 0x2fb8e0, emissiveIntensity: 1.2, flatShading: true }));
-        c.position.set(p.x + cx * (p.w / 2 - 0.5), p.y + 0.6, p.z + cz * (p.d / 2 - 0.5)); c.scale.y = 1.8; S.add(c);
+        c.position.set(p.x + cx * (p.w / 2 - 0.5), p.y + 0.6, p.z + cz * (p.d / 2 - 0.5)); c.scale.y = 1.8; S.add(c); this.own(p, c);
       }
     }
+    this.tag = null;
 
     // ---- sky pillars all over the arena ----
     const pillars = [];
@@ -435,6 +446,7 @@ export class Arena {
   nearestNode(p) {
     let best = null, bd = Infinity;
     for (const n of this.nodes) {
+      if (n.gone) continue; // on a platform that has fallen
       const dy = Math.abs(n.p.y - p.y), d = Math.hypot(n.p.x - p.x, n.p.z - p.z) + dy * 4 + (dy > 1.5 ? 50 : 0);
       if (d < bd) { bd = d; best = n; }
     }
@@ -449,6 +461,7 @@ export class Arena {
       open.sort((a, b) => (dist.get(a) + a.p.distanceTo(g.p)) - (dist.get(b) + b.p.distanceTo(g.p)));
       const u = open.shift(); if (u === g) break; if (done.has(u)) continue; done.add(u);
       for (const e of u.edges) {
+        if (e.to.gone) continue;
         const nd = dist.get(u) + u.p.distanceTo(e.to.p);
         if (nd < (dist.get(e.to) ?? Infinity)) { dist.set(e.to, nd); prev.set(e.to, { n: u, type: e.type }); open.push(e.to); }
       }
@@ -490,5 +503,33 @@ export class Arena {
     }
     return best;
   }
-  update(t) { for (const f of this.anim) f(t); }
+  // ---------- crumbling platforms (Last Blade Standing) ----------
+  /** Show (or clear, with -1) the red "about to fall" glow on a platform. */
+  warnPlatform(i) {
+    for (const p of this.plats) if (p.warn && p.i !== i) { this.scene.remove(p.warn); p.warn.geometry.dispose(); p.warn = null; }
+    const p = this.plats[i]; if (!p || p.gone || p.warn) return;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(p.w + 0.3, 0.12, p.d + 0.3), new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.35, depthWrite: false }));
+    m.position.set(p.x, p.y + 0.07, p.z); this.scene.add(m); p.warn = m;
+    this.anim.push((t) => { if (p.warn === m) m.material.opacity = 0.2 + 0.25 * (0.5 + 0.5 * Math.sin(t * 14)); });
+  }
+  /** Remove a platform: it stops being solid, its pads and waypoints go, and it falls into the clouds. */
+  dropPlatform(i) {
+    const p = this.plats[i]; if (!p || p.gone) return;
+    p.gone = true; this.dirty = true;
+    if (p.warn) { this.scene.remove(p.warn); p.warn = null; }
+    const dead = new Set(p.boxes);
+    this.boxes = this.boxes.filter((b) => !dead.has(b));
+    const falling = [...p.meshes];
+    for (const pad of this.pads) if (pad.from === i || pad.to === i) { pad.gone = true; falling.push(...pad.meshes); }
+    this.pads = this.pads.filter((pad) => !pad.gone);
+    for (const n of this.nodes) if (n.plat === i || n.to === i) n.gone = true;
+    let v = 0;
+    this.anim.push((t, dt) => {
+      if (!falling.length) return;
+      v += 18 * (dt || 1 / 60);
+      for (const m of falling) { m.position.y -= v * (dt || 1 / 60); m.rotation.z += 0.002; }
+      if (falling[0].position.y < -200) { for (const m of falling) { this.scene.remove(m); } falling.length = 0; }
+    });
+  }
+  update(t) { const dt = this.lastT ? Math.min(0.1, t - this.lastT) : 0; this.lastT = t; for (const f of this.anim) f(t, dt); }
 }

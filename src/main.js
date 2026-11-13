@@ -4,6 +4,7 @@ import { Fighter, PALETTE, GUARD } from './fighter.js';
 import { bakeMeshes, Pieces, Particles } from './slice.js';
 import { sfx, ensureAudio, setListener, setVolume } from './audio.js';
 import * as net from './net.js';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js';
 
 // ---------- settings ----------
 const store = {
@@ -29,11 +30,13 @@ window.addEventListener('resize', resize); resize();
 
 let arena = new Arena(scene, settings.quality, 'spire');
 // switch maps (between matches): drop the old one and build the new
-function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id) return; arena.dispose(); arena = new Arena(scene, settings.quality, id); }
+function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id && !arena.dirty) return; // (also rebuild after platforms have crumbled)
+  arena.dispose(); arena = new Arena(scene, settings.quality, id); }
 const ground = (x, z, y) => arena.groundHeight(x, z, y);
 const blood = new Particles(scene, ground, { color: 0x8a0a10, size: 0.07, decals: true, max: 2400 });
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
 const pieces = new Pieces(scene, ground, blood);
+const fx = new ModeFx(scene); // throne, shrines, heads
 
 // ---------- constants ----------
 const G = 24, JUMP_V = 8.8, WALK = 12.5, DASH_V = 34, DASH_T = 0.38, CUT_SPD = 7, RAD = 0.38, HGT = 1.8;
@@ -57,7 +60,7 @@ const PATTERNS = [
 // ---------- session ----------
 const S = {
   phase: 'menu', mode: 'ffa', map: 'spire', bots: 5, diff: 1, host: true, online: false, pub: true,
-  myId: 'host', roster: [], timeLeft: FFA_TIME, wave: 0, waveT: 3, waveActive: false, queue: 0, spawnT: 0, seq: 0, paused: false,
+  myId: 'host', roster: [], obj: null, timeLeft: FFA_TIME, wave: 0, waveT: 3, waveActive: false, queue: 0, spawnT: 0, seq: 0, paused: false,
 };
 const fighters = new Map();
 let me = null;
@@ -73,6 +76,7 @@ function makeFighter(info) {
   const claw = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshStandardMaterial({ color: 0x9aa4ae, metalness: 0.8, roughness: 0.3 }));
   rope.visible = claw.visible = false; scene.add(rope); scene.add(claw);
   f.rope = rope; f.claw = claw;
+  f.crown = makeCrown(); f.crown.visible = false; f.group.add(f.crown); // worn by the juggernaut
   fighters.set(info.id, f);
   return f;
 }
@@ -84,6 +88,7 @@ function dropFighter(id) {
 function syncFighters() {
   for (const r of S.roster) if (!fighters.has(r.id)) makeFighter(r);
   for (const id of [...fighters.keys()]) if (!S.roster.some((r) => r.id === id)) dropFighter(id);
+  for (const r of S.roster) { const f = fighters.get(r.id); if (f) f.team = r.team; } // teams can change mid-match (Juggernaut)
   me = fighters.get(S.myId) || null;
 }
 function clearWorld() {
@@ -435,8 +440,9 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     const kr = kId ? rosterGet(kId) : null, vr = rosterGet(vId);
     if (kr && kId !== vId) { kr.k++; kr.streak = (kr.streak || 0) + 1; } // streak: kills since your last death (sets blade length)
     if (vr) { vr.d++; vr.streak = 0; } // dying puts your blade back to its starting length
-    if (S.mode === 'ffa') v.respawnAt = now() + 3;
-    else v.respawnAt = v.isBot ? Infinity : Infinity;
+    // respawn in 3 s, except Horde (next wave) and Last Blade Standing (no respawns at all)
+    v.respawnAt = S.mode === 'horde' || S.mode === 'lbs' ? Infinity : now() + 3;
+    modeOnKill(v, vId, kId);
     if (v.isBot && S.mode === 'horde') setTimeout(() => { S.roster = S.roster.filter((r) => r.id !== vId); syncFighters(); sendRoster(); }, 4000);
     sendRoster();
     checkEnd();
@@ -449,10 +455,12 @@ const deathAt = new THREE.Vector3(); let deathBy = '';
 function spawnPoint(f) {
   let best = null, bs = -Infinity;
   for (const sp of arena.spawns) {
+    if (arena.plats[sp.plat]?.gone) continue; // that platform has fallen
     let md = 60;
     for (const g of fighters.values()) if (g !== f && g.alive && isEnemy(f, g)) md = Math.min(md, g.pos.distanceTo(sp));
     // big map: come back in near the action (about 18 m from the nearest enemy) so brawls grow; small map: far away
-    const sc = (arena.mapId === 'plateaus' ? -Math.abs(Math.min(md, 60) - 18) : md) + Math.random() * 6;
+    // (Last Blade Standing has no respawns, so everyone starts spread out instead)
+    const sc = (arena.mapId === 'plateaus' && S.mode !== 'lbs' ? -Math.abs(Math.min(md, 60) - 18) : md) + Math.random() * 6;
     if (sc > bs) { bs = sc; best = sp; }
   }
   return best.clone();
@@ -482,6 +490,8 @@ function targetCost(b, g) {
     let crowd = 0; for (const o of fighters.values()) if (o.alive && o !== b && o !== g && o.plat === pg) crowd++;
     d -= crowd * 20;
   }
+  if (S.obj && S.mode === 'koth' && S.obj.throne >= 0 && pg === S.obj.throne) d -= 40; // fight whoever holds the throne
+  if (S.obj && S.mode === 'lbs' && S.obj.warn >= 0 && pg === S.obj.warn) d += 40; // don't chase onto a platform about to fall
   return d;
 }
 function nearestEnemy(b) {
@@ -548,7 +558,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     let p = b.landOn;
     if (!p) { // free swing or a fall: the nearest platform we could dash onto
       let bd = Infinity;
-      for (const q of arena.plats) { const d = rimDist(q, b.pos); if (d < 15 && q.y <= b.pos.y + 4 && q.y > b.pos.y - 14 && d < bd) { bd = d; p = q; } }
+      for (const q of arena.plats) { if (q.gone) continue; const d = rimDist(q, b.pos); if (d < 15 && q.y <= b.pos.y + 4 && q.y > b.pos.y - 14 && d < bd) { bd = d; p = q; } }
     }
     if (p && !insidePlat(p, b.pos, -1)) {
       const short = !willLand(b, p);
@@ -638,7 +648,7 @@ function botSwingTo(b, tp, why) {
   return false;
 }
 const insidePlat = (p, q, m) => Math.abs(q.x - p.x) < p.w / 2 + m && Math.abs(q.z - p.z) < p.d / 2 + m;
-const platUnder = (q) => { let best = null; for (const p of arena.plats) if (insidePlat(p, q, 0.4) && p.y <= q.y + 0.6 && (!best || p.y > best.y)) best = p; return best; };
+const platUnder = (q) => { let best = null; for (const p of arena.plats) if (!p.gone && insidePlat(p, q, 0.4) && p.y <= q.y + 0.6 && (!best || p.y > best.y)) best = p; return best; };
 function rimDist(p, q) { const cx = Math.max(p.x - p.w / 2, Math.min(q.x, p.x + p.w / 2)), cz = Math.max(p.z - p.d / 2, Math.min(q.z, p.z + p.d / 2)); return Math.hypot(cx - q.x, cz - q.z); }
 // the point on a platform's top lip closest to q (its top slab's side face)
 function rimPoint(p, q) {
@@ -659,7 +669,9 @@ function botThink(b, dt) {
     if (!b.target || !b.target.alive || !nb || targetCost(b, nb) < targetCost(b, b.target) - 15) b.target = nb;
     b.think = 1.5 + Math.random();
   }
-  const t = b.target;
+  let t = b.target;
+  const obj = botObjective(b); // the mode's objective: throne, heads, shrine, or away from a crumbling platform
+  if (obj && (!t || obj.flee || t.pos.distanceTo(b.pos) > obj.engage)) t = obj;
   const wish = { x: 0, z: 0 }; let jump = false, sprint = false;
   if (!t) { b.yaw += dt * 0.3; return { wish, jump, sprint }; }
   const dx = t.pos.x - b.pos.x, dz = t.pos.z - b.pos.z, dy = t.pos.y - b.pos.y, dh = Math.hypot(dx, dz);
@@ -674,7 +686,7 @@ function botThink(b, dt) {
   if (g) return g;
   // two bots on different platforms hunting each other: one holds its ground and lets the other come
   // (also: a bot that just arrived on a platform holds it for a few seconds instead of leaving straight away)
-  if (b.onGround && b.plat != null && t.plat != null && b.plat !== t.plat && ((t.isBot && t.target === b && b.id < t.id) || b.stayUntil > now())) {
+  if (b.onGround && b.plat != null && t.plat != null && b.plat !== t.plat && !t.flee && ((t.isBot && t.target === b && b.id < t.id) || b.stayUntil > now())) {
     const p = arena.plats[b.plat], cx = p.x - b.pos.x, cz = p.z - b.pos.z, cl = Math.hypot(cx, cz);
     if (cl > 2) { wish.x = cx / cl * 0.5; wish.z = cz / cl * 0.5; }
     return { wish, jump, sprint };
@@ -682,7 +694,7 @@ function botThink(b, dt) {
   // where to go
   let goal = t.pos, padGoal = false;
   const reach = b.bladeLen + 0.5; // how far this bot's sword reaches from its body
-  const close = dh < reach + 1.1 && Math.abs(dy) < 1.3 + b.bladeLen * 0.5;
+  const close = t.fake ? dh < 0.6 && Math.abs(dy) < 1.5 : dh < reach + 1.1 && Math.abs(dy) < 1.3 + b.bladeLen * 0.5;
   if (!close) {
     const direct = Math.abs(dy) < 0.9 && dh < 25 && arena.directPath(b.pos, t.pos);
     if (direct) b.path = null;
@@ -709,7 +721,7 @@ function botThink(b, dt) {
     const fx = dx / (dh || 1), fz = dz / (dh || 1);
     const back = dh < Math.min(1.5, reach * 0.6) ? -0.7 : dh > reach * 0.85 ? 0.6 : 0;
     wish.x = fx * back + -fz * b.strafe * 0.6; wish.z = fz * back + fx * b.strafe * 0.6;
-    if (!b.anim && b.atkCd <= 0 && b.stagger <= 0 && Math.abs(da) < 0.6) {
+    if (!t.fake && !b.anim && b.atkCd <= 0 && b.stagger <= 0 && Math.abs(da) < 0.6) {
       const pat = PATTERNS[(Math.random() * PATTERNS.length) | 0];
       b.anim = { phase: 'wind', t: 0, dur: D.wind * (0.85 + Math.random() * 0.3), s0: { x: b.s.x, y: b.s.y }, from: pat[0], to: pat[1] };
       b.atkCd = D.cd[0] + Math.random() * (D.cd[1] - D.cd[0]);
@@ -746,13 +758,14 @@ function botThink(b, dt) {
 }
 
 // ---------- host: match flow ----------
+const coop = () => S.mode === 'horde';
 function newRosterEntry(id, name, human) {
   const used = new Set(S.roster.map((r) => r.col));
   let col = 0; while (used.has(col) && col < 20) col++;
-  return { id, name, human, col, team: S.mode === 'ffa' ? id : (human ? 'H' : 'R'), k: 0, d: 0, streak: 0, horde: !human && S.mode === 'horde' };
+  return { id, name, human, col, team: coop() ? (human ? 'H' : 'R') : id, k: 0, d: 0, streak: 0, pts: 0, carry: 0, horde: !human && coop() };
 }
 function fillBots() {
-  if (S.mode !== 'ffa') return; // horde bots come and go with the waves
+  if (coop()) return; // horde bots come and go with the waves
   const humans = S.roster.filter((r) => r.human).length;
   const want = Math.max(0, Math.min(S.bots, MAX_PLAYERS - humans));
   let bots = S.roster.filter((r) => !r.human);
@@ -763,15 +776,19 @@ function fillBots() {
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
   useMap(S.map);
-  clearWorld();
-  if (S.mode === 'horde') S.roster = S.roster.filter((r) => r.human);
-  for (const r of S.roster) { r.k = 0; r.d = 0; r.streak = 0; r.team = S.mode === 'ffa' ? r.id : (r.human ? 'H' : 'R'); r.horde = !r.human && S.mode === 'horde'; }
+  clearWorld(); fx.clear();
+  if (coop()) S.roster = S.roster.filter((r) => r.human);
+  for (const r of S.roster) { r.k = 0; r.d = 0; r.streak = 0; r.pts = 0; r.carry = 0; r.team = coop() ? (r.human ? 'H' : 'R') : r.id; r.horde = !r.human && coop(); }
   fillBots();
-  S.timeLeft = FFA_TIME; S.wave = 0; S.waveT = 3; S.waveActive = false; S.queue = 0; S.ended = false;
+  S.timeLeft = FFA_TIME; S.wave = 0; S.waveT = 3; S.waveActive = false; S.queue = 0; S.ended = false; S.lbsLive = false;
+  initObjective();
   syncFighters();
   net.broadcast({ t: 'start', mode: S.mode, map: S.map, list: S.roster });
   enterGame();
-  for (const f of fighters.values()) if (S.mode === 'ffa' || !f.isBot) hostSpawn(f);
+  for (const f of fighters.values()) if (!coop() || !f.isBot) hostSpawn(f);
+  if (S.mode === 'jugg') { const all = [...fighters.values()]; setJugg(all[(Math.random() * all.length) | 0].id); }
+  S.lbsLive = true;
+  sendObj();
   if (S.online) net.dirSetRoom(roomInfo());
 }
 function checkEnd() {
@@ -779,23 +796,29 @@ function checkEnd() {
   if (S.mode === 'ffa') {
     const top = [...S.roster].sort((a, b) => b.k - a.k)[0];
     if ((top && top.k >= FFA_KILLS) || S.timeLeft <= 0) endMatch();
+  } else if (POINT_MODES.has(S.mode)) {
+    const top = [...S.roster].sort((a, b) => (b.pts || 0) - (a.pts || 0))[0];
+    if ((top && (top.pts || 0) >= MODE_GOAL[S.mode]) || S.timeLeft <= 0) endMatch();
+  } else if (S.mode === 'lbs') {
+    const alive = [...fighters.values()].filter((f) => f.alive);
+    if (S.lbsLive && alive.length <= 1) endMatch(alive[0] ? alive[0].id : null);
   } else {
     const humans = [...fighters.values()].filter((f) => !f.isBot);
     if (humans.length && humans.every((f) => !f.alive) && S.waveActive) endMatch();
   }
 }
-function endMatch() {
+function endMatch(winner) {
   S.ended = true;
-  const res = { mode: S.mode, list: S.roster, wave: S.wave };
+  const res = { mode: S.mode, list: S.roster, wave: S.wave, winner: winner || null };
   net.broadcast({ t: 'end', res });
   setTimeout(() => showEnd(res), 1500);
 }
 function hostTick(dt) {
   const t = now();
   for (const f of fighters.values()) if (!f.alive && f.respawnAt <= t) hostSpawn(f);
-  if (S.mode === 'ffa') {
-    S.timeLeft -= dt;
-    if (S.timeLeft <= 0) checkEnd();
+  if (!coop()) {
+    if (S.mode !== 'lbs') { S.timeLeft -= dt; if (S.timeLeft <= 0) checkEnd(); }
+    if (!S.ended) modeTick(dt);
   } else if (!S.ended) {
     const bots = [...fighters.values()].filter((f) => f.isBot);
     const alive = bots.filter((f) => f.alive).length;
@@ -819,6 +842,149 @@ function hostTick(dt) {
     }
   }
 }
+
+// ---------- game modes: the host runs the rules, everyone draws the objectives ----------
+const ZERO = new THREE.Vector3();
+const THRONE_TIME = 40, LBS_GRACE = 12, LBS_WARN = 5;
+const freshObj = () => ({ throne: -1, throneIn: 0, jugg: null, shrines: [], tokens: [], warn: -1, gone: [], crumbleIn: 0 });
+let until = { throne: 0, crumble: 0, warnEnd: 0 }, scoreT = 0;
+function objForSend() {
+  const o = S.obj || freshObj();
+  o.throneIn = +Math.max(0, until.throne - now()).toFixed(1); o.crumbleIn = +Math.max(0, until.crumble - now()).toFixed(1);
+  return o;
+}
+function sendObj() { const o = objForSend(); net.broadcast({ t: 'obj', o }); applyObj(o); }
+// draw the objectives (host and clients alike)
+function applyObj(o) {
+  S.obj = o;
+  if (!S.host) { until.throne = now() + (o.throneIn || 0); until.crumble = now() + (o.crumbleIn || 0); }
+  for (const i of o.gone || []) if (arena.plats[i] && !arena.plats[i].gone) arena.dropPlatform(i);
+  arena.warnPlatform(o.warn ?? -1);
+  fx.setThrone(o.throne >= 0 ? arena.plats[o.throne] : null);
+  fx.setShrines((o.shrines || []).map((s) => ({ x: s[0], y: s[1], z: s[2] })));
+  fx.setTokens(o.tokens || []);
+}
+function pickThrone(prev) {
+  let ok = arena.plats.filter((p) => !p.gone && p.i !== prev && Math.min(p.w, p.d) >= 10); // big enough to fight on
+  if (!ok.length) ok = arena.plats.filter((p) => !p.gone && p.i !== prev);
+  return ok.length ? ok[(Math.random() * ok.length) | 0].i : -1;
+}
+function initObjective() {
+  S.obj = freshObj(); until = { throne: 0, crumble: 0, warnEnd: 0 }; scoreT = 0;
+  if (S.mode === 'koth') { S.obj.throne = pickThrone(-1); until.throne = now() + THRONE_TIME; }
+  if (S.mode === 'lbs') until.crumble = now() + LBS_GRACE;
+  if (S.mode === 'hunt') { // two shrines, on big platforms as far apart as possible
+    const big = arena.plats.filter((p) => Math.min(p.w, p.d) >= 10 && p.kind !== 'hub');
+    let best = null, bd = -1;
+    for (const a of big) for (const b of big) { const d = Math.hypot(a.x - b.x, a.z - b.z); if (a !== b && d > bd) { bd = d; best = [a, b]; } }
+    S.obj.shrines = (best || arena.plats.slice(0, 2)).map((p) => [p.x, p.y, p.z, p.i]);
+  }
+}
+function throneOccupants() {
+  const p = arena.plats[S.obj.throne]; if (!p || p.gone) return [];
+  return [...fighters.values()].filter((f) => f.alive && insidePlat(p, f.pos, 0.3) && f.pos.y > p.y - 0.6 && f.pos.y < p.y + 4);
+}
+function setJugg(id) {
+  S.obj.jugg = id;
+  for (const r of S.roster) r.team = r.id === id ? 'J' : 'H'; // everyone else teams up against the juggernaut
+  syncFighters(); sendRoster(); sendObj();
+  const n = id && rosterGet(id)?.name;
+  if (n) { const s = `${n.toUpperCase()} IS THE JUGGERNAUT`; showBanner(s); net.broadcast({ t: 'banner', s }); }
+}
+function modeOnKill(v, vId, kId) {
+  const o = S.obj; if (!o) return;
+  if (S.mode === 'jugg' && vId === o.jugg) { // the crown goes to whoever cut the juggernaut down
+    const k = kId && kId !== vId ? fighters.get(kId) : null;
+    if (k && k.alive) setJugg(kId);
+    else { const alive = [...fighters.values()].filter((f) => f.alive && f.id !== vId); setJugg(alive.length ? alive[(Math.random() * alive.length) | 0].id : null); }
+  }
+  if (S.mode === 'hunt') { // drop your own head plus every head you were carrying
+    const r = rosterGet(vId), n = (r?.carry || 0) + 1;
+    if (r) r.carry = 0;
+    dropHeads(v.pos, n); sendObj();
+  }
+}
+function dropHeads(pos, n) {
+  for (let i = 0; i < n; i++) for (let tries = 0; tries < 8; tries++) {
+    const a = Math.random() * Math.PI * 2, rr = 0.6 + Math.random() * 1.8, x = pos.x + Math.cos(a) * rr, z = pos.z + Math.sin(a) * rr;
+    const g = ground(x, z, pos.y + 1);
+    if (isFinite(g) && g > pos.y - 6) { S.obj.tokens.push([++S.seq, +x.toFixed(2), +(g + 0.5).toFixed(2), +z.toFixed(2)]); break; }
+  } // (heads dropped over the void are lost)
+}
+function modeTick(dt) {
+  const o = S.obj; if (!o) return;
+  const t = now();
+  if (S.mode === 'koth') {
+    if (t >= until.throne || o.throne < 0) { o.throne = pickThrone(o.throne); until.throne = t + THRONE_TIME; showBanner('THE THRONE MOVES'); net.broadcast({ t: 'banner', s: 'THE THRONE MOVES' }); sfx.gong(); sendObj(); }
+    scoreT += dt;
+    if (scoreT >= 1) {
+      scoreT -= 1;
+      const on = throneOccupants();
+      if (on.length === 1) { const r = rosterGet(on[0].id); if (r) { r.pts = (r.pts || 0) + 1; sendRoster(); checkEnd(); } }
+    }
+  } else if (S.mode === 'jugg') {
+    const j = o.jugg ? fighters.get(o.jugg) : null;
+    if (!j) { const alive = [...fighters.values()].filter((f) => f.alive); if (alive.length) setJugg(alive[(Math.random() * alive.length) | 0].id); }
+    else if (j.alive) {
+      scoreT += dt;
+      if (scoreT >= 1) { scoreT -= 1; const r = rosterGet(j.id); if (r) { r.pts = (r.pts || 0) + 1; sendRoster(); checkEnd(); } }
+    }
+  } else if (S.mode === 'hunt') {
+    let changed = false;
+    for (const f of fighters.values()) {
+      if (!f.alive) continue;
+      const r = rosterGet(f.id); if (!r) continue;
+      for (let i = o.tokens.length - 1; i >= 0; i--) { // pick up heads you walk over
+        const k = o.tokens[i];
+        if (Math.hypot(k[1] - f.pos.x, k[3] - f.pos.z) < 1.6 && Math.abs(k[2] - 0.5 - f.pos.y) < 2) { o.tokens.splice(i, 1); r.carry = (r.carry || 0) + 1; changed = true; sfx.hookHit(f.pos); }
+      }
+      if (r.carry > 0) for (const s of o.shrines) { // bank them at a shrine
+        if (Math.hypot(s[0] - f.pos.x, s[2] - f.pos.z) < 3.5 && Math.abs(s[1] - f.pos.y) < 2.5) {
+          const msg = `${esc(r.name)} banked ${r.carry} head${r.carry > 1 ? 's' : ''}`; feed(msg); net.broadcast({ t: 'feed', s: msg });
+          r.pts = (r.pts || 0) + r.carry; r.carry = 0; changed = true; sfx.pad(f.pos);
+        }
+      }
+    }
+    if (changed) { sendObj(); sendRoster(); checkEnd(); }
+  } else if (S.mode === 'lbs') {
+    const left = arena.plats.filter((p) => !p.gone);
+    if (o.warn >= 0 && t >= until.warnEnd) { o.gone.push(o.warn); o.warn = -1; sfx.gong(); net.broadcast({ t: 'banner', s: 'A PLATFORM FALLS' }); showBanner('A PLATFORM FALLS'); sendObj(); }
+    else if (o.warn < 0 && left.length > 1 && t >= until.crumble) {
+      // the outermost platform still standing goes next (ties broken at random)
+      const pick = left.map((p) => ({ p, d: Math.hypot(p.x, p.z) + Math.random() * 6 })).sort((a, b) => b.d - a.d)[0].p;
+      o.warn = pick.i; until.warnEnd = t + LBS_WARN;
+      until.crumble = t + LBS_WARN + Math.max(5, 90 / Math.max(1, arena.plats.length - 1));
+      sendObj();
+    }
+    checkEnd();
+  }
+}
+// what a bot should go for besides fighting: the throne, a shrine or loose heads, or away from a crumbling platform
+function botObjective(b) {
+  const o = S.obj; if (!o) return null;
+  const mk = (pos, plat, engage, flee) => ({ pos, plat, engage, flee, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null });
+  if (S.mode === 'koth' && o.throne >= 0) {
+    const p = arena.plats[o.throne]; if (!p || p.gone) return null;
+    if (b.onGround && b.plat === p.i) return null; // on the throne: just fight for it
+    return mk(new THREE.Vector3(p.x, p.y, p.z), p.i, 9);
+  }
+  if (S.mode === 'lbs' && o.warn >= 0 && b.plat === o.warn) {
+    let best = null, bd = Infinity;
+    for (const p of arena.plats) { if (p.gone || p.i === o.warn) continue; const d = Math.hypot(p.x - b.pos.x, p.z - b.pos.z) + Math.abs(p.y - b.pos.y) * 2; if (d < bd) { bd = d; best = p; } }
+    return best ? mk(new THREE.Vector3(best.x, best.y, best.z), best.i, 1e9, true) : null;
+  }
+  if (S.mode === 'hunt') {
+    const carry = rosterGet(b.id)?.carry || 0;
+    if (carry > 0 && o.shrines.length) {
+      let s = null, sd = Infinity; for (const q of o.shrines) { const d = Math.hypot(q[0] - b.pos.x, q[2] - b.pos.z); if (d < sd) { sd = d; s = q; } }
+      if (carry >= 3 || sd < 25) return mk(new THREE.Vector3(s[0], s[1], s[2]), s[3], carry >= 3 ? 6 : 4);
+    }
+    let k = null, kd = 35; for (const q of o.tokens) { const d = Math.hypot(q[1] - b.pos.x, q[3] - b.pos.z) + Math.abs(q[2] - b.pos.y) * 2; if (d < kd) { kd = d; k = q; } }
+    if (k) { const pos = new THREE.Vector3(k[1], k[2] - 0.5, k[3]); return mk(pos, platUnder(pos)?.i ?? null, 7); }
+  }
+  return null;
+}
+
 
 // ---------- networking ----------
 let netT = 0;
@@ -853,11 +1019,12 @@ net.onNet({
   leave(id) {
     if (!S.host) return;
     const r = rosterGet(id); if (!r) return;
+    if (S.obj && S.obj.jugg === id) S.obj.jugg = null; // the juggernaut left: the crown goes to someone else
     toast(`${r.name} left`);
     S.roster = S.roster.filter((x) => x.id !== id);
     if (S.phase === 'game' || S.phase === 'end') fillBots();
     syncFighters();
-    for (const f of fighters.values()) if (!f.alive && f.isBot && S.mode === 'ffa' && f.respawnAt === Infinity && S.phase === 'game') f.respawnAt = now() + 1;
+    for (const f of fighters.values()) if (!f.alive && f.isBot && !coop() && S.mode !== 'lbs' && f.respawnAt === Infinity && S.phase === 'game') f.respawnAt = now() + 1;
     sendRoster(); if (S.online) net.dirSetRoom(roomInfo());
   },
   closed() { toast('The host closed the room.'); toMenu(); },
@@ -869,8 +1036,8 @@ function hostMsg(from, d) {
     const e = newRosterEntry(from, name, true); S.roster.push(e);
     if (S.phase === 'game') fillBots();
     syncFighters();
-    net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby' });
-    if (S.phase === 'game') { const f = fighters.get(from); f.respawnAt = S.mode === 'ffa' ? now() + 1 : Infinity; if (S.mode === 'horde' && !S.waveActive) f.respawnAt = now() + 1; for (const g of fighters.values()) if (g.alive) net.sendTo(from, { t: 'spawn', id: g.id, p: arr(g.pos), y: +g.yaw.toFixed(3) }); }
+    net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby', obj: S.phase === 'game' ? objForSend() : null });
+    if (S.phase === 'game') { const f = fighters.get(from); f.respawnAt = !coop() && S.mode !== 'lbs' ? now() + 1 : Infinity; if (S.mode === 'horde' && !S.waveActive) f.respawnAt = now() + 1; for (const g of fighters.values()) if (g.alive) net.sendTo(from, { t: 'spawn', id: g.id, p: arr(g.pos), y: +g.yaw.toFixed(3) }); }
     toast(`${name} joined`);
     sendRoster(); if (S.online) net.dirSetRoom(roomInfo());
     return;
@@ -886,10 +1053,10 @@ function hostMsg(from, d) {
   } else if (d.t === 'fell') { if (applyKill(from, null, null, null, null, true)) net.broadcast({ t: 'kill', v: from, k: null, fell: 1 }, from); }
 }
 function clientMsg(d) {
-  if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); syncFighters(); enterGame(); } else showLobby(); }
+  if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); if (d.obj) applyObj(d.obj); syncFighters(); enterGame(); } else showLobby(); }
   else if (d.t === 'full') { toast('That room is full.'); toMenu(); }
   else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
-  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); syncFighters(); enterGame(); }
+  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; syncFighters(); enterGame(); }
   else if (d.t === 's') {
     S.timeLeft = d.tl; S.wave = d.wv;
     for (const s of d.f) { const f = fighters.get(s[0]); if (f && f !== me) applyState(f, s.slice(1)); }
@@ -899,6 +1066,8 @@ function clientMsg(d) {
   else if (d.t === 'lobby') { S.phase = 'lobby'; clearWorld(); showLobby(); }
   else if (d.t === 'wave') { S.wave = d.n; showBanner('WAVE ' + d.n); sfx.gong(); }
   else if (d.t === 'banner') showBanner(d.s);
+  else if (d.t === 'obj') applyObj(d.o);
+  else if (d.t === 'feed') feed(d.s);
 }
 function netTick(dt) {
   if (!S.online) return;
@@ -927,8 +1096,13 @@ $('name').value = settings.name;
 $('name').addEventListener('input', () => { settings.name = $('name').value.trim().slice(0, 14); saveSettings(); });
 $('map').value = MAPS[settings.map] ? settings.map : 'spire';
 $('map').onchange = () => { settings.map = $('map').value; saveSettings(); }; // remember the map you picked
-$('soloFfa').onclick = () => startSolo('ffa');
-$('soloHorde').onclick = () => startSolo('horde');
+// mode menus (home, host, lobby) all come from the one list of modes
+for (const id of ['mode', 'hostMode', 'lobbyModeSel']) $(id).innerHTML = Object.entries(MODES).map(([k, m]) => `<option value="${k}">${m.name}</option>`).join('');
+$('mode').value = MODES[settings.mode] ? settings.mode : 'ffa';
+const showBlurb = () => { $('modeBlurb').textContent = MODES[$('mode').value].blurb; };
+$('mode').onchange = () => { settings.mode = $('mode').value; saveSettings(); $('hostMode').value = $('mode').value; showBlurb(); };
+$('hostMode').value = $('mode').value; showBlurb();
+$('playSolo').onclick = () => startSolo($('mode').value);
 $('toMp').onclick = () => { ensureAudio(); show('mp'); net.dirStart(renderRooms); };
 $('mpBack').onclick = () => { if (!S.online) net.dirStop(); show('home'); };
 let settingsBack = 'home';
@@ -958,7 +1132,7 @@ $('copyLink').onclick = () => {
   const link = location.origin + location.pathname + '?room=' + net.net.code;
   (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast('Invite link copied'), () => toast(link));
 };
-for (const id of ['lobbyModeSel', 'lobbyMap', 'lobbyBots', 'lobbyDiff']) $(id).onchange = () => { if (!S.host) return; S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; for (const r of S.roster) r.team = S.mode === 'ffa' ? r.id : 'H'; sendRoster(); if (S.online) net.dirSetRoom(roomInfo()); };
+for (const id of ['lobbyModeSel', 'lobbyMap', 'lobbyBots', 'lobbyDiff']) $(id).onchange = () => { if (!S.host) return; S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; for (const r of S.roster) r.team = coop() ? 'H' : r.id; sendRoster(); if (S.online) net.dirSetRoom(roomInfo()); };
 
 function renderRooms(rooms) {
   const el = $('rooms');
@@ -966,7 +1140,7 @@ function renderRooms(rooms) {
   el.innerHTML = '';
   for (const r of rooms) {
     const d = document.createElement('div'); d.className = 'item';
-    d.innerHTML = `<span class="grow"><b>${esc(r.name)}</b> · ${r.game === 'horde' ? 'Horde' : 'Free-for-all'} · ${esc(MAPS[r.map]?.name || 'Sky Spires')} · ${r.n}/${r.max}${r.st === 'playing' ? ' · in a match' : ''}</span>`;
+    d.innerHTML = `<span class="grow"><b>${esc(r.name)}</b> · ${esc(MODES[r.game]?.name || 'Free-for-all')} · ${esc(MAPS[r.map]?.name || 'Sky Spires')} · ${r.n}/${r.max}${r.st === 'playing' ? ' · in a match' : ''}</span>`;
     const b = document.createElement('button'); b.textContent = 'Join'; b.onclick = () => joinRoom(r.code); d.appendChild(b);
     el.appendChild(d);
   }
@@ -974,11 +1148,11 @@ function renderRooms(rooms) {
 function renderLobby() {
   if (S.phase !== 'lobby') return;
   $('lobbyCode').textContent = net.net.code || '-----';
-  $('lobbyMode').textContent = (S.mode === 'horde' ? 'Horde: everyone together against waves of oni.' : 'Free-for-all: everyone against everyone. First to ' + FFA_KILLS + ' kills.');
+  $('lobbyMode').textContent = (MODES[S.mode] || MODES.ffa).name + ': ' + (MODES[S.mode] || MODES.ffa).blurb;
   $('lobbyPlayers').innerHTML = S.roster.filter((r) => r.human).map((r) => `<div class="item"><span class="dot" style="background:${colorOf(r)}"></span><span class="grow">${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}${r.id === 'host' ? ' · host' : ''}</span></div>`).join('');
   $('lobbyHostOpts').classList.toggle('hidden', !S.host);
   $('startBtn').classList.toggle('hidden', !S.host);
-  $('lobbyWait').textContent = S.host ? 'Bots fill the empty slots in Free-for-all. Press Start when everyone is in.' : 'Waiting for the host to start…';
+  $('lobbyWait').textContent = S.host ? (coop() ? 'Press Start when everyone is in.' : 'Bots fill the empty slots. Press Start when everyone is in.') : 'Waiting for the host to start…';
   $('lobbyMapName').textContent = (MAPS[S.map] || MAPS.spire).name + ': ' + (MAPS[S.map] || MAPS.spire).blurb;
   if (S.host) { $('lobbyModeSel').value = S.mode; $('lobbyMap').value = S.map; $('lobbyBots').value = S.bots; $('lobbyDiff').value = S.diff; }
 }
@@ -1028,24 +1202,27 @@ function enterGame() {
   lockPointer();
 }
 function toMenu() {
+  fx.clear(); S.obj = null;
   S.phase = 'menu'; S.ended = false; clearWorld(); S.roster = [];
   $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
   show('home');
 }
+const ranked = (list, mode) => [...list].sort((a, b) => POINT_MODES.has(mode) ? (b.pts || 0) - (a.pts || 0) || b.k - a.k : b.k - a.k || a.d - b.d);
 function showEnd(res) {
   if (S.phase !== 'game') return;
   S.phase = 'end';
   if (document.pointerLockElement) document.exitPointerLock();
   show('end'); $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
-  const list = [...res.list].sort((a, b) => b.k - a.k || a.d - b.d);
-  if (res.mode === 'ffa') {
-    const w = list[0];
-    $('endTitle').textContent = w && w.id === S.myId ? 'Victory' : `${w ? w.name : 'Nobody'} wins`;
-    $('endSub').textContent = 'Free-for-all';
-  } else { $('endTitle').textContent = `The horde got you on wave ${res.wave}`; $('endSub').textContent = 'Horde'; }
-  const rows = list.filter((r) => res.mode === 'ffa' || r.human);
-  $('endTable').innerHTML = '<tr><th></th><th>Name</th><th>Kills</th><th>Deaths</th></tr>' + rows.map((r, i) => `<tr><td>${i + 1}</td><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}</td><td>${r.k}</td><td>${r.d}</td></tr>`).join('');
+  const list = ranked(res.list, res.mode), name = (MODES[res.mode] || MODES.ffa).name, pts = POINT_MODES.has(res.mode);
+  if (res.mode === 'horde') { $('endTitle').textContent = `The horde got you on wave ${res.wave}`; }
+  else {
+    const w = res.mode === 'lbs' ? (res.winner ? rosterGet(res.winner) || res.list.find((r) => r.id === res.winner) : null) : list[0];
+    $('endTitle').textContent = w && w.id === S.myId ? 'Victory' : res.mode === 'lbs' && !w ? 'Nobody survived' : `${w ? w.name : 'Nobody'} wins`;
+  }
+  $('endSub').textContent = name;
+  const rows = list.filter((r) => res.mode !== 'horde' || r.human);
+  $('endTable').innerHTML = `<tr><th></th><th>Name</th>${pts ? `<th>${res.mode === 'hunt' ? 'Heads' : 'Points'}</th>` : ''}<th>Kills</th><th>Deaths</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}</td>${pts ? `<td>${r.pts || 0}</td>` : ''}<td>${r.k}</td><td>${r.d}</td></tr>`).join('');
   $('againBtn').classList.toggle('hidden', S.online && !S.host);
   $('againBtn').textContent = S.online ? 'Back to lobby' : 'Play again';
 }
@@ -1059,35 +1236,57 @@ function showEnd(res) {
 
 // ---------- HUD ----------
 let hudT = 0;
+const clock = (t) => { t = Math.max(0, t); return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`; };
 function updateHud(dt) {
   hudT -= dt; if (hudT > 0) return; hudT = 0.1;
   if (S.phase !== 'game') return;
-  const mr = rosterGet(S.myId);
-  if (S.mode === 'ffa') {
-    const top = [...S.roster].sort((a, b) => b.k - a.k)[0];
-    const t = Math.max(0, S.timeLeft), m = Math.floor(t / 60), s = Math.floor(t % 60);
-    $('topbar').innerHTML = `${m}:${String(s).padStart(2, '0')} · First to ${FFA_KILLS} · Leader: <span style="color:${top ? colorOf(top) : '#fff'}">${top ? esc(top.name) : '-'}</span> ${top ? top.k : 0}`;
+  const mr = rosterGet(S.myId), o = S.obj || {}, pts = POINT_MODES.has(S.mode);
+  const top = ranked(S.roster, S.mode)[0];
+  const lead = top ? `Leader: <span style="color:${colorOf(top)}">${esc(top.name)}</span> ${pts ? top.pts || 0 : top.k}` : '';
+  let status = '';
+  if (S.mode === 'ffa') $('topbar').innerHTML = `${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
+  else if (S.mode === 'koth') {
+    $('topbar').innerHTML = `King of the Platform · ${clock(S.timeLeft)} · Throne moves in ${Math.ceil(Math.max(0, until.throne - now()))} s · ${lead}/${MODE_GOAL.koth}`;
+    if (me && me.alive && S.obj && o.throne >= 0) {
+      const p = arena.plats[o.throne], on = p && insidePlat(p, me.pos, 0.3) && me.pos.y > p.y - 0.6 && me.pos.y < p.y + 4;
+      if (on) status = throneOccupants().length > 1 ? 'CONTESTED: clear the throne' : 'HOLDING THE THRONE · +1 a second';
+    }
+  } else if (S.mode === 'jugg') {
+    const j = o.jugg && rosterGet(o.jugg);
+    $('topbar').innerHTML = `Juggernaut · ${clock(S.timeLeft)} · Juggernaut: ${j ? `<span style="color:${colorOf(j)}">${esc(j.name)}</span>` : '-'} · ${lead}/${MODE_GOAL.jugg}`;
+    if (me && me.alive) status = o.jugg === S.myId ? 'YOU ARE THE JUGGERNAUT · survive to score' : 'Hunt the crowned juggernaut';
+  } else if (S.mode === 'lbs') {
+    const alive = [...fighters.values()].filter((f) => f.alive).length;
+    const falls = o.warn >= 0 ? '<span style="color:var(--red)">A platform is falling!</span>' : `Next platform falls in ${Math.ceil(Math.max(0, until.crumble - now()))} s`;
+    $('topbar').innerHTML = `Last Blade Standing · ${alive} alive · ${falls}`;
+    if (me && me.alive && o.warn >= 0 && me.plat === o.warn) status = '<span style="color:var(--red)">YOUR PLATFORM IS FALLING · get off!</span>';
+  } else if (S.mode === 'hunt') {
+    $('topbar').innerHTML = `Headhunter · ${clock(S.timeLeft)} · ${lead}/${MODE_GOAL.hunt} banked`;
+    if (me && me.alive && mr && mr.carry) status = `CARRYING ${mr.carry} HEAD${mr.carry > 1 ? 'S' : ''} · bank them at a shrine`;
   } else {
     const left = [...fighters.values()].filter((f) => f.isBot && f.alive).length + (S.host ? S.queue : 0);
     $('topbar').textContent = `Wave ${Math.max(1, S.wave)} · ${left} oni left`;
   }
-  $('myscore').innerHTML = `${mr ? mr.k : 0}<small>kills · ${mr ? mr.d : 0} deaths · blade ${bladeFor(mr?.streak).toFixed(2)} m</small>`;
+  const big = pts ? (mr?.pts || 0) : (mr ? mr.k : 0);
+  const unit = S.mode === 'hunt' ? 'banked' : pts ? 'points' : 'kills';
+  $('myscore').innerHTML = `${big}<small>${unit}${pts ? ` · ${mr ? mr.k : 0} kills` : ''} · ${mr ? mr.d : 0} deaths · blade ${(me ? me.bladeLen : bladeFor(mr?.streak)).toFixed(2)} m</small>`;
   if (me) {
     $('stamBar').style.width = me.stam + '%';
     $('pipDash').classList.toggle('on', me.dashCd <= 0 && me.stam >= 22);
     $('pipHook').classList.toggle('on', (me.hookCd || 0) <= 0);
     let c = '';
     if (!me.alive) {
-      if (S.mode === 'ffa') { const w = Math.max(0, Math.ceil((me.respawnAt === Infinity ? 3 - (now() - (me.diedAt || 0)) : me.respawnAt - now()))); c = `${esc(deathBy)}<small>Back in ${w}…</small>`; }
-      else c = `${esc(deathBy)}<small>You'll be back for the next wave</small>`;
-    }
+      if (S.mode === 'horde') c = `${esc(deathBy)}<small>You'll be back for the next wave</small>`;
+      else if (S.mode === 'lbs') c = `${esc(deathBy)}<small>You're out. Watching the rest fight it out…</small>`;
+      else { const w = Math.max(0, Math.ceil((me.respawnAt === Infinity ? 3 - (now() - (me.diedAt || 0)) : me.respawnAt - now()))); c = `${esc(deathBy)}<small>Back in ${w}…</small>`; }
+    } else if (status) c = `<small style="font-size:16px;color:var(--gold)">${status}</small>`;
     $('center').innerHTML = c;
     $('bladeHint').classList.toggle('hidden', !(mouse.lmb && me.alive));
   }
   $('board').classList.toggle('hidden', !keys.Tab);
   if (keys.Tab) {
-    const list = [...S.roster].filter((r) => S.mode === 'ffa' || r.human).sort((a, b) => b.k - a.k);
-    $('board').innerHTML = '<table><tr><th>Name</th><th>Kills</th><th>Deaths</th></tr>' + list.map((r) => `<tr><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.human ? '' : ' <span class="muted">bot</span>'}</td><td>${r.k}</td><td>${r.d}</td></tr>`).join('') + '</table>';
+    const list = ranked(S.roster, S.mode).filter((r) => S.mode !== 'horde' || r.human);
+    $('board').innerHTML = `<table><tr><th>Name</th>${pts ? `<th>${S.mode === 'hunt' ? 'Banked' : 'Points'}</th>` : ''}${S.mode === 'hunt' ? '<th>Carrying</th>' : ''}<th>Kills</th><th>Deaths</th></tr>` + list.map((r) => `<tr><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.human ? '' : ' <span class="muted">bot</span>'}${S.obj && S.obj.jugg === r.id ? ' 👑' : ''}</td>${pts ? `<td>${r.pts || 0}</td>` : ''}${S.mode === 'hunt' ? `<td>${r.carry || 0}</td>` : ''}<td>${r.k}</td><td>${r.d}</td></tr>`).join('') + '</table>';
   }
 }
 
@@ -1141,7 +1340,7 @@ function frame(t) {
   tick(rdt, t / 1000);
 }
 function tick(rdt, tt) {
-  arena.update(tt);
+  arena.update(tt); fx.update(tt);
   if (S.phase === 'game' && !S.paused) {
     if (S.host) hostTick(rdt);
     for (const f of fighters.values()) {
@@ -1166,7 +1365,9 @@ function tick(rdt, tt) {
     pushApart();
     for (const f of fighters.values()) {
       if (!f.alive) { f.updateTrail(tt); continue; }
-      const want = bladeFor(rosterGet(f.id)?.streak);
+      const isJugg = S.mode === 'jugg' && S.obj && S.obj.jugg === f.id;
+      const want = isJugg ? BLADE_MAX : bladeFor(rosterGet(f.id)?.streak); // the juggernaut always carries the longest blade
+      f.crown.visible = isJugg;
       f.bladeLen += (want - f.bladeLen) * Math.min(1, rdt * 4);
       if (f.onGround) { const p = platUnder(f.pos); if (p) f.plat = p.i; } // which platform they're on
       f.pose(rdt);
