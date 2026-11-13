@@ -34,9 +34,12 @@ const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravi
 const pieces = new Pieces(scene, ground, blood);
 
 // ---------- constants ----------
-const G = 24, JUMP_V = 8.8, WALK = 5.8, SPRINT = 9.4, DASH_V = 22, DASH_T = 0.2, CUT_SPD = 7, RAD = 0.38, HGT = 1.8;
+const G = 24, JUMP_V = 8.8, WALK = 9.4, DASH_V = 22, DASH_T = 0.2, CUT_SPD = 7, RAD = 0.38, HGT = 1.8;
 const PULL = 34, REEL = 11, HOOK_MAX = 60;
 const FFA_KILLS = 15, FFA_TIME = 300, MAX_PLAYERS = 8;
+// every kill makes your sword longer (and your reach with it)
+const BLADE_BASE = 1.12, BLADE_PER_KILL = 0.14, BLADE_MAX = 4.0;
+const bladeFor = (k) => Math.min(BLADE_MAX, BLADE_BASE + (k || 0) * BLADE_PER_KILL);
 const BOT_NAMES = ['Kaito', 'Ren', 'Hana', 'Jiro', 'Mika', 'Sora', 'Yuki', 'Taro', 'Aki', 'Nobu', 'Kenji', 'Rin', 'Daichi', 'Emi'];
 const DIFF = [
   { wind: 0.62, cd: [1.0, 1.8], evade: 0.12, dash: 0.12, turn: 5 },
@@ -125,7 +128,7 @@ window.addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (['Space', 'Tab'].includes(e.code)) e.preventDefault();
   if (S.phase !== 'game' || !me) return;
-  if (e.code === 'Space' && me.alive && locked) tryDash(me, lookDir(me, new THREE.Vector3()));
+  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) tryDash(me, lookDir(me, new THREE.Vector3()));
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.lmb = false; if (me && me.hook) releaseHook(me, false); });
@@ -195,8 +198,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
     if (f.dashT <= 0) f.vel.multiplyScalar(0.45);
   } else {
     if (f.onGround && !f.hook) {
-      let spd = WALK;
-      if (sprint && wl > 0.1 && f.stam > 0) { spd = SPRINT; f.stam -= 26 * dt; f.stamDelay = 0.5; }
+      const spd = WALK;
       const k = Math.min(1, 16 * dt);
       f.vel.x += (wish.x * spd - f.vel.x) * k; f.vel.z += (wish.z * spd - f.vel.z) * k;
     } else { // air: keep momentum, steer a little
@@ -305,7 +307,7 @@ function bladeSweep(f, dt) {
   if (tipSpd < CUT_SPD || !f.armed) return;
   for (const g of fighters.values()) {
     if (g === f || !g.alive || g.prot > 0 || !isEnemy(f, g)) continue;
-    if (g.pos.distanceToSquared(f.pos) > 20) continue;
+    if (g.pos.distanceToSquared(f.pos) > (f.bladeLen + 3) ** 2) continue;
     _a0.copy(g.pos); _a0.y += 0.15; _a1.copy(g.pos); _a1.y += 1.8;
     let parry = null, hit = null;
     for (let k = 0; k <= 6; k++) {
@@ -326,7 +328,7 @@ function bladeSweep(f, dt) {
   // slice the pieces lying around, too
   for (const p of [...pieces.list]) {
     if (p.cutCd > 0 || p.r < 0.06) continue;
-    const c = p.mesh.position; if (c.distanceToSquared(f.pos) > 9) continue;
+    const c = p.mesh.position; if (c.distanceToSquared(f.pos) > (f.bladeLen + 2) ** 2) continue;
     for (let k = 0; k <= 5; k++) {
       const t = 0.15 + 0.85 * k / 5;
       _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
@@ -395,7 +397,10 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
   feed(fell ? `${vn} fell into the sky` : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
   if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? 'You fell' : `Cut down by ${kn}`; }
-  if (kId === S.myId) { shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1; }
+  if (kId === S.myId) {
+    shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
+    if (bladeFor((rosterGet(S.myId)?.k || 0) + 1) > bladeFor(rosterGet(S.myId)?.k)) showBanner('BLADE GROWS');
+  }
   if (S.host) {
     const kr = kId ? rosterGet(kId) : null, vr = rosterGet(vId);
     if (kr && kId !== vId) kr.k++;
@@ -462,7 +467,8 @@ function botThink(b, dt) {
   b.pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(dy, Math.max(0.5, dh))));
   // where to go
   let goal = t.pos;
-  const close = dh < 2.7 && Math.abs(dy) < 1.3;
+  const reach = b.bladeLen + 0.5; // how far this bot's sword reaches from its body
+  const close = dh < reach + 1.1 && Math.abs(dy) < 1.3 + b.bladeLen * 0.5;
   if (!close) {
     const direct = Math.abs(dy) < 0.9 && dh < 25 && arena.directPath(b.pos, t.pos);
     if (direct) b.path = null;
@@ -480,7 +486,7 @@ function botThink(b, dt) {
     // fighting distance: circle and keep a little space
     b.strafeT = (b.strafeT || 0) - dt; if (b.strafeT <= 0) { b.strafe = Math.random() < 0.5 ? -1 : 1; b.strafeT = 0.8 + Math.random() * 1.2; }
     const fx = dx / (dh || 1), fz = dz / (dh || 1);
-    const back = dh < 1.5 ? -0.7 : dh > 2.2 ? 0.6 : 0;
+    const back = dh < Math.min(1.5, reach * 0.6) ? -0.7 : dh > reach * 0.85 ? 0.6 : 0;
     wish.x = fx * back + -fz * b.strafe * 0.6; wish.z = fz * back + fx * b.strafe * 0.6;
     if (!b.anim && b.atkCd <= 0 && b.stagger <= 0 && Math.abs(da) < 0.6) {
       const pat = PATTERNS[(Math.random() * PATTERNS.length) | 0];
@@ -829,7 +835,7 @@ function updateHud(dt) {
     const left = [...fighters.values()].filter((f) => f.isBot && f.alive).length + (S.host ? S.queue : 0);
     $('topbar').textContent = `Wave ${Math.max(1, S.wave)} · ${left} oni left`;
   }
-  $('myscore').innerHTML = `${mr ? mr.k : 0}<small>kills · ${mr ? mr.d : 0} deaths</small>`;
+  $('myscore').innerHTML = `${mr ? mr.k : 0}<small>kills · ${mr ? mr.d : 0} deaths · blade ${bladeFor(mr?.k).toFixed(2)} m</small>`;
   if (me) {
     $('stamBar').style.width = me.stam + '%';
     $('pipDash').classList.toggle('on', me.dashCd <= 0 && me.stam >= 22);
@@ -903,7 +909,7 @@ function tick(rdt, tt) {
         const st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
         const fx = -Math.sin(f.yaw), fz = -Math.cos(f.yaw), rx = Math.cos(f.yaw), rz = -Math.sin(f.yaw);
         let wx = fx * fw + rx * st, wz = fz * fw + rz * st; const l = Math.hypot(wx, wz); if (l > 0) { wx /= l; wz /= l; }
-        stepFighter(f, rdt, { x: wx, z: wz }, keys.ShiftLeft || keys.ShiftRight, keys.KeyE && locked);
+        stepFighter(f, rdt, { x: wx, z: wz }, false, keys.Space && locked);
         if (f.hook && !mouse.rmb) releaseHook(f, true);
         updateSword(f, rdt);
       } else if (S.host && f.isBot) {
@@ -915,6 +921,8 @@ function tick(rdt, tt) {
     pushApart();
     for (const f of fighters.values()) {
       if (!f.alive) { f.updateTrail(tt); continue; }
+      const want = bladeFor(rosterGet(f.id)?.k);
+      f.bladeLen += (want - f.bladeLen) * Math.min(1, rdt * 4);
       f.pose(rdt);
       if (isLocal(f)) {
         bladeSweep(f, rdt); dashSweep(f);

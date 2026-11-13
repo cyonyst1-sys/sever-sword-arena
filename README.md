@@ -13,11 +13,14 @@ A third-person 3D sword arena that runs in the browser. Swing your sword with th
 | Hold left mouse + move the mouse | Swing the sword in the direction you drag. The camera holds still while you swing |
 | Tap left mouse | Quick slash (alternates left and right) |
 | Hold right mouse | Grappling hook: grabs whatever is in front of you (with a little aim assist) and reels you in. Swing on it, and let go to fly off with your momentum |
-| Space | Dash where you're looking. Cuts through anyone in your path |
-| E | Jump |
-| Shift | Sprint |
+| Shift | Dash where you're looking. Cuts through anyone in your path |
+| Space | Jump |
 | Tab | Scoreboard |
 | Esc | Menu |
+
+Everyone moves at full speed all the time, so there's no sprint.
+
+**Your sword grows with every kill:** it starts at 1.12 m and gets 14 cm longer per kill (up to 4 m), so your reach grows as you rack up kills. Your blade length shows under your score. Lengths reset each match.
 
 The crosshair glows cyan when the hook has something to grab. Swords that cross clash and knock both fighters back, so holding your blade in the way blocks a swing.
 

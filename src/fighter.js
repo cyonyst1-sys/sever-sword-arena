@@ -83,6 +83,7 @@ export class Fighter {
     this.hand = new THREE.Vector3(); this.tip = new THREE.Vector3(); this.prevHand = new THREE.Vector3(); this.prevTip = new THREE.Vector3();
     this.prevPos = new THREE.Vector3(); this.noCut = true; this.swishCd = 0;
     this.handL = new THREE.Vector3(); this.hook = null; this.anim = null; this.armed = true;
+    this.bladeLen = BLADE_LEN; // grows with kills
     this.edge = new THREE.Vector3(1, 0, 0); this.lastD = new THREE.Vector3(0, 0, -1);
     this.group = new THREE.Group();
     this.meshes = [];
@@ -212,11 +213,12 @@ export class Fighter {
     this.lastD.copy(d);
     seg(P.grip, _a.copy(hand).addScaledVector(d, -0.12), _b.copy(hand).addScaledVector(d, 0.08), 0.022);
     boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, 0.09), 0.13, 0.025, 0.07);
-    boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, 0.1 + BLADE_LEN / 2), 0.05, BLADE_LEN, 0.012);
+    const bl = this.bladeLen, bw = 0.05 + (bl - BLADE_LEN) * 0.012;
+    boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, 0.1 + bl / 2), bw, bl, 0.012 + (bl - BLADE_LEN) * 0.003);
     // world hand/tip for hit tests
     g.updateMatrixWorld(true);
     this.hand.copy(hand).applyMatrix4(g.matrixWorld);
-    this.tip.copy(hand).addScaledVector(d, 0.1 + BLADE_LEN).applyMatrix4(g.matrixWorld);
+    this.tip.copy(hand).addScaledVector(d, 0.1 + bl).applyMatrix4(g.matrixWorld);
     this.handL.copy(handL).applyMatrix4(g.matrixWorld);
     if (this.label) this.label.visible = this.alive;
   }

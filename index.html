@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261112223900">
+<meta name="build" content="20261112230013">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -98,12 +98,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "./src/main.js": "./src/main.js?v=20261112223900",
-  "./src/arena.js": "./src/arena.js?v=20261112223900",
-  "./src/fighter.js": "./src/fighter.js?v=20261112223900",
-  "./src/slice.js": "./src/slice.js?v=20261112223900",
-  "./src/audio.js": "./src/audio.js?v=20261112223900",
-  "./src/net.js": "./src/net.js?v=20261112223900"
+  "./src/main.js": "./src/main.js?v=20261112230013",
+  "./src/arena.js": "./src/arena.js?v=20261112230013",
+  "./src/fighter.js": "./src/fighter.js?v=20261112230013",
+  "./src/slice.js": "./src/slice.js?v=20261112230013",
+  "./src/audio.js": "./src/audio.js?v=20261112230013",
+  "./src/net.js": "./src/net.js?v=20261112230013"
 } }
 </script>
 </head>
@@ -131,9 +131,9 @@ window.severVersion.check();
       <b>Hold left mouse + move</b><span>Swing the sword in the direction you drag (the camera holds still while you swing)</span>
       <b>Tap left mouse</b><span>Quick slash</span>
       <b>Hold right mouse</b><span>Grappling hook: grabs what's in front of you and pulls you in. Swing, then let go to fly</span>
-      <b>Space</b><span>Dash where you're looking: cuts through anyone in your path</span>
-      <b>E</b><span>Jump</span>
-      <b>Shift</b><span>Sprint</span>
+      <b>Shift</b><span>Dash where you're looking: cuts through anyone in your path</span>
+      <b>Space</b><span>Jump</span>
+      <b>Kills</b><span>Every kill makes your sword longer, so your reach grows</span>
       <b>Tab</b><span>Scores</span>
       <b>Esc</b><span>Menu</span>
     </div>
@@ -219,12 +219,12 @@ window.severVersion.check();
   <div id="center"></div>
   <div id="banner"></div>
   <div id="board" class="hidden"></div>
-  <div id="hint">Hold left mouse and drag to swing · Right mouse grapple · Space dash · E jump · Shift sprint</div>
+  <div id="hint">Hold left mouse and drag to swing · Right mouse grapple · Shift dash · Space jump · Kills grow your sword</div>
 </div>
 <div id="clickPlay" class="hidden">Click to fight</div>
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261112223900"></script>
+<script type="module" src="src/main.js?v=20261112230013"></script>
 </body>
 </html>
