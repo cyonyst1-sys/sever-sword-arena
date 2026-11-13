@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sever</title>
+<meta name="build" content="20261112223900">
+<link rel="icon" href="data:,">
+<script>
+// Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
+window.severVersion = {
+  build: document.querySelector('meta[name=build]').content,
+  check: function () {
+    var build = this.build;
+    return fetch('version.json?nc=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || typeof j.v !== 'string' || j.v === build) return false;
+        var q = new URLSearchParams(location.search);
+        if (q.get('fresh') === j.v) return false;
+        q.set('fresh', j.v);
+        location.replace(location.pathname + '?' + q.toString() + location.hash);
+        return true;
+      })
+      .catch(function () { return false; });
+  },
+};
+window.severVersion.check();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Inter:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#f4f1ec; --muted:#a9a49c; --glass:rgba(14,12,12,.8); --line:rgba(255,255,255,.12); --red:#e63946; --gold:#ffd166; --cyan:#7fe8ff; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#0b0a0a; color:var(--ink); font-family:Inter,system-ui,sans-serif; }
+  canvas#c { position:fixed; inset:0; width:100vw; height:100vh; display:block; }
+  .hidden { display:none !important; }
+  .screen { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(90deg, rgba(8,6,6,.92), rgba(8,6,6,.55)); z-index:10; padding:16px; overflow:auto; }
+  .panel { width:min(560px, 100%); background:var(--glass); border:1px solid var(--line); border-radius:16px; padding:24px; backdrop-filter:blur(6px); }
+  h1.logo { font-family:'Russo One',system-ui; font-size:clamp(56px, 12vw, 104px); margin:0; letter-spacing:4px; line-height:1; position:relative; }
+  h1.logo span { display:inline-block; background:linear-gradient(180deg,#fff,#d9d3cc); -webkit-background-clip:text; background-clip:text; color:transparent; clip-path:polygon(0 0,100% 0,100% 38%,0 62%); }
+  h1.logo span.lo { position:absolute; left:6px; top:5px; clip-path:polygon(0 62%,100% 38%,100% 100%,0 100%); }
+  h1.logo::after { content:''; position:absolute; left:-4%; right:-4%; top:50%; height:3px; background:var(--red); transform:rotate(-6deg); box-shadow:0 0 12px var(--red); }
+  h2 { font-family:'Russo One',system-ui; margin:0 0 12px; font-weight:400; letter-spacing:1px; }
+  .tag { color:var(--muted); margin:14px 0 18px; }
+  label { display:flex; flex-direction:column; gap:4px; font-size:13px; color:var(--muted); }
+  input, select { background:#1d1a19; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:9px 10px; font:inherit; font-size:15px; }
+  button { background:#2a2524; color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:11px 16px; font:inherit; font-weight:700; font-size:15px; cursor:pointer; }
+  button:hover { border-color:rgba(255,255,255,.35); }
+  button.primary { background:var(--red); border-color:var(--red); color:#fff; }
+  button.primary:hover { filter:brightness(1.1); }
+  button:disabled { opacity:.45; cursor:default; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; }
+  .row > * { flex:1 1 140px; }
+  .controls { margin-top:16px; font-size:13px; color:var(--muted); display:grid; grid-template-columns:auto 1fr; gap:4px 12px; }
+  .controls b { color:var(--ink); font-weight:700; white-space:nowrap; }
+  .list { max-height:220px; overflow:auto; border:1px solid var(--line); border-radius:10px; margin:8px 0; }
+  .list .item { display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid var(--line); font-size:14px; }
+  .list .item:last-child { border-bottom:0; }
+  .list .item .grow { flex:1; }
+  .list .empty { padding:14px; color:var(--muted); font-size:14px; text-align:center; }
+  .dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+  .code { font-family:'Russo One',system-ui; font-size:34px; letter-spacing:6px; color:var(--gold); }
+  .muted { color:var(--muted); font-size:13px; }
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:5; font-weight:700; }
+  #topbar { position:absolute; top:12px; left:50%; transform:translateX(-50%); background:var(--glass); border:1px solid var(--line); border-radius:999px; padding:6px 16px; font-size:15px; white-space:nowrap; }
+  #myscore { position:absolute; top:12px; right:16px; text-align:right; font-family:'Russo One',system-ui; font-size:26px; text-shadow:0 2px 4px #000; }
+  #myscore small { display:block; font-family:Inter,system-ui; font-size:12px; color:var(--muted); }
+  #feed { position:absolute; top:70px; right:16px; display:flex; flex-direction:column; gap:4px; align-items:flex-end; font-size:13px; }
+  #feed div { background:var(--glass); border-radius:8px; padding:4px 10px; transition:opacity .5s; }
+  #bars { position:absolute; left:16px; bottom:16px; width:210px; }
+  .bar { height:8px; background:rgba(0,0,0,.5); border-radius:4px; overflow:hidden; margin-top:6px; }
+  .bar i { display:block; height:100%; width:100%; background:var(--cyan); }
+  #pips { display:flex; gap:10px; font-size:12px; color:var(--muted); margin-top:6px; }
+  #pips span.on { color:#fff; }
+  #center { position:absolute; left:50%; top:34%; transform:translate(-50%,-50%); font-family:'Russo One',system-ui; font-size:30px; text-align:center; text-shadow:0 2px 8px #000; }
+  #center small { display:block; font-family:Inter,system-ui; font-size:15px; color:var(--muted); margin-top:6px; }
+  #banner { position:absolute; left:50%; top:22%; transform:translateX(-50%); font-family:'Russo One',system-ui; font-size:56px; text-shadow:0 3px 12px #000; transition:opacity .6s; }
+  #xhair { position:absolute; left:50%; top:50%; width:22px; height:22px; margin:-11px 0 0 -11px; border:2px solid rgba(255,255,255,.55); border-radius:50%; }
+  #xhair.hook { border-color:var(--cyan); box-shadow:0 0 8px var(--cyan); }
+  #xhair::after { content:''; position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px; background:#fff; border-radius:50%; }
+  #bladeHint { position:absolute; left:50%; bottom:90px; transform:translateX(-50%); font-size:13px; color:var(--gold); }
+  #board { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:16px 20px; min-width:320px; }
+  #board table, #endTable { width:100%; border-collapse:collapse; font-size:14px; }
+  #board td, #board th, #endTable td, #endTable th { padding:5px 8px; text-align:left; }
+  #board th, #endTable th { color:var(--muted); font-weight:500; }
+  #hint { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); font-size:12px; color:var(--muted); font-weight:500; white-space:nowrap; transition:opacity 1s; }
+  #clickPlay { position:fixed; left:50%; top:45%; transform:translate(-50%,-50%); z-index:6; background:var(--glass); border:1px solid var(--gold); color:var(--gold); padding:12px 22px; border-radius:12px; font-size:18px; font-weight:800; cursor:pointer; }
+  #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:20; background:#2a2524; border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:14px; transition:opacity .4s; pointer-events:none; }
+  #vignette { position:fixed; inset:0; pointer-events:none; z-index:4; box-shadow:inset 0 0 160px rgba(160,0,0,0); transition:box-shadow .3s; }
+  #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#0b0a0a; font-family:'Russo One',system-ui; font-size:28px; color:var(--muted); z-index:30; }
+  .rng { display:flex; align-items:center; gap:8px; }
+  .rng input { flex:1; }
+  @media (max-width:600px) { .screen { background:rgba(8,6,6,.85); } #topbar { font-size:12px; } }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "./src/main.js": "./src/main.js?v=20261112223900",
+  "./src/arena.js": "./src/arena.js?v=20261112223900",
+  "./src/fighter.js": "./src/fighter.js?v=20261112223900",
+  "./src/slice.js": "./src/slice.js?v=20261112223900",
+  "./src/audio.js": "./src/audio.js?v=20261112223900",
+  "./src/net.js": "./src/net.js?v=20261112223900"
+} }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vignette"></div>
+
+<div id="home" class="screen">
+  <div class="panel">
+    <h1 class="logo"><span>SEVER</span><span class="lo" aria-hidden="true">SEVER</span></h1>
+    <p class="tag">A third-person sword arena in the sky. Swing your blade with the mouse, and whatever it passes through is cut along that exact line.</p>
+    <label>Your name <input id="name" maxlength="14" placeholder="Ronin"></label>
+    <div class="row">
+      <label>Bots <select id="bots"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option></select></label>
+      <label>Difficulty <select id="diff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option></select></label>
+    </div>
+    <div class="row">
+      <button class="primary" id="soloFfa">Solo: Free-for-all</button>
+      <button class="primary" id="soloHorde">Solo: Horde</button>
+    </div>
+    <div class="row"><button id="toMp">Multiplayer</button><button id="toSettings">Settings</button></div>
+    <div class="controls">
+      <b>WASD</b><span>Move</span>
+      <b>Mouse</b><span>Look</span>
+      <b>Hold left mouse + move</b><span>Swing the sword in the direction you drag (the camera holds still while you swing)</span>
+      <b>Tap left mouse</b><span>Quick slash</span>
+      <b>Hold right mouse</b><span>Grappling hook: grabs what's in front of you and pulls you in. Swing, then let go to fly</span>
+      <b>Space</b><span>Dash where you're looking: cuts through anyone in your path</span>
+      <b>E</b><span>Jump</span>
+      <b>Shift</b><span>Sprint</span>
+      <b>Tab</b><span>Scores</span>
+      <b>Esc</b><span>Menu</span>
+    </div>
+  </div>
+</div>
+
+<div id="mp" class="screen hidden">
+  <div class="panel">
+    <h2>Multiplayer</h2>
+    <div class="muted">Open rooms</div>
+    <div class="list" id="rooms"><div class="empty">Looking for rooms…</div></div>
+    <div class="row">
+      <label>Join with a code <input id="joinCode" maxlength="5" placeholder="ABCDE" style="text-transform:uppercase"></label>
+      <button id="joinBtn" style="align-self:flex-end">Join</button>
+    </div>
+    <h2 style="margin-top:18px">Host a room</h2>
+    <div class="row">
+      <label>Mode <select id="hostMode"><option value="ffa">Free-for-all (everyone vs everyone)</option><option value="horde">Horde (co-op vs waves)</option></select></label>
+    </div>
+    <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="pub" checked> Show my room in the open rooms list</label>
+    <div class="row"><button class="primary" id="hostBtn">Create room</button><button id="mpBack">Back</button></div>
+    <div class="muted">Peer-to-peer: your browser runs the match, so keep the tab open. Bots fill empty slots.</div>
+  </div>
+</div>
+
+<div id="lobby" class="screen hidden">
+  <div class="panel">
+    <h2>Room</h2>
+    <div class="code" id="lobbyCode">-----</div>
+    <div class="row"><button id="copyLink">Copy invite link</button></div>
+    <div class="muted" id="lobbyMode"></div>
+    <div class="list" id="lobbyPlayers"></div>
+    <div class="row" id="lobbyHostOpts">
+      <label>Mode <select id="lobbyModeSel"><option value="ffa">Free-for-all</option><option value="horde">Horde</option></select></label>
+      <label>Bots <select id="lobbyBots"><option>0</option><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
+      <label>Difficulty <select id="lobbyDiff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option></select></label>
+    </div>
+    <div class="row"><button class="primary" id="startBtn">Start match</button><button id="leaveBtn">Leave</button></div>
+    <div class="muted" id="lobbyWait"></div>
+  </div>
+</div>
+
+<div id="settings" class="screen hidden">
+  <div class="panel">
+    <h2>Settings</h2>
+    <label>Look sensitivity <div class="rng"><input type="range" id="sLook" min="0.2" max="3" step="0.05"><span id="sLookV"></span></div></label>
+    <label style="margin-top:10px">Sword sensitivity <div class="rng"><input type="range" id="sBlade" min="0.2" max="3" step="0.05"><span id="sBladeV"></span></div></label>
+    <label style="margin-top:10px">Graphics <select id="sQuality"><option value="high">High (shadows)</option><option value="low">Low (faster)</option></select></label>
+    <label style="margin-top:10px">Volume <div class="rng"><input type="range" id="sVol" min="0" max="1" step="0.05"><span id="sVolV"></span></div></label>
+    <div class="row"><button class="primary" id="settingsDone">Done</button></div>
+    <div class="muted">Graphics changes apply the next time the page loads.</div>
+  </div>
+</div>
+
+<div id="pause" class="screen hidden">
+  <div class="panel">
+    <h2>Paused</h2>
+    <div class="muted" id="pauseNote"></div>
+    <div class="row"><button class="primary" id="resumeBtn">Resume</button><button id="pauseSettings">Settings</button><button id="quitBtn">Leave match</button></div>
+  </div>
+</div>
+
+<div id="end" class="screen hidden">
+  <div class="panel">
+    <h2 id="endTitle">Match over</h2>
+    <div class="muted" id="endSub"></div>
+    <table id="endTable"></table>
+    <div class="row"><button class="primary" id="againBtn">Play again</button><button id="menuBtn">Main menu</button></div>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="topbar"></div>
+  <div id="myscore"></div>
+  <div id="feed"></div>
+  <div id="xhair"></div>
+  <div id="bladeHint" class="hidden">SWING</div>
+  <div id="bars">
+    <div class="muted">Stamina</div>
+    <div class="bar"><i id="stamBar"></i></div>
+    <div id="pips"><span id="pipDash">DASH</span><span id="pipHook">HOOK</span></div>
+  </div>
+  <div id="center"></div>
+  <div id="banner"></div>
+  <div id="board" class="hidden"></div>
+  <div id="hint">Hold left mouse and drag to swing · Right mouse grapple · Space dash · E jump · Shift sprint</div>
+</div>
+<div id="clickPlay" class="hidden">Click to fight</div>
+<div id="toast" style="opacity:0"></div>
+<div id="loading">Loading…</div>
+<noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
+<script type="module" src="src/main.js?v=20261112223900"></script>
+</body>
+</html>
