@@ -224,7 +224,7 @@ export class Arena {
       // walkable top (no walls: you can step off the side of a branch)
       this.addRamp(A.x, A.z, B.x, B.z, A.y, B.y, width, Math.min(A.y, B.y) - 1.2, null, { visual: false, noWall: true });
       // the log itself: its top runs just above the walking surface
-      const R = width * 0.46, a3 = new THREE.Vector3(A.x, A.y - R * 0.8, A.z), b3 = new THREE.Vector3(B.x, B.y - R * 0.8, B.z);
+      const R = width * 0.55, a3 = new THREE.Vector3(A.x, A.y - R * 0.8, A.z), b3 = new THREE.Vector3(B.x, B.y - R * 0.8, B.z);
       const dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
       const log = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.92, R, len + R * 0.5, 12, 1), M.bark);
       log.position.copy(a3).add(b3).multiplyScalar(0.5); log.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
@@ -239,7 +239,7 @@ export class Arena {
       this.tag = null;
       return p;
     };
-    const buds = new Map(); // per limb: matrices of the little leaves round each bud (one instanced mesh per limb)
+    const buds = new Map(), rb = rng(777); // per limb: matrices of the little leaves round each bud (one instanced mesh per limb)
     const leaf = (C, len, wid, ang, y, grp, from, rw) => {
       const p = addPlat({ kind: 'leaf', x: C.x, z: C.z, y, w: len, d: wid, ang, group: grp });
       this.tag = p;
@@ -268,11 +268,11 @@ export class Arena {
         tube.setAttribute('color', new THREE.BufferAttribute(col, 3)); tube.computeVertexNormals();
         const st = new THREE.Mesh(tube, M.stem); st.castShadow = true; S.add(st); this.own(p, st);
         // a spray of small leaves around the bud
-        const n = 3 + Math.floor(r() * 4), list = buds.get(grp) || buds.set(grp, { p, m: [] }).get(grp);
+        const n = 3 + Math.floor(rb() * 4), list = buds.get(grp) || buds.set(grp, { p, m: [] }).get(grp);
         for (let i = 0; i < n; i++) {
-          const sz = 1.4 + r() * 1.8, yaw = Math.atan2(h.z, h.x) + (r() - 0.5) * 2.6, pitch = 0.25 + r() * 0.7;
-          const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(r() * 0.6 - 0.3, -yaw, pitch, 'YZX'));
-          list.m.push(new THREE.Matrix4().compose(curve.getPointAt(0.15 + r() * 0.25), q, new THREE.Vector3(sz, sz, sz)));
+          const sz = 1.4 + rb() * 1.8, yaw = Math.atan2(h.z, h.x) + (rb() - 0.5) * 2.6, pitch = 0.25 + rb() * 0.7;
+          const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rb() * 0.6 - 0.3, -yaw, pitch, 'YZX'));
+          list.m.push(new THREE.Matrix4().compose(curve.getPointAt(0.15 + rb() * 0.25), q, new THREE.Vector3(sz, sz, sz)));
         }
       }
       const box = { x0: C.x - 2, x1: C.x + 2, y0: y - 0.6, y1: y + 0.15, z0: C.z - 2, z1: C.z + 2 }; // hook the leaf, too
@@ -293,21 +293,21 @@ export class Arena {
         const B = { x: A.x + Math.cos(a) * L, y: A.y + dy, z: A.z + Math.sin(a) * L };
         if (Math.hypot(B.x, B.z) > 100) break;
         if (trunks.some((t) => Math.hypot(B.x - t.x, B.z - t.z) < t.r + 2)) break; // don't run into a trunk
-        const w = Math.max(4.4, (depth === 0 ? 7 : 5.6) - s * 0.2);
+        const w = Math.max(2.6, (depth === 0 ? 4.4 : 3.4) - s * 0.12);
         const p = branch(A, B, w, grp);
         if (prev) linkP(prev, p);
         prev = p;
-        for (const side of [1, -1]) if (r() < 0.62) { // big leaves off either side
-          const la = a + side * (1.1 + r() * 0.5), len = 13 + r() * 6, wid = 7.5 + r() * 3.5;
+        if (r() < 0.3) { // a big leaf off one side
+          const side = r() < 0.5 ? 1 : -1, la = a + side * (1.1 + r() * 0.5), len = 13 + r() * 6, wid = 7.5 + r() * 3.5;
           const C = { x: B.x + Math.cos(la) * (w / 2 + len * 0.45), z: B.z + Math.sin(la) * (w / 2 + len * 0.45) };
-          if (Math.hypot(C.x, C.z) < 104) linkP(p, leaf(C, len, wid, la, B.y + 0.2 + r() * 0.6, grp, B, w * 0.46));
+          if (Math.hypot(C.x, C.z) < 104) linkP(p, leaf(C, len, wid, la, B.y + 0.2 + r() * 0.6, grp, B, w * 0.55));
         }
         if (depth < 1 && s >= 2 && r() < 0.3) grow(B, a + (r() < 0.5 ? 1 : -1) * (0.6 + r() * 0.6), 3 + Math.floor(r() * 3), depth + 1, p);
         A = B;
       }
       if (prev) { // a big leaf at the tip
         const len = 15 + r() * 4, wid = 8.5 + r() * 2.5, C = { x: A.x + Math.cos(a) * len * 0.48, z: A.z + Math.sin(a) * len * 0.48 };
-        if (Math.hypot(C.x, C.z) < 106) linkP(prev, leaf(C, len, wid, a, A.y + 0.3, prev.group, A, prev.d * 0.46));
+        if (Math.hypot(C.x, C.z) < 106) linkP(prev, leaf(C, len, wid, a, A.y + 0.3, prev.group, A, prev.d * 0.55));
       }
     };
     // limbs radiate from the central trunk at several heights, and reach in from the outer trunks
