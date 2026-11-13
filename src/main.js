@@ -162,6 +162,7 @@ const _t = new THREE.Vector3(), _t2 = new THREE.Vector3(), _t3 = new THREE.Vecto
 function tryDash(f, dir) {
   if (f.dashCd > 0 || f.stam < 22 || !f.alive) return false;
   const d = dir.clone(); d.y = Math.max(-0.35, Math.min(0.55, d.y)); d.normalize();
+  f.preDash = f.vel.length(); // a dash out of a fast swing keeps that speed afterwards
   f.dashDir.copy(d); f.dashT = DASH_T; f.dashCd = 0.9; f.stam -= 22; f.stamDelay = 0.6;
   if (f.hook) releaseHook(f, false);
   f.dashVictims = new Set();
@@ -210,7 +211,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
   const wl = Math.hypot(wish.x, wish.z);
   if (f.dashT > 0) {
     f.dashT -= dt; f.vel.copy(f.dashDir).multiplyScalar(DASH_V);
-    if (f.dashT <= 0) f.vel.multiplyScalar(0.45);
+    if (f.dashT <= 0) f.vel.copy(f.dashDir).multiplyScalar(Math.max(DASH_V * 0.45, Math.min(f.preDash || 0, 36)));
   } else {
     if (f.onGround && !f.hook) {
       const spd = WALK;
@@ -527,6 +528,24 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     const l = dh || 1;
     return { wish: { x: dx / l * 0.5, z: dz / l * 0.5 }, jump: false, sprint: false };
   }
+  // in the air off a swing: sometimes dash for the platform (always, if we'd come up short)
+  const floorNear = ground(b.pos.x, b.pos.z, b.pos.y) > b.pos.y - 3; // just a hop, not a flight
+  if (!b.onGround && !floorNear && !b.padFlight && b.dashT <= 0 && b.dashCd <= 0 && b.stam >= 22 && !b.airDashed) {
+    let p = b.landOn;
+    if (!p) { // free swing or a fall: the nearest platform we could dash onto
+      let bd = Infinity;
+      for (const q of arena.plats) { const d = rimDist(q, b.pos); if (d < 15 && q.y <= b.pos.y + 4 && q.y > b.pos.y - 14 && d < bd) { bd = d; p = q; } }
+    }
+    if (p && !insidePlat(p, b.pos, -1)) {
+      const short = !willLand(b, p);
+      if (short || Math.random() < 0.35) {
+        b.airDashed = true; // one roll per flight
+        const dir = new THREE.Vector3(p.x - b.pos.x, p.y + 1.5 - b.pos.y, p.z - b.pos.z).normalize();
+        if (short || Math.random() < 0.5) { tryDash(b, dir); b.landOn = p; }
+      }
+    }
+  }
+  if (b.onGround) b.airDashed = false;
   // flying after letting go: steer for the middle of the platform we're landing on
   if (!b.onGround && b.landOn) {
     const p = b.landOn, cx = p.x - b.pos.x, cz = p.z - b.pos.z, cl = Math.hypot(cx, cz) || 1;

@@ -13,7 +13,7 @@ A third-person 3D sword arena that runs in the browser. Swing your sword with th
 | Hold left mouse + move the mouse | Swing the sword in the direction you drag. While you swing, the mouse still turns you: the sword moves the most, your body twists less, and the camera turns only a little. Let go and your body turns back to where the camera faces |
 | Tap left mouse | Quick slash (alternates left and right) |
 | Hold right mouse | Grappling hook: grabs whatever is in front of you (with a little aim assist) and reels you in. Swing on it, and let go to fly off with your momentum |
-| Shift | Dash about 13 m where you're looking (more with the glide after it). Cuts through anyone in your path |
+| Shift | Dash about 13 m where you're looking (more with the glide after it). Cuts through anyone in your path. Works in the air: dash out of a grapple swing to reach the next platform, and you keep your swing speed |
 | Space | Jump. On a glowing jump pad, launches you to the next platform |
 | Tab | Scoreboard |
 | Esc | Menu |
@@ -31,7 +31,7 @@ The crosshair glows cyan when the hook has something to grab. Swords that cross 
 
 Solo games are you plus bots (0 to 7, Easy / Normal / Hard).
 
-Bots get around mainly by grappling: they hook a sky pillar beside the platform their enemy is on (or the next one on the way), swing toward it, and let go at the moment their arc will drop them onto the top, steering in the air to land near the middle. When they are well above a platform they hook its top and are pulled straight down onto it. If they fall, they swing back onto a platform the same way. They only take the jump pads when there is no clean swing. Harder bots grapple more often.
+Bots get around mainly by grappling: they hook a sky pillar beside the platform their enemy is on (or the next one on the way), swing toward it, and let go at the moment their arc will drop them onto the top, steering in the air to land near the middle. When they are well above a platform they hook its top and are pulled straight down onto it. If they fall, they swing back onto a platform the same way. Sometimes they dash out of a swing toward the platform, and they always do when a swing or fall would leave them short. They only take the jump pads when there is no clean swing. Harder bots grapple more often.
 
 ## Multiplayer
 
