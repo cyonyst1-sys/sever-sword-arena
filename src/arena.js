@@ -300,7 +300,7 @@ export class Arena {
         const B = { x: A.x + Math.cos(a) * L, y: A.y + dy, z: A.z + Math.sin(a) * L };
         if (Math.hypot(B.x, B.z) > 100) break;
         if (trunks.some((t) => Math.hypot(B.x - t.x, B.z - t.z) < t.r + 2)) break; // don't run into a trunk
-        const wA = wAt(A.y, s, segs, depth) * 1.4, wB = wAt(B.y, s + 1, segs, depth) * 1.4, w = (wA + wB) / 2;
+        const wA = wAt(A.y, s, segs, depth) * 2, wB = wAt(B.y, s + 1, segs, depth) * 2, w = (wA + wB) / 2;
         const p = branch(A, B, wA, grp, wB);
         if (prev) linkP(prev, p);
         prev = p;
