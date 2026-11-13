@@ -223,7 +223,7 @@ export class Arena {
       // walkable top (no walls: you can step off the side of a branch)
       this.addRamp(A.x, A.z, B.x, B.z, A.y, B.y, width, Math.min(A.y, B.y) - 1.2, null, { visual: false, noWall: true });
       // the log itself: its top runs just above the walking surface
-      const R = width * 0.55, a3 = new THREE.Vector3(A.x, A.y - R * 0.8, A.z), b3 = new THREE.Vector3(B.x, B.y - R * 0.8, B.z);
+      const R = width * 0.46, a3 = new THREE.Vector3(A.x, A.y - R * 0.8, A.z), b3 = new THREE.Vector3(B.x, B.y - R * 0.8, B.z);
       const dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
       const log = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.92, R, len + R * 0.5, 12, 1), M.bark);
       log.position.copy(a3).add(b3).multiplyScalar(0.5); log.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
@@ -245,9 +245,9 @@ export class Arena {
       this.addRamp(C.x - ux * len * 0.42, C.z - uz * len * 0.42, C.x + ux * len * 0.42, C.z + uz * len * 0.42, y, y, wid * 0.78, y - 0.6, null, { visual: false, noWall: true });
       const sh = new THREE.Shape();
       sh.moveTo(-len / 2, 0); sh.quadraticCurveTo(-len * 0.1, wid * 0.75, len / 2, 0); sh.quadraticCurveTo(-len * 0.1, -wid * 0.75, -len / 2, 0);
-      const g = new THREE.ShapeGeometry(sh, 12); g.rotateX(-Math.PI / 2);
+      const g = new THREE.ExtrudeGeometry(sh, { depth: 0.4, bevelEnabled: false, curveSegments: 12 }); g.rotateX(-Math.PI / 2); g.translate(0, -0.4, 0); // a thick leaf, visible edge-on
       const gp = g.attributes.position; // droops a little at the tip and the edges
-      for (let i = 0; i < gp.count; i++) { const x = gp.getX(i), z = gp.getZ(i); gp.setY(i, -Math.pow(Math.max(0, x / (len / 2)), 2) * 0.3 - Math.abs(z) / wid * 0.2); }
+      for (let i = 0; i < gp.count; i++) { const x = gp.getX(i), z = gp.getZ(i); gp.setY(i, gp.getY(i) - Math.pow(Math.max(0, x / (len / 2)), 2) * 0.3 - Math.abs(z) / wid * 0.2); }
       g.computeVertexNormals();
       const m = new THREE.Mesh(g, M.leaf); m.rotation.y = -ang; m.position.set(C.x, y + 0.06, C.z); m.castShadow = m.receiveShadow = true; S.add(m); this.own(p, m);
       const rib = new THREE.Mesh(new THREE.BoxGeometry(len * 0.92, 0.08, 0.2), M.vein); rib.rotation.y = -ang; rib.position.set(C.x, y + 0.1, C.z); S.add(rib); this.own(p, rib);
@@ -256,7 +256,7 @@ export class Arena {
         const d = base.clone().sub(f), l = d.length();
         if (l > 0.3) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, l, 6), M.bark); st.position.copy(f).add(base).multiplyScalar(0.5); st.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); S.add(st); this.own(p, st); }
       }
-      const box = { x0: C.x - 1.2, x1: C.x + 1.2, y0: y - 0.5, y1: y + 0.15, z0: C.z - 1.2, z1: C.z + 1.2 }; // hook the leaf, too
+      const box = { x0: C.x - 2, x1: C.x + 2, y0: y - 0.6, y1: y + 0.15, z0: C.z - 2, z1: C.z + 2 }; // hook the leaf, too
       this.rayBoxes.push(box); p.rays.push(box);
       this.tag = null;
       return p;
@@ -274,12 +274,12 @@ export class Arena {
         const B = { x: A.x + Math.cos(a) * L, y: A.y + dy, z: A.z + Math.sin(a) * L };
         if (Math.hypot(B.x, B.z) > 100) break;
         if (trunks.some((t) => Math.hypot(B.x - t.x, B.z - t.z) < t.r + 2)) break; // don't run into a trunk
-        const w = Math.max(2.6, (depth === 0 ? 4.4 : 3.4) - s * 0.12);
+        const w = Math.max(4.4, (depth === 0 ? 7 : 5.6) - s * 0.2);
         const p = branch(A, B, w, grp);
         if (prev) linkP(prev, p);
         prev = p;
-        if (r() < 0.3) { // a big leaf off one side
-          const side = r() < 0.5 ? 1 : -1, la = a + side * (1.1 + r() * 0.5), len = 11 + r() * 5, wid = 6 + r() * 3;
+        for (const side of [1, -1]) if (r() < 0.62) { // big leaves off either side
+          const la = a + side * (1.1 + r() * 0.5), len = 13 + r() * 6, wid = 7.5 + r() * 3.5;
           const C = { x: B.x + Math.cos(la) * (w / 2 + len * 0.45), z: B.z + Math.sin(la) * (w / 2 + len * 0.45) };
           if (Math.hypot(C.x, C.z) < 104) linkP(p, leaf(C, len, wid, la, B.y + 0.2 + r() * 0.6, grp, B));
         }
@@ -287,7 +287,7 @@ export class Arena {
         A = B;
       }
       if (prev) { // a big leaf at the tip
-        const len = 13 + r() * 4, wid = 7 + r() * 2, C = { x: A.x + Math.cos(a) * len * 0.48, z: A.z + Math.sin(a) * len * 0.48 };
+        const len = 15 + r() * 4, wid = 8.5 + r() * 2.5, C = { x: A.x + Math.cos(a) * len * 0.48, z: A.z + Math.sin(a) * len * 0.48 };
         if (Math.hypot(C.x, C.z) < 106) linkP(prev, leaf(C, len, wid, a, A.y + 0.3, prev.group, A));
       }
     };
@@ -565,7 +565,7 @@ export class Arena {
     let g = -Infinity;
 
     for (const b of this.boxes) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1;
-    for (const r of this.ramps) { const h = this.rampH(r, x, z); if (h !== null && h <= y + STEP && h > g) g = h; }
+    for (const r of this.ramps) { const h = this.rampH(r, x, z); if (h !== null && h <= y + (r.noWall ? 1.2 : STEP) && h > g) g = h; } // branch tops: a fast dash up one still lands on it
     return g;
   }
   /** Is there a wall at (x,z) for a body standing at feet height y? */

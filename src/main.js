@@ -243,9 +243,13 @@ function stepFighter(f, dt, wish, sprint, jump) {
     if (f.hook) applyHook(f, dt);
   }
   f.prevPos.copy(f.pos);
-  f.pos.addScaledVector(f.vel, dt);
   const was = f.onGround, fallV = f.vel.y;
-  f.onGround = arena.collide(f.pos, f.vel, RAD, HGT, was && f.dashT <= 0 && !f.hook, f.prevPos.y);
+  // fast moves (dashes, swings) go in short steps so a sloped branch can't be skipped past
+  const n = Math.min(6, Math.ceil(f.vel.length() * dt / 0.35)) || 1;
+  for (let k = 0; k < n; k++) {
+    const py = f.pos.y; f.pos.addScaledVector(f.vel, dt / n);
+    f.onGround = arena.collide(f.pos, f.vel, RAD, HGT, (k ? f.onGround : was) && f.dashT <= 0 && !f.hook, py);
+  }
   if (f.hook) { // rope can't stretch
     const c = _t.copy(f.pos); c.y += 1.3; const d = _t2.subVectors(f.hook.p, c); const L = d.length();
     if (L > f.hook.len + 0.05) f.pos.addScaledVector(d.divideScalar(L), L - f.hook.len);
