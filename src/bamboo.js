@@ -5,7 +5,7 @@
 // them (and come back a few seconds later for the next fighter).
 import * as THREE from 'three';
 import { deck, prop, stalk, drift, farRing } from './maps2.js';
-import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114154714';
+import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114155021';
 
 const TAU = Math.PI * 2, HALF = 30, TILE = 1.5;
 
@@ -45,8 +45,8 @@ export function buildBamboo(A, T) {
   // but they're too narrow to slip through: anyone swinging or dashing in cuts through the poles in the way, and
   // whatever is above each cut drops. Every pole is a stack of segments (each rests on the one below).
   const WH = 20, SEG = 4, SP = 0.36, PW = 0.14, WI = HALF - 0.3;
-  const pole = (x, z) => {
-    const g = group(), h = WH - 1.5 + r() * 3, nseg = Math.round(h / SEG); let below = null;
+  const pole = (x, z, H = WH) => {
+    const g = group(), h = H - 1.5 + r() * 3, nseg = Math.max(1, Math.round(h / SEG)); let below = null;
     for (let j = 0; j < nseg; j++) { const b = chunk(A, g, 'bamboo', x - PW / 2, x + PW / 2, j * h / nseg, (j + 1) * h / nseg, z - PW / 2, z + PW / 2, j === 0); join(b, below); below = b; }
   };
   for (let u = -WI; u <= WI + 1e-6; u += SP) { pole(u, -WI); pole(u, WI); if (u > -WI + 1e-6 && u < WI - 1e-6) { pole(-WI, u); pole(WI, u); } }
@@ -100,11 +100,12 @@ export function buildBamboo(A, T) {
   taken.push([0, 0, 5.5]);
   for (let k = 0; k < 6; k++) { // a 14 m wall halfway between each pair of huts, running across the way round
     const a = k / 6 * TAU + 0.3 + TAU / 12, cx = Math.cos(a) * 17, cz = Math.sin(a) * 17, tx = -Math.sin(a), tz = Math.cos(a), L = 7;
-    if (Math.abs(tx) > Math.abs(tz)) wall(A, cx - L / 2, cz, cx + L / 2, cz, 0, 14, { kind: 'bamboo', posts: false, t: 0.45 });
-    else wall(A, cx, cz - L / 2, cx, cz + L / 2, 0, 14, { kind: 'bamboo', posts: false, t: 0.45 });
+    const row = (ax, az, bx, bz, H) => { const L2 = Math.hypot(bx - ax, bz - az), m = Math.round(L2 / SP); for (let i = 0; i <= m; i++) pole(ax + (bx - ax) * i / m, az + (bz - az) * i / m, H); }; // a see-through row of thin poles, like the outer wall
+    if (Math.abs(tx) > Math.abs(tz)) row(cx - L / 2, cz, cx + L / 2, cz, 14);
+    else row(cx, cz - L / 2, cx, cz + L / 2, 14);
     for (let s = -1; s <= 1; s++) taken.push([cx + tx * s * 3, cz + tz * s * 3, 2.5]);
   }
-  for (const [x, z] of [[0, -12], [0, 12], [-12, 0], [12, 0]]) { wall(A, x - 3, z, x + 3, z, 0, 10, { kind: 'bamboo', posts: false, t: 0.45 }); } // lower walls round the gazebo
+  for (const [x, z] of [[0, -12], [0, 12], [-12, 0], [12, 0]]) { const m = Math.round(6 / SP); for (let i = 0; i <= m; i++) pole(x - 3 + 6 * i / m, z, 10); } // lower see-through pole walls round the gazebo
   for (const [x, z] of [[0, -12], [0, 12], [-12, 0], [12, 0]]) taken.push([x, z, 3.5]);
   let placed = 0;
   for (let tries = 0; tries < 400 && placed < 18; tries++) { // thick pillars rising 40 m, spread through the fort
