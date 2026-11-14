@@ -289,17 +289,26 @@ export class Arena {
     // branch thickness: skinnier the higher up it grows, and tapering toward the end of each limb
     const wAt = (y, s, segs, depth) => Math.max(1.3, (depth === 0 ? 3.4 : 2.6) * (y <= 0 ? 1 : Math.max(0.5, 1 - y / 30 * 0.55)) * (1 - Math.min(1, s / segs) * 0.5));
     // a limb: runs level, climbs or dips for a stretch, then levels out again; sprouts leaves and side arms
-    const grow = (start, angle, segs, depth, startPlat) => {
+    const segDist = (A, B, t) => { // how close the line A-B passes to trunk t (top view)
+      const dx = B.x - A.x, dz = B.z - A.z, u = Math.max(0, Math.min(1, ((t.x - A.x) * dx + (t.z - A.z) * dz) / (dx * dx + dz * dz)));
+      return Math.hypot(A.x + dx * u - t.x, A.z + dz * u - t.z);
+    };
+    const leafClear = (C, len) => Math.hypot(C.x, C.z) < 104 && trunks.every((t) => Math.hypot(C.x - t.x, C.z - t.z) > t.r + len * 0.55 + 1);
+    const grow = (start, angle, segs, depth, startPlat, root = null) => {
       const grp = group++;
       let A = start, a = angle, mode = 'level', prev = startPlat;
       for (let s = 0; s < segs; s++) {
         if (s % 2 === 0) { const rr = r(); mode = rr < 0.4 ? 'level' : rr < 0.7 ? 'up' : 'down'; }
         let dy = mode === 'level' ? 0 : (mode === 'up' ? 1 : -1) * (2.5 + r() * 3.5);
-        if (A.y + dy > 30 || A.y + dy < -20) dy = -dy * 0.5;
+        if (A.y + dy > 38 || A.y + dy < -28) dy = -dy * 0.5;
         const L = 10 + r() * 6; a += (r() - 0.5) * 0.45;
-        const B = { x: A.x + Math.cos(a) * L, y: A.y + dy, z: A.z + Math.sin(a) * L };
-        if (Math.hypot(B.x, B.z) > 100) break;
-        if (trunks.some((t) => Math.hypot(B.x - t.x, B.z - t.z) < t.r + 2)) break; // don't run into a trunk
+        // steer round any trunk in the way (gently first, then harder); give up if there's no way past
+        const wGuess = wAt(A.y, s, segs, depth) * 2; let B = null;
+        for (const turn of [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05]) {
+          const aa = a + turn, C = { x: A.x + Math.cos(aa) * L, y: A.y + dy, z: A.z + Math.sin(aa) * L };
+          if (trunks.every((t) => (s === 0 && t === root) || segDist(A, C, t) > t.r + wGuess * 0.75 + 1.5)) { a = aa; B = C; break; }
+        }
+        if (!B || Math.hypot(B.x, B.z) > 100) break;
         const wA = wAt(A.y, s, segs, depth) * 2, wB = wAt(B.y, s + 1, segs, depth) * 2, w = (wA + wB) / 2;
         const p = branch(A, B, wA, grp, wB);
         if (prev) linkP(prev, p);
@@ -307,22 +316,23 @@ export class Arena {
         if (r() < 0.14) { // now and then, a big leaf off one side
           const side = r() < 0.5 ? 1 : -1, la = a + side * (1.1 + r() * 0.5), len = 13 + r() * 6, wid = 7.5 + r() * 3.5;
           const C = { x: B.x + Math.cos(la) * (w / 2 + len * 0.45), z: B.z + Math.sin(la) * (w / 2 + len * 0.45) };
-          if (Math.hypot(C.x, C.z) < 104) linkP(p, leaf(C, len, wid, la, B.y + 0.2 + r() * 0.6, grp, B, w * 0.6));
+          if (leafClear(C, len)) linkP(p, leaf(C, len, wid, la, B.y + 0.2 + r() * 0.6, grp, B, w * 0.6));
         }
         if (depth < 1 && s >= 2 && r() < 0.3) grow(B, a + (r() < 0.5 ? 1 : -1) * (0.6 + r() * 0.6), 3 + Math.floor(r() * 3), depth + 1, p);
         A = B;
       }
       if (prev && r() < 0.5) { // sometimes a big leaf at the tip
         const len = 15 + r() * 4, wid = 8.5 + r() * 2.5, C = { x: A.x + Math.cos(a) * len * 0.48, z: A.z + Math.sin(a) * len * 0.48 };
-        if (Math.hypot(C.x, C.z) < 106) linkP(prev, leaf(C, len, wid, a, A.y + 0.3, prev.group, A, prev.d * 0.6));
+        if (leafClear(C, len)) linkP(prev, leaf(C, len, wid, a, A.y + 0.3, prev.group, A, prev.d * 0.6));
       }
     };
     // limbs radiate from the central trunk at several heights, and reach in from the outer trunks
-    const ys = [-12, -2, 8, 18, 26];
-    for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + r() * 0.4, t = trunks[0]; grow({ x: t.x + Math.cos(a) * (t.r * 0.7), y: ys[k % ys.length], z: t.z + Math.sin(a) * (t.r * 0.7) }, a, 6 + Math.floor(r() * 2), 0, null); }
+    // limbs at many heights, from low down to high up; each one turned a golden angle from the last so they spread out
+    const ys = [-24, -16, -8, 0, 8, 16, 24, 32];
+    for (let k = 0; k < ys.length; k++) { const a = k * 2.39996 + r() * 0.3, t = trunks[0]; grow({ x: t.x + Math.cos(a) * (t.r * 0.7), y: ys[k], z: t.z + Math.sin(a) * (t.r * 0.7) }, a, 6 + Math.floor(r() * 2), 0, null, t); }
     for (let i = 1; i < trunks.length; i++) {
       const t = trunks[i], toC = Math.atan2(-t.z, -t.x);
-      for (let k = 0; k < 2; k++) { const a = toC + (k - 0.5) * 1.1 + (r() - 0.5) * 0.3; grow({ x: t.x + Math.cos(a) * (t.r * 0.7), y: ys[(i + k * 2) % ys.length] + (r() - 0.5) * 4, z: t.z + Math.sin(a) * (t.r * 0.7) }, a, 5 + Math.floor(r() * 2), 0, null); }
+      for (let k = 0; k < 3; k++) { const a = toC + (k - 1) * 1.15 + (r() - 0.5) * 0.3 + (k === 1 ? (r() < 0.5 ? 0.45 : -0.45) : 0); grow({ x: t.x + Math.cos(a) * (t.r * 0.7), y: ys[(i * 3 + k * 3) % ys.length] + (r() - 0.5) * 4, z: t.z + Math.sin(a) * (t.r * 0.7) }, a, 5 + Math.floor(r() * 2), 0, null, t); }
     }
     { // the little bud leaves: a small leaf shape, base at the origin pointing along +x
       const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.quadraticCurveTo(0.45, 0.32, 1, 0); sh.quadraticCurveTo(0.45, -0.32, 0, 0);
