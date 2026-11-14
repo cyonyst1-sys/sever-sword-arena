@@ -97,6 +97,16 @@ A misty-morning town you can **cut apart**. Shoji walls, wooden posts, a straw b
 - Floors, roofs, decks and the corner posts of buildings stay put, so there is always somewhere to stand. Bamboo and lantern poles line the town's edges to swing from (and cut).
 - Bots shoulder their way through whatever is in their way. The town is rebuilt fresh every match.
 
+### Bamboo Fort
+
+A 60 x 60 m platform built entirely of bamboo, floating in jade mist:
+
+- **Even the floor is bamboo.** It's made of tiles your sword slices straight through. Cut one out and there's a hole to fall through.
+- Small bamboo **huts** with flat bamboo roofs, an open **gazebo** in the middle (cut its poles and the roof comes down), bamboo **fences** and piles of cut poles.
+- A **dense bamboo wall** rings the edge. Anyone who swings or dashes into it smashes a window through it, so everyone can see where they came in.
+- Outside there's nothing but tall **bamboo pillars** to swing from (and cut).
+- **Spawn pads**: everyone starts on a small pad floating outside the fort and rushes the middle. Once you leave a pad it falls away into the mist, and it comes back 6 s later for the next fighter.
+
 ### Glass Skyline
 
 Skyscrapers above the clouds, made to be swung between and smashed through:
@@ -156,6 +166,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 - `src/maps2.js`: the Pagoda Falls and Moonlit Isles maps
 - `src/dojo.js`: the Paper Dojo District map and its breakable chunks (walls, stacks, fences, stalls) and how they collapse
 - `src/city.js`: the Glass Skyline map (glass towers, steel-frame buildings, the crane)
+- `src/bamboo.js`: the Bamboo Fort map (bamboo floor tiles, huts, gazebo, edge wall, pillars, falling spawn pads)
 - `src/killfx.js` and `src/grapple.js`: the kill effects and grapple styles
 - `src/arena.js`: all three maps (Sky Spires, Sky Plateaus, Great Canopy), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail

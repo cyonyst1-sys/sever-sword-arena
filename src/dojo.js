@@ -6,7 +6,7 @@
 // Vertical: a four-tier dojo tower with stairs spiralling up it, two-storey houses, rooftop bridges, watchtowers
 // and floating shrine islands around the town.
 import * as THREE from 'three';
-import { regMat } from './fighter.js?v=20261114152753';
+import { regMat } from './fighter.js?v=20261114153151';
 import { deck, prop, bridge, stalk, drift, farRing } from './maps2.js';
 
 const TAU = Math.PI * 2, CELL = 6;
@@ -30,6 +30,17 @@ function kindMats(T) {
     for (let i = 0; i < 500; i++) { const c = 150 + Math.random() * 90 | 0; g.strokeStyle = `rgba(${c},${c * 0.8 | 0},${c * 0.35 | 0},0.7)`; g.beginPath(); const x = Math.random() * s, y = Math.random() * s; g.moveTo(x, y); g.lineTo(x + (Math.random() - 0.5) * 6, y + 8 + Math.random() * 18); g.stroke(); }
   }, 128);
   const plain = (c, r = 0.85) => regMat(std(c, { roughness: r }));
+  // (Bamboo Fort) rows of bamboo poles with node rings: floors, walls, huts and fences
+  const poles = T.canvasTex((g, s) => {
+    const n = 6, w = s / n;
+    for (let i = 0; i < n; i++) {
+      const gr = g.createLinearGradient(i * w, 0, (i + 1) * w, 0), h = 0.9 + Math.random() * 0.2;
+      gr.addColorStop(0, `rgb(${70 * h | 0},${100 * h | 0},${34 * h | 0})`); gr.addColorStop(0.45, `rgb(${168 * h | 0},${196 * h | 0},${98 * h | 0})`); gr.addColorStop(1, `rgb(${64 * h | 0},${92 * h | 0},${30 * h | 0})`);
+      g.fillStyle = gr; g.fillRect(i * w, 0, w, s);
+      const ny = (Math.random() * 0.6 + 0.2) * s; g.fillStyle = 'rgba(40,58,18,0.85)'; g.fillRect(i * w, ny, w, 4); g.fillStyle = 'rgba(220,235,170,0.5)'; g.fillRect(i * w, ny + 4, w, 2);
+      g.fillStyle = 'rgba(20,30,8,0.6)'; g.fillRect((i + 1) * w - 1, 0, 1.5, s);
+    }
+  }, 128);
   KM = {
     paper: { mat: std(0xffffff, { map: shoji, roughness: 0.9, emissive: 0x4a3418, emissiveIntensity: 0.22 }), piece: plain(0xefe6d0), cap: plain(0xfaf4e4), tint: [0.92, 1] },
     wood: { mat: std(0xffffff, { map: T.woodTex(), roughness: 0.8 }), piece: plain(0x6e4a2c), cap: plain(0xc39463), tint: [0.75, 1.05] },
@@ -38,6 +49,7 @@ function kindMats(T) {
     // (Glass Skyline) window glass shatters; steel frames are only for swinging from and standing on; drywall gives way like paper
     glass: { mat: std(0xffffff, { transparent: true, opacity: 0.46, roughness: 0.06, metalness: 0.25, emissive: 0x1d4a70, emissiveIntensity: 0.7, depthWrite: false }), piece: regMat(std(0xbfe4ff, { transparent: true, opacity: 0.5, roughness: 0.05, metalness: 0.3 })), cap: regMat(std(0xdff2ff, { transparent: true, opacity: 0.6, roughness: 0.05 })), tint: [0.85, 1], color: 0x6fb2ea },
     steel: { mat: std(0xffffff, { roughness: 0.55, metalness: 0.35 }), piece: plain(0xb5532d), cap: plain(0x999999), tint: [0.85, 1], color: 0xc0582e },
+    bamboo: { mat: std(0xffffff, { map: poles, roughness: 0.6 }), piece: plain(0x7fa648, 0.6), cap: plain(0xe6e2b0, 0.7), tint: [0.85, 1.08] },
     drywall: { mat: std(0xffffff, { roughness: 0.95 }), piece: plain(0xe2ddd3), cap: plain(0xf2efe8), tint: [0.9, 1], color: 0xe8e3da },
   };
   return KM;
@@ -48,7 +60,7 @@ function kindMats(T) {
 // "base" chunks rest on a floor (or hang from a ceiling). After a cut, anything in the group no longer joined to a
 // base chunk falls.
 function chunk(A, g, kind, x0, x1, y0, y1, z0, z1, base) {
-  const b = { x0, x1, y0, y1, z0, z1, kind, soft: kind === 'paper' || kind === 'cloth' || kind === 'glass' || kind === 'drywall', hard: kind === 'steel', i: A.brk.list.length, g, nb: [], base: !!base, alive: true, plat: A.curPlat, cells: [] };
+  const b = { x0, x1, y0, y1, z0, z1, kind, soft: kind === 'paper' || kind === 'cloth' || kind === 'glass' || kind === 'drywall' || kind === 'bamboo', hard: kind === 'steel', i: A.brk.list.length, g, nb: [], base: !!base, alive: true, plat: A.curPlat, cells: [] };
   A.brk.list.push(b); g.chunks.push(b); return b;
 }
 const join = (a, b) => { if (a && b) { a.nb.push(b); b.nb.push(a); } };

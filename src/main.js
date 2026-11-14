@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114152753';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114152753';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114152753';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114152753';
-import * as net from './net.js?v=20261114152753';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114152753';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114152753';
-import { makeKillFx } from './killfx.js?v=20261114152753';
-import { makeGrapple } from './grapple.js?v=20261114152753';
-import { initShop } from './shop.js?v=20261114152753';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114152753';
-import { portal } from './portal.js?v=20261114152753';
+import { Arena, MAPS } from './arena.js?v=20261114153151';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114153151';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114153151';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114153151';
+import * as net from './net.js?v=20261114153151';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114153151';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114153151';
+import { makeKillFx } from './killfx.js?v=20261114153151';
+import { makeGrapple } from './grapple.js?v=20261114153151';
+import { initShop } from './shop.js?v=20261114153151';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114153151';
+import { portal } from './portal.js?v=20261114153151';
 
 // ---------- settings ----------
 const store = {
@@ -42,7 +42,7 @@ function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id && !ar
 const ground = (x, z, y, m) => arena.groundHeight(x, z, y, m);
 const blood = new Particles(scene, ground, { color: 0x0d0c0e, size: 0.07, decals: true, max: 2400, decalColor: 0x060507 }); // black blood
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
-const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 300 }); // bamboo chips
+const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 900 }); // bamboo chips
 const killFx = makeKillFx(scene, ground); // kill effects from the shop
 // sword-trail effects from the shop
 const trailFx = {
@@ -59,6 +59,7 @@ const debris = {
   straw: new Particles(scene, ground, { color: 0xd8b85a, size: 0.08, gravity: 7, max: 500 }),
 };
 debris.cloth = debris.drywall = debris.paper;
+debris.bamboo = leafBits; // green bamboo chips
 debris.glass = new Particles(scene, ground, { color: 0xd8f0ff, size: 0.06, gravity: 18, max: 700 }); // glass glitter
 const fx = new ModeFx(scene); // throne, shrines, heads
 
@@ -546,7 +547,7 @@ function smashChunk(i, n, d, mine, push) {
   });
   const e = debris[b.kind];
   for (let j = 0; j < (b.soft ? 26 : 16); j++) e.emit(c.x + (Math.random() - 0.5) * 0.6, c.y + (Math.random() - 0.5) * 0.6, c.z + (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 5 + v.x * 0.2, Math.random() * 3, (Math.random() - 0.5) * 5 + v.z * 0.2, b.soft ? 2.4 : 1.4);
-  if (b.kind === 'glass') sfx.shatter(c); else if (b.soft) sfx.tear(c); else sfx.chop(c);
+  if (b.kind === 'glass') sfx.shatter(c); else if (b.soft && b.kind !== 'bamboo') sfx.tear(c); else sfx.chop(c);
   const gone = [b, ...fall]; // anyone we control hooked onto something that just broke lets go
   for (const f of fighters.values()) if (f.hook && isLocal(f) && gone.some((q) => inBox(f.hook.p, q, 0.3))) releaseHook(f, false);
   (S.brkCuts ||= []).push([i, n, d]);
