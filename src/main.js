@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113200653';
-import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113200653';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113200653';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113200653';
-import * as net from './net.js?v=20261113200653';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113200653';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113200653';
-import { makeKillFx } from './killfx.js?v=20261113200653';
-import { makeGrapple } from './grapple.js?v=20261113200653';
-import { initShop } from './shop.js?v=20261113200653';
+import { Arena, MAPS } from './arena.js?v=20261113203413';
+import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113203413';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113203413';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113203413';
+import * as net from './net.js?v=20261113203413';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113203413';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113203413';
+import { makeKillFx } from './killfx.js?v=20261113203413';
+import { makeGrapple } from './grapple.js?v=20261113203413';
+import { initShop } from './shop.js?v=20261113203413';
 
 // ---------- settings ----------
 const store = {
@@ -108,20 +108,24 @@ function clearWorld() {
 
 // ---------- input ----------
 const keys = {};
-const mouse = { lmb: false, lmbT: 0, drag: 0, rmb: false };
+const mouse = { lmb: false, lmbT: 0, drag: 0, rmb: false, gx: 0, gy: 0 };
+// A tap is a quick slash; only holding the button past HOLD takes manual control of the sword. Until then
+// the mouse keeps turning the camera, so you can spam quick slashes while you look around.
+const HOLD = 0.12;
+const swingHeld = () => mouse.lmb && now() - mouse.lmbT >= HOLD;
 let locked = false;
 let quickDir = 1;
 canvas.addEventListener('mousedown', (e) => {
   ensureAudio();
   if (S.phase !== 'game') return;
   if (!locked) { lockPointer(); return; }
-  if (e.button === 0) { mouse.lmb = true; mouse.lmbT = now(); mouse.drag = 0; if (me) me.anim = null; }
+  if (e.button === 0) { mouse.lmb = true; mouse.lmbT = now(); mouse.drag = 0; mouse.gx = mouse.gy = 0; }
   if (e.button === 2) { mouse.rmb = true; if (me && me.alive) fireHook(me); }
 });
 window.addEventListener('mouseup', (e) => {
   if (e.button === 0 && mouse.lmb) {
     mouse.lmb = false;
-    if (me && me.alive && now() - mouse.lmbT < 0.2 && mouse.drag < 0.25) quickSwing(me);
+    if (me && me.alive && now() - mouse.lmbT < 0.2 && mouse.drag < 0.25) quickSwing(me, mouse.gx, mouse.gy);
   }
   if (e.button === 2) { mouse.rmb = false; if (me && me.hook) releaseHook(me, true); }
 });
@@ -131,7 +135,9 @@ window.addEventListener('mousemove', (e) => {
   const dx = e.movementX || 0, dy = e.movementY || 0;
   if (Math.abs(dx) > 400 || Math.abs(dy) > 400) return; // browser glitch spikes
   const k = 0.0022 * settings.look;
-  if (mouse.lmb && me.alive && me.stagger <= 0) {
+  if (mouse.lmb) { mouse.gx += dx; mouse.gy += dy; } // which way you were moving during a tap: the quick slash follows it
+  if (swingHeld() && me.alive) {
+    if (me.anim && me.anim.phase !== 'strike') me.anim = null; // taking manual control
     // swinging: the sword takes most of the motion, the body twists less, the camera turns least
     const ks = 0.0042 * settings.blade;
     me.s.x += dx * ks; me.s.y -= dy * ks;
@@ -303,9 +309,11 @@ function pushApart() {
 const isLocal = (f) => f === me || (S.host && f.isBot);
 
 // ---------- swords ----------
-function quickSwing(f) {
+function quickSwing(f, gx = 0, gy = 0) {
   quickDir = -quickDir;
-  const pat = [{ x: -1.0 * quickDir, y: 0.2 }, { x: 1.0 * quickDir, y: -0.15 }];
+  let pat = [{ x: -1.0 * quickDir, y: 0.2 }, { x: 1.0 * quickDir, y: -0.15 }];
+  const gl = Math.hypot(gx, gy);
+  if (gl > 12) { const ux = gx / gl, uy = -gy / gl; pat = [{ x: -ux, y: -uy * 0.8 + 0.1 }, { x: ux, y: uy * 0.8 - 0.05 }]; quickDir = ux > 0 ? 1 : -1; } // slash the way the mouse was moving
   f.s.x = pat[0].x; f.s.y = pat[0].y; f.noCut = true;
   f.anim = { phase: 'strike', t: 0, from: pat[0], to: pat[1], dur: 0.14 };
 }
@@ -324,7 +332,7 @@ function updateSword(f, dt) {
     } else { f.armed = !f.isBot; if (a.t > 0.18) f.anim = null; }
   } else {
     f.armed = !f.isBot;
-    if (!(f === me && mouse.lmb)) towardGuard(f, dt, 1.4);
+    if (!(f === me && swingHeld())) towardGuard(f, dt, 1.4);
   }
 }
 function towardGuard(f, dt, rate) {
@@ -1351,7 +1359,7 @@ function updateHud(dt) {
       else { const w = Math.max(0, Math.ceil((me.respawnAt === Infinity ? 3 - (now() - (me.diedAt || 0)) : me.respawnAt - now()))); c = `${esc(deathBy)}<small>Back in ${w}…</small>`; }
     } else if (status) c = `<small style="font-size:16px;color:var(--gold)">${status}</small>`;
     $('center').innerHTML = c;
-    $('bladeHint').classList.toggle('hidden', !(mouse.lmb && me.alive));
+    $('bladeHint').classList.toggle('hidden', !(swingHeld() && me.alive));
   }
   $('board').classList.toggle('hidden', !keys.Tab);
   if (keys.Tab) {
@@ -1419,7 +1427,7 @@ function tick(rdt, tt) {
         const fw = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
         const st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
         // body = camera + twist; the twist eases back once you stop swinging
-        if (!mouse.lmb) { const k = Math.exp(-6 * rdt); twist.yaw *= k; twist.pitch *= k; }
+        if (!swingHeld()) { const k = Math.exp(-6 * rdt); twist.yaw *= k; twist.pitch *= k; }
         f.yaw = view.yaw + twist.yaw; f.pitch = Math.max(-1.25, Math.min(1.25, view.pitch + twist.pitch));
         const vy = view.yaw, fx = -Math.sin(vy), fz = -Math.cos(vy), rx = Math.cos(vy), rz = -Math.sin(vy); // move relative to the camera
         let wx = fx * fw + rx * st, wz = fz * fw + rz * st; const l = Math.hypot(wx, wz); if (l > 0) { wx /= l; wz /= l; }
