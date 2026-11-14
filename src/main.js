@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113205656';
-import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113205656';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113205656';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113205656';
-import * as net from './net.js?v=20261113205656';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113205656';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113205656';
-import { makeKillFx } from './killfx.js?v=20261113205656';
-import { makeGrapple } from './grapple.js?v=20261113205656';
-import { initShop } from './shop.js?v=20261113205656';
+import { Arena, MAPS } from './arena.js?v=20261113210308';
+import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113210308';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113210308';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113210308';
+import * as net from './net.js?v=20261113210308';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113210308';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113210308';
+import { makeKillFx } from './killfx.js?v=20261113210308';
+import { makeGrapple } from './grapple.js?v=20261113210308';
+import { initShop } from './shop.js?v=20261113210308';
 
 // ---------- settings ----------
 const store = {
@@ -654,10 +654,18 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
       .map((p) => ({ p, d: Math.hypot(p.x - b.pos.x, p.z - b.pos.z) + Math.max(0, p.y - b.pos.y) * 0.9 })).sort((u, v) => u.d - v.d);
     for (const { p } of order.slice(0, 4)) if (botSwingTo(b, p, 'save')) return idle;
   }
+  // progress watchdog: not getting any closer (a walking route that wanders, or no route at all)? then swing
+  // or dash for it, even within the same connected stretch of branches
+  const dNow = b.pos.distanceTo(t.pos);
+  if (!b.prog || now() - b.prog.t > 1.5 || b.prog.tgt !== t.plat) {
+    if (b.prog && b.prog.tgt === t.plat && b.onGround && dNow > 4 && dNow > b.prog.d - 2) b.forceCross = now() + 3;
+    b.prog = { t: now(), d: dNow, tgt: t.plat };
+  }
+  const forced = b.forceCross > now();
   if (b.hookCd2 > 0 || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
   // enemy on another platform: swing over and land on it (pads are the fallback)
   const holding = b.stayUntil > now() && b.pos.distanceTo(t.pos) < 25; // a pause on landing only makes sense next to the enemy
-  if (t.plat != null && b.plat != null && !samePlace(b, t) && !holding && Math.random() < dt * D.cross * 4) {
+  if (t.plat != null && b.plat != null && (forced || !samePlace(b, t)) && !holding && Math.random() < dt * D.cross * 4) {
     const ok = (p) => p && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -16 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 48;
     let tp = arena.plats[t.plat];
     if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && grp(+q.name.slice(1)) !== grp(b.plat)); tp = n ? arena.plats[+n.name.slice(1)] : null; }
@@ -668,7 +676,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
       if (ok(tp) && rimDist(tp, b.pos) < 16) { how = dashOnto(b, tp); onto = tp; }
       if (!how && arena.comp) {
         const dT = b.pos.distanceTo(t.pos), mine = arena.comp[b.plat];
-        const hops = arena.plats.filter((q) => !q.gone && arena.comp[q.i] !== mine && rimDist(q, b.pos) < 14 && Math.hypot(q.x - t.pos.x, q.z - t.pos.z) + Math.abs(q.y - t.pos.y) < dT - 5)
+        const hops = arena.plats.filter((q) => !q.gone && (forced ? q.i !== b.plat : arena.comp[q.i] !== mine) && rimDist(q, b.pos) < 14 && Math.hypot(q.x - t.pos.x, q.z - t.pos.z) + Math.abs(q.y - t.pos.y) < dT - 5)
           .sort((u, v) => rimDist(u, b.pos) - rimDist(v, b.pos)).slice(0, 5);
         for (const q of hops) { how = dashOnto(b, q); if (how) { onto = q; break; } }
       }
@@ -678,6 +686,8 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     }
     if (ok(tp) && botSwingTo(b, tp, 'cross')) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
     b.padOk = 2.5;
+    // stuck close under (or right beside) a higher surface: no clear arc from here, so back off for a run-up
+    if (forced && tp && arena.platTop(tp, b.pos) > b.pos.y + 1.5 && rimDist(tp, b.pos) < 9) { const ax = b.pos.x - tp.x, az = b.pos.z - tp.z, al = Math.hypot(ax, az) || 1; b.backoff = { until: now() + 0.9, x: ax / al, z: az / al }; }
   }
   // long way off on about the same level: a free swing for show
   if (dh > 16 && Math.abs(dy) < 3 && !samePlace(b, t) && Math.random() < dt * D.roam) {
@@ -856,6 +866,7 @@ function botThink(b, dt) {
   // stuck? hop
   b.stuck = (b.stuck || 0) + ((wish.x || wish.z) && Math.hypot(b.vel.x, b.vel.z) < 0.6 && b.onGround ? dt : -dt);
   if (b.stuck > 0.8) { jump = true; b.stuck = 0; b.repath = 0; }
+  if (b.backoff && now() < b.backoff.until && b.onGround) { wish.x = b.backoff.x; wish.z = b.backoff.z; } // taking a run-up
   // don't walk off the platform: if there's no floor ahead, try sideways, else stop
   // (walking onto a jump pad by the edge is fine: the drop just past it is where the pad sends us)
   const padDist = Math.hypot(goal.x - b.pos.x, goal.z - b.pos.z), toPad = padGoal && padDist < 3;
