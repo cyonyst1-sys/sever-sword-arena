@@ -5,7 +5,7 @@
 // them (and come back a few seconds later for the next fighter).
 import * as THREE from 'three';
 import { deck, prop, stalk, drift, farRing } from './maps2.js';
-import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114153658';
+import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114154714';
 
 const TAU = Math.PI * 2, HALF = 30, TILE = 1.5;
 
@@ -93,6 +93,24 @@ export function buildBamboo(A, T) {
   for (let i = 0; i < 46; i++) {
     const a = i / 46 * TAU + (r() - 0.5) * 0.12, rr = 38 + r() * 26;
     stalk(A, Math.cos(a) * rr, Math.sin(a) * rr, 0.4 + r() * 0.25);
+  }
+  // ---- inside the fort: high bamboo walls between the huts, and tall pillars all over, to swing round and hook
+  const taken = []; // spots already used (huts, gazebo, walls), to keep the pillars clear of them
+  for (let k = 0; k < 6; k++) { const a = k / 6 * TAU + 0.3; taken.push([Math.cos(a) * 17, Math.sin(a) * 17, 4.8]); }
+  taken.push([0, 0, 5.5]);
+  for (let k = 0; k < 6; k++) { // a 14 m wall halfway between each pair of huts, running across the way round
+    const a = k / 6 * TAU + 0.3 + TAU / 12, cx = Math.cos(a) * 17, cz = Math.sin(a) * 17, tx = -Math.sin(a), tz = Math.cos(a), L = 7;
+    if (Math.abs(tx) > Math.abs(tz)) wall(A, cx - L / 2, cz, cx + L / 2, cz, 0, 14, { kind: 'bamboo', posts: false, t: 0.45 });
+    else wall(A, cx, cz - L / 2, cx, cz + L / 2, 0, 14, { kind: 'bamboo', posts: false, t: 0.45 });
+    for (let s = -1; s <= 1; s++) taken.push([cx + tx * s * 3, cz + tz * s * 3, 2.5]);
+  }
+  for (const [x, z] of [[0, -12], [0, 12], [-12, 0], [12, 0]]) { wall(A, x - 3, z, x + 3, z, 0, 10, { kind: 'bamboo', posts: false, t: 0.45 }); } // lower walls round the gazebo
+  for (const [x, z] of [[0, -12], [0, 12], [-12, 0], [12, 0]]) taken.push([x, z, 3.5]);
+  let placed = 0;
+  for (let tries = 0; tries < 400 && placed < 18; tries++) { // thick pillars rising 40 m, spread through the fort
+    const x = (r() - 0.5) * (HALF * 2 - 6), z = (r() - 0.5) * (HALF * 2 - 6);
+    if (taken.some(([tx, tz, rad]) => Math.hypot(x - tx, z - tz) < rad + 1.5)) continue;
+    stalk(A, x, z, 0.55); taken.push([x, z, 6]); placed++;
   }
   A.plantStalks(-60, 42);
 
