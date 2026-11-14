@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113235008';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113235008';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113235008';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113235008';
-import * as net from './net.js?v=20261113235008';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113235008';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113235008';
-import { makeKillFx } from './killfx.js?v=20261113235008';
-import { makeGrapple } from './grapple.js?v=20261113235008';
-import { initShop } from './shop.js?v=20261113235008';
+import { Arena, MAPS } from './arena.js?v=20261113235305';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113235305';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113235305';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113235305';
+import * as net from './net.js?v=20261113235305';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113235305';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113235305';
+import { makeKillFx } from './killfx.js?v=20261113235305';
+import { makeGrapple } from './grapple.js?v=20261113235305';
+import { initShop } from './shop.js?v=20261113235305';
 
 // ---------- settings ----------
 const store = {
@@ -1584,5 +1584,7 @@ function renderMapPicker() {
   $('mapPicker').innerHTML = [...sel.options].map((o) => `<button class="mapCard ${o.value === sel.value ? 'on' : ''}" data-map="${o.value}" title="${esc(o.text)}"><img src="${thumb(o.value)}" alt=""><span>${esc(o.text.split(':')[0])}</span></button>`).join('');
 }
 $('mapPicker').addEventListener('click', (e) => { const b = e.target.closest('.mapCard'); if (!b) return; $('map').value = b.dataset.map; $('map').dispatchEvent(new Event('change')); renderMapPicker(); });
-$('map').addEventListener('change', renderMapPicker);
-renderMapPicker();
+// the menu background shows the chosen map
+const previewMap = () => { renderMapPicker(); if (S.phase === 'menu') useMap($('map').value); };
+$('map').addEventListener('change', previewMap);
+previewMap();
