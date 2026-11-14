@@ -1,15 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114031859';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114031859';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114031859';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114031859';
-import * as net from './net.js?v=20261114031859';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114031859';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114031859';
-import { makeKillFx } from './killfx.js?v=20261114031859';
-import { makeGrapple } from './grapple.js?v=20261114031859';
-import { initShop } from './shop.js?v=20261114031859';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114031859';
+import { Arena, MAPS } from './arena.js?v=20261114034906';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114034906';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114034906';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114034906';
+import * as net from './net.js?v=20261114034906';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114034906';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114034906';
+import { makeKillFx } from './killfx.js?v=20261114034906';
+import { makeGrapple } from './grapple.js?v=20261114034906';
+import { initShop } from './shop.js?v=20261114034906';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114034906';
+import { portal } from './portal.js?v=20261114034906';
 
 // ---------- settings ----------
 const store = {
@@ -182,8 +183,9 @@ function lockPointer() { try { const p = canvas.requestPointerLock(); if (p && p
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
   if (S.phase !== 'game') return;
-  if (locked) { $('pause').classList.add('hidden'); $('clickPlay').classList.add('hidden'); S.paused = false; }
+  if (locked) { $('pause').classList.add('hidden'); $('clickPlay').classList.add('hidden'); S.paused = false; portal.gameplayStart(); }
   else {
+    portal.gameplayStop();
     mouse.lmb = false; if (me && me.hook) releaseHook(me, false);
     $('pause').classList.remove('hidden');
     $('pauseNote').textContent = S.online ? 'The match keeps going while this menu is open.' : '';
@@ -1444,7 +1446,7 @@ $('hostBtn').onclick = hostRoom;
 $('startBtn').onclick = () => { if (S.host) { S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; startMatch(); } };
 $('leaveBtn').onclick = () => { leaveRoom(); toMenu(); };
 $('copyLink').onclick = () => {
-  const link = location.origin + location.pathname + '?room=' + net.net.code;
+  const link = portal.inviteLink(net.net.code);
   (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast('Invite link copied'), () => toast(link));
 };
 for (const id of ['lobbyModeSel', 'lobbyMap', 'lobbyBots', 'lobbyDiff']) $(id).onchange = () => { if (!S.host) return; S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; for (const r of S.roster) r.team = coop() ? 'H' : r.id; sendRoster(); if (S.online) net.dirSetRoom(roomInfo()); };
@@ -1472,7 +1474,7 @@ function renderLobby() {
   $('lobbyThumb').src = thumb(S.map);
   if (S.host) { $('lobbyModeSel').value = S.mode; $('lobbyMap').value = S.map; $('lobbyBots').value = S.bots; $('lobbyDiff').value = S.diff; }
 }
-function showLobby() { S.phase = 'lobby'; show('lobby'); $('hud').classList.add('hidden'); if (document.pointerLockElement) document.exitPointerLock(); renderLobby(); }
+function showLobby() { portal.gameplayStop(); S.phase = 'lobby'; show('lobby'); $('hud').classList.add('hidden'); if (document.pointerLockElement) document.exitPointerLock(); renderLobby(); }
 
 async function hostRoom() {
   ensureAudio();
@@ -1511,6 +1513,7 @@ function startSolo(mode) {
   startMatch();
 }
 function enterGame() {
+  portal.gameplayStart();
   S.phase = 'game'; S.ended = false; S.paused = false; S.matchStart = now();
   show(null); $('hud').classList.remove('hidden');
   $('hint').style.opacity = 1; setTimeout(() => { $('hint').style.opacity = 0; }, 12000);
@@ -1519,7 +1522,7 @@ function enterGame() {
 }
 function toMenu() {
   fx.clear(); S.obj = null;
-  S.phase = 'menu'; S.ended = false; clearWorld(); S.roster = [];
+  portal.gameplayStop(); S.phase = 'menu'; S.ended = false; clearWorld(); S.roster = [];
   $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
   show('home');
@@ -1527,7 +1530,7 @@ function toMenu() {
 const ranked = (list, mode) => [...list].sort((a, b) => POINT_MODES.has(mode) ? (b.pts || 0) - (a.pts || 0) || b.k - a.k : b.k - a.k || a.d - b.d);
 function showEnd(res) {
   if (S.phase !== 'game') return;
-  S.phase = 'end';
+  S.phase = 'end'; portal.gameplayStop();
   if (document.pointerLockElement) document.exitPointerLock();
   show('end'); $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
   const list = ranked(res.list, res.mode), name = (MODES[res.mode] || MODES.ffa).name, pts = POINT_MODES.has(res.mode);
@@ -1560,11 +1563,10 @@ function showEnd(res) {
 }
 
 // invite links
-{
-  const q = new URLSearchParams(location.search);
-  const room = net.cleanCode(q.get('room'));
-  if (room.length === 5) { show('mp'); $('joinCode').value = room; net.dirStart(renderRooms); toast('Enter your name on the home screen if you like, then press Join.'); }
-}
+portal.inviteRoom().then((code) => {
+  const room = net.cleanCode(code);
+  if (room.length === 5 && S.phase === 'menu') { show('mp'); $('joinCode').value = room; net.dirStart(renderRooms); toast('Enter your name on the home screen if you like, then press Join.'); }
+});
 
 // ---------- HUD ----------
 let hudT = 0;
@@ -1730,6 +1732,7 @@ show('home');
 setVolume(settings.vol);
 $('clickPlay').onclick = () => { ensureAudio(); lockPointer(); };
 $('loading').remove();
+portal.loadingStop();
 requestAnimationFrame(frame);
 // handy for debugging in the console
 window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, renderer, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };

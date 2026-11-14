@@ -165,3 +165,12 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 Every push to `main` redeploys the site on GitHub Pages within about a minute. Before committing changes to `src/` or `index.html`, run `tools/bump-version.sh` so browsers load the new files together.
 
 To run locally, serve the folder with any static web server (ES modules don't load from `file://`).
+
+## Portal builds
+
+`tools/bump-version.sh` also runs `tools/build-portal.sh`, so every new build refreshes two upload-ready zips in `dist/` (not committed):
+
+- `dist/sever-web.zip`: plain HTML5 build for itch.io, Newgrounds, Game Jolt or a Poki pitch.
+- `dist/sever-crazygames.zip`: the same build plus the CrazyGames SDK script.
+
+Three.js and PeerJS are served from `vendor/` instead of a CDN, so the game doesn't depend on outside script hosts (multiplayer still uses the public PeerJS server). `src/portal.js` tells CrazyGames when loading ends and when a match starts or stops, and gives CrazyGames invite links. Off CrazyGames, every one of those calls does nothing.

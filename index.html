@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261114031859">
+<meta name="build" content="20261114034906">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -123,16 +123,16 @@ window.severVersion.check();
   .rng input { flex:1; }
   @media (max-width:600px) { .screen { background:rgba(8,6,6,.85); } #topbar { font-size:12px; } }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="vendor/peerjs.min.js"></script>
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "./src/main.js": "./src/main.js?v=20261114031859",
-  "./src/arena.js": "./src/arena.js?v=20261114031859",
-  "./src/fighter.js": "./src/fighter.js?v=20261114031859",
-  "./src/slice.js": "./src/slice.js?v=20261114031859",
-  "./src/audio.js": "./src/audio.js?v=20261114031859",
-  "./src/net.js": "./src/net.js?v=20261114031859"
+  "three": "./vendor/three.module.min.js",
+  "./src/main.js": "./src/main.js?v=20261114034906",
+  "./src/arena.js": "./src/arena.js?v=20261114034906",
+  "./src/fighter.js": "./src/fighter.js?v=20261114034906",
+  "./src/slice.js": "./src/slice.js?v=20261114034906",
+  "./src/audio.js": "./src/audio.js?v=20261114034906",
+  "./src/net.js": "./src/net.js?v=20261114034906"
 } }
 </script>
 </head>
@@ -274,6 +274,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261114031859"></script>
+<script type="module" src="src/main.js?v=20261114034906"></script>
 </body>
 </html>

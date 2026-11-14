@@ -12,3 +12,5 @@ sed -i -E "s#(from '\./[a-z]+\.js)(\?v=[0-9]+)?'#\1?v=${v}'#g" src/*.js
 sed -i -E "s/(<meta name=\"build\" content=\")[0-9]+(\">)/\1${v}\2/" index.html
 printf '{ "v": "%s" }\n' "$v" > version.json
 echo "index.html now uses ?v=${v} (version.json updated)"
+# keep the portal zips (dist/) in step with every build
+bash tools/build-portal.sh
