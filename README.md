@@ -97,6 +97,15 @@ A misty-morning town you can **cut apart**. Shoji walls, wooden posts, a straw b
 - Floors, roofs, decks and the corner posts of buildings stay put, so there is always somewhere to stand. Bamboo and lantern poles line the town's edges to swing from (and cut).
 - Bots shoulder their way through whatever is in their way. The town is rebuilt fresh every match.
 
+### Glass Skyline
+
+Skyscrapers above the clouds, made to be swung between and smashed through:
+
+- **Four glass towers**, walled in glass all the way up. Every pane **shatters** into tumbling shards when you swing, run or dash into it, or cut it. Inside, there's a floor every 6 m with stairs zig-zagging up, office partitions to cut through, and desks. On the roofs are water towers, a helipad and a radio mast to hook.
+- **Three half-built buildings**: nothing but a red **steel frame** (columns every ~6 m, beams every 4 m) with a concrete deck every couple of floors. The steel can't be cut. Swing from it, run along the beams, or stand on them. Each deck has drywall sheets, pallets of crates and partitions going up, and the lowest floors have their first windows in.
+- A **tower crane** on the biggest frame, with a long jib you can run along and a load of crates hanging off its hook.
+- Bots swing from building to building and crash through the glass to get to you.
+
 ### Colosseum
 
 A colosseum bowl in the sky, built entirely of **round platforms**:
@@ -144,6 +153,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 - `src/shop.js`: the shop screen and its 3D preview
 - `src/maps2.js`: the Pagoda Falls and Moonlit Isles maps
 - `src/dojo.js`: the Paper Dojo District map and its breakable chunks (walls, stacks, fences, stalls) and how they collapse
+- `src/city.js`: the Glass Skyline map (glass towers, steel-frame buildings, the crane)
 - `src/killfx.js` and `src/grapple.js`: the kill effects and grapple styles
 - `src/arena.js`: all three maps (Sky Spires, Sky Plateaus, Great Canopy), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail

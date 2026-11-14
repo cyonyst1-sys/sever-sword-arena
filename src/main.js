@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114014554';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114014554';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261114014554';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114014554';
-import * as net from './net.js?v=20261114014554';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114014554';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114014554';
-import { makeKillFx } from './killfx.js?v=20261114014554';
-import { makeGrapple } from './grapple.js?v=20261114014554';
-import { initShop } from './shop.js?v=20261114014554';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114014554';
+import { Arena, MAPS } from './arena.js?v=20261114025722';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114025722';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114025722';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114025722';
+import * as net from './net.js?v=20261114025722';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114025722';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114025722';
+import { makeKillFx } from './killfx.js?v=20261114025722';
+import { makeGrapple } from './grapple.js?v=20261114025722';
+import { initShop } from './shop.js?v=20261114025722';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114025722';
 
 // ---------- settings ----------
 const store = {
@@ -38,7 +38,7 @@ let arena = new Arena(scene, settings.quality, 'spire');
 // switch maps (between matches): drop the old one and build the new
 function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id && !arena.dirty) return; // (also rebuild after platforms have crumbled)
   arena.dispose(); arena = new Arena(scene, settings.quality, id); }
-const ground = (x, z, y) => arena.groundHeight(x, z, y);
+const ground = (x, z, y, m) => arena.groundHeight(x, z, y, m);
 const blood = new Particles(scene, ground, { color: 0x8a0a10, size: 0.07, decals: true, max: 2400 });
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
 const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 300 }); // bamboo chips
@@ -57,7 +57,8 @@ const debris = {
   wood: new Particles(scene, ground, { color: 0x7a5432, size: 0.07, gravity: 16, max: 400 }),
   straw: new Particles(scene, ground, { color: 0xd8b85a, size: 0.08, gravity: 7, max: 500 }),
 };
-debris.cloth = debris.paper;
+debris.cloth = debris.drywall = debris.paper;
+debris.glass = new Particles(scene, ground, { color: 0xd8f0ff, size: 0.06, gravity: 18, max: 700 }); // glass glitter
 const fx = new ModeFx(scene); // throne, shrines, heads
 
 // ---------- constants ----------
@@ -218,7 +219,7 @@ function tryDash(f, dir) {
 function fireHook(f, origin, dir) {
   if (!f.alive || (f.hookCd || 0) > 0) return false;
   if (!origin) { origin = camera.position.clone(); dir = new THREE.Vector3(); camera.getWorldDirection(dir); origin.addScaledVector(dir, camDist); }
-  const h = arena.grappleTarget(origin, dir, HOOK_MAX);
+  arena.rayThin = !!f.isBot; const h = arena.grappleTarget(origin, dir, HOOK_MAX); arena.rayThin = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
   f.hookCd = 0.25;
   if (!h) { sfx.hookFire(f.pos); return false; }
   const chest = _t.copy(f.pos); chest.y += 1.3;
@@ -482,7 +483,7 @@ function brkSweep(f, dt) {
     _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
     if (_A.distanceTo(_B) / dt < 4) continue;
     for (const b of list) {
-      if (!b.alive) continue;
+      if (!b.alive || b.hard) continue;
       const h = segBox(_A, _B, b); if (h < 0) continue;
       if (f.hook && inBox(f.hook.p, b, 0.3)) continue; // never the one you're swinging from
       n ||= cutNormal(f);
@@ -499,7 +500,7 @@ function crash(f) {
   const hs = Math.hypot(f.vel.x, f.vel.z); if (hs < 5) return;
   const R = RAD + 0.14;
   for (const b of arena.brkQuery(f.pos.x - 1, f.pos.x + 1, f.pos.z - 1, f.pos.z + 1)) {
-    if (!b.alive || b.y1 <= f.pos.y + 0.45 || b.y0 >= f.pos.y + HGT) continue;
+    if (!b.alive || b.hard || b.y1 <= f.pos.y + 0.45 || b.y0 >= f.pos.y + HGT) continue;
     if (!(b.soft || f.dashT > 0 || f.isBot)) continue;
     const cx = Math.max(b.x0, Math.min(f.pos.x, b.x1)), cz = Math.max(b.z0, Math.min(f.pos.z, b.z1));
     if ((f.pos.x - cx) ** 2 + (f.pos.z - cz) ** 2 > R * R) continue;
@@ -507,13 +508,31 @@ function crash(f) {
     smashChunk(b.i, null, 0, true, f.vel);
   }
 }
+// a window pane bursts into shards: split along the cut (if any), then a few more random cracks
+function shatter(b, nv, d, v) {
+  const c = new THREE.Vector3((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2);
+  let parts = [chunkSoup(b)];
+  for (let k = 0; k < 3; k++) {
+    let n = nv, dd = d;
+    if (k || !n) { n = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(); dd = -n.dot(_t.set(c.x + (Math.random() - 0.5) * (b.x1 - b.x0) * 0.6, c.y + (Math.random() - 0.5) * (b.y1 - b.y0) * 0.6, c.z + (Math.random() - 0.5) * (b.z1 - b.z0) * 0.6)); }
+    parts = parts.flatMap((s) => { const [a, e] = splitSoup(s, n, dd); return a.M.length && e.M.length ? [a, e] : [s]; });
+  }
+  const out = [];
+  for (const s of parts) {
+    const p = pieces.make(s); if (!p) continue;
+    p.vel.copy(v).multiplyScalar(1.4).add(_t2.set((Math.random() - 0.5) * 3, Math.random() * 2, (Math.random() - 0.5) * 3));
+    p.w.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(9); out.push(p);
+  }
+  for (let j = 0; j < 40; j++) debris.glass.emit(c.x + (Math.random() - 0.5) * (b.x1 - b.x0), c.y + (Math.random() - 0.5) * (b.y1 - b.y0), c.z + (Math.random() - 0.5) * (b.z1 - b.z0), (Math.random() - 0.5) * 6 + v.x * 0.4, Math.random() * 3, (Math.random() - 0.5) * 6 + v.z * 0.4, 1.6);
+  return out;
+}
 // break chunk i: it splits along the cut (or is knocked loose whole), and anything left unsupported comes down
 function smashChunk(i, n, d, mine, push) {
-  const b = arena.brk && arena.brk.list[i]; if (!b || !b.alive) return;
+  const b = arena.brk && arena.brk.list[i]; if (!b || !b.alive || b.hard) return;
   const fall = breakChunk(arena, b), c = new THREE.Vector3((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2);
   const v = push ? new THREE.Vector3(push.x, Math.max(0, push.y), push.z).multiplyScalar(0.35) : new THREE.Vector3();
   const nv = n && new THREE.Vector3().fromArray(n);
-  let made = nv && pieces.split(chunkSoup(b), nv, d, v, v, 0.6, null) ? pieces.last : null;
+  let made = b.kind === 'glass' ? shatter(b, nv, d, v) : nv && pieces.split(chunkSoup(b), nv, d, v, v, 0.6, null) ? pieces.last : null;
   if (!made) { const p = pieces.make(chunkSoup(b)); if (p) { p.vel.copy(v); p.vel.y += 1.2; p.w.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(5); made = [p]; } }
   for (const p of made || []) p.life = 14;
   fall.forEach((q, k) => { // the loose parts drop (only so many as pieces; the rest just crumble away)
@@ -522,7 +541,7 @@ function smashChunk(i, n, d, mine, push) {
   });
   const e = debris[b.kind];
   for (let j = 0; j < (b.soft ? 26 : 16); j++) e.emit(c.x + (Math.random() - 0.5) * 0.6, c.y + (Math.random() - 0.5) * 0.6, c.z + (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 5 + v.x * 0.2, Math.random() * 3, (Math.random() - 0.5) * 5 + v.z * 0.2, b.soft ? 2.4 : 1.4);
-  if (b.soft || b.kind === 'cloth') sfx.tear(c); else sfx.chop(c);
+  if (b.kind === 'glass') sfx.shatter(c); else if (b.soft) sfx.tear(c); else sfx.chop(c);
   const gone = [b, ...fall]; // anyone we control hooked onto something that just broke lets go
   for (const f of fighters.values()) if (f.hook && isLocal(f) && gone.some((q) => inBox(f.hook.p, q, 0.3))) releaseHook(f, false);
   (S.brkCuts ||= []).push([i, n, d]);
@@ -885,7 +904,7 @@ function botSwingTo(b, tp, why) {
   };
   for (const c of cands.slice(0, 10)) {
     const dir = c.p.clone().sub(o).normalize();
-    const hit = arena.raycast(o, dir, HOOK_MAX);
+    arena.rayThin = true; const hit = arena.raycast(o, dir, HOOK_MAX); arena.rayThin = false;
     if (!hit || (hit.point.distanceTo(c.p) > 1.4 && (c.s < 0 || !carries(hit.point)))) continue; // something in the way that won't do
     if (!fireHook(b, o, dir)) return false;
     b.hookT = 0; b.hookMax = 5; b.hookWhy = why; b.dest = tp;
@@ -1667,7 +1686,7 @@ function tick(rdt, tt) {
     netTick(rdt);
   } else if (S.phase === 'game') netTick(rdt);
   const pdt = hitstop > 0 ? rdt * 0.08 : rdt; hitstop -= rdt;
-  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt); debris.paper.update(pdt); debris.wood.update(pdt); debris.straw.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
+  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt); debris.paper.update(pdt); debris.wood.update(pdt); debris.straw.update(pdt); debris.glass.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
   shake *= Math.exp(-9 * rdt); punch *= Math.exp(-6 * rdt);
   updateCamera(rdt);
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it

@@ -2,7 +2,7 @@
 // and turn each side into a tumbling rigid piece. Every original part is convex, so the cut face of a part
 // is the convex hull of the points where the plane crossed it.
 import * as THREE from 'three';
-import { MATS } from './fighter.js?v=20261114014554';
+import { MATS } from './fighter.js?v=20261114025722';
 
 let partSeq = 1;
 const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _nm = new THREE.Matrix3();
@@ -236,6 +236,8 @@ export class Pieces {
       m.position.addScaledVector(p.vel, dt);
       const wl = p.w.length();
       if (wl > 1e-5) { q.setFromAxisAngle(tmp.copy(p.w).divideScalar(wl), wl * dt); m.quaternion.premultiply(q); }
+      // clearly in mid-air (nothing under it within its own size)? then no contact this frame: one ground check, not fourteen
+      if (m.position.y - p.r - Math.max(0, -p.vel.y * dt) - 0.3 > this.ground(m.position.x, m.position.z, m.position.y + p.r, p.r + 0.2)) continue;
       // deepest contact
       let pen = 0, cp = null;
       const tol = Math.max(0.1, -p.vel.y * dt + 0.08);

@@ -6,7 +6,7 @@
 // Vertical: a four-tier dojo tower with stairs spiralling up it, two-storey houses, rooftop bridges, watchtowers
 // and floating shrine islands around the town.
 import * as THREE from 'three';
-import { regMat } from './fighter.js?v=20261114014554';
+import { regMat } from './fighter.js?v=20261114025722';
 import { deck, prop, bridge, stalk, drift, farRing } from './maps2.js';
 
 const TAU = Math.PI * 2, CELL = 6;
@@ -35,6 +35,10 @@ function kindMats(T) {
     wood: { mat: std(0xffffff, { map: T.woodTex(), roughness: 0.8 }), piece: plain(0x6e4a2c), cap: plain(0xc39463), tint: [0.75, 1.05] },
     straw: { mat: std(0xffffff, { map: straw, roughness: 1 }), piece: plain(0xc9a651, 1), cap: plain(0xe2c574, 1), tint: [0.85, 1.05] },
     cloth: { mat: std(0xffffff, { roughness: 0.9 }), piece: plain(0xa02c2c), cap: plain(0xc04848), tint: [0.8, 1], color: 0xb33030 },
+    // (Glass Skyline) window glass shatters; steel frames are only for swinging from and standing on; drywall gives way like paper
+    glass: { mat: std(0xffffff, { transparent: true, opacity: 0.46, roughness: 0.06, metalness: 0.25, emissive: 0x1d4a70, emissiveIntensity: 0.7, depthWrite: false }), piece: regMat(std(0xbfe4ff, { transparent: true, opacity: 0.5, roughness: 0.05, metalness: 0.3 })), cap: regMat(std(0xdff2ff, { transparent: true, opacity: 0.6, roughness: 0.05 })), tint: [0.85, 1], color: 0x6fb2ea },
+    steel: { mat: std(0xffffff, { roughness: 0.55, metalness: 0.35 }), piece: plain(0xb5532d), cap: plain(0x999999), tint: [0.85, 1], color: 0xc0582e },
+    drywall: { mat: std(0xffffff, { roughness: 0.95 }), piece: plain(0xe2ddd3), cap: plain(0xf2efe8), tint: [0.9, 1], color: 0xe8e3da },
   };
   return KM;
 }
@@ -44,7 +48,7 @@ function kindMats(T) {
 // "base" chunks rest on a floor (or hang from a ceiling). After a cut, anything in the group no longer joined to a
 // base chunk falls.
 function chunk(A, g, kind, x0, x1, y0, y1, z0, z1, base) {
-  const b = { x0, x1, y0, y1, z0, z1, kind, soft: kind === 'paper' || kind === 'cloth', i: A.brk.list.length, g, nb: [], base: !!base, alive: true, plat: A.curPlat, cells: [] };
+  const b = { x0, x1, y0, y1, z0, z1, kind, soft: kind === 'paper' || kind === 'cloth' || kind === 'glass' || kind === 'drywall', hard: kind === 'steel', i: A.brk.list.length, g, nb: [], base: !!base, alive: true, plat: A.curPlat, cells: [] };
   A.brk.list.push(b); g.chunks.push(b); return b;
 }
 const join = (a, b) => { if (a && b) { a.nb.push(b); b.nb.push(a); } };
@@ -148,7 +152,7 @@ function finishBrk(A) {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(), col = new THREE.Color();
   for (const [kind, list] of Object.entries(byKind)) {
     const k = K[kind], im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), k.mat, list.length);
-    im.castShadow = im.receiveShadow = A.quality !== 'low'; im.frustumCulled = false;
+    im.castShadow = im.receiveShadow = A.quality !== 'low' && kind !== 'glass'; im.frustumCulled = false; if (kind === 'glass') im.renderOrder = 2;
     list.forEach((b, n) => {
       b.im = im; b.inst = n;
       m4.compose(p.set((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2), q, s.set(b.x1 - b.x0, b.y1 - b.y0, b.z1 - b.z0)); im.setMatrixAt(n, m4);
@@ -236,7 +240,7 @@ export function buildDojo(A, T) {
     A.plats.push(p); A.tag = p;
     A.addRamp(lx, lz, hx, hz, lo.y, hi.y, w, lo.y, W, { noWall: true });
     A.tag = null;
-    A.node('P' + p.i, p.x, p.y, p.z).plat = p.i;
+    A.node('P' + p.i, lx + dx * 0.15, lo.y + (hi.y - lo.y) * 0.15, lz + dz * 0.15).plat = p.i; // (its waypoint near the foot, so a bot at the bottom heads up rather than back)
     A.link('P' + lo.i, 'P' + p.i); A.link('P' + p.i, 'P' + hi.i);
     return p;
   };
@@ -411,3 +415,4 @@ export function buildDojo(A, T) {
   drift(A, 300, 0xffc8dc, 0.15, [1.0, -0.5, 0.6], 0.5);
   void dark;
 }
+export { kindMats, chunk, join, group, wall, stack, finishBrk, kill };

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261114014554">
+<meta name="build" content="20261114025722">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -127,12 +127,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "./src/main.js": "./src/main.js?v=20261114014554",
-  "./src/arena.js": "./src/arena.js?v=20261114014554",
-  "./src/fighter.js": "./src/fighter.js?v=20261114014554",
-  "./src/slice.js": "./src/slice.js?v=20261114014554",
-  "./src/audio.js": "./src/audio.js?v=20261114014554",
-  "./src/net.js": "./src/net.js?v=20261114014554"
+  "./src/main.js": "./src/main.js?v=20261114025722",
+  "./src/arena.js": "./src/arena.js?v=20261114025722",
+  "./src/fighter.js": "./src/fighter.js?v=20261114025722",
+  "./src/slice.js": "./src/slice.js?v=20261114025722",
+  "./src/audio.js": "./src/audio.js?v=20261114025722",
+  "./src/net.js": "./src/net.js?v=20261114025722"
 } }
 </script>
 </head>
@@ -146,7 +146,7 @@ window.severVersion.check();
     <p class="tag">A third-person sword arena in the sky. Swing your blade with the mouse, and whatever it passes through is cut along that exact line.</p>
     <label>Your name <input id="name" maxlength="14" placeholder="Ronin"></label>
     <div class="row">
-      <label class="hidden">Map <select id="map"><option value="spire">Sky Spires: many small platforms</option><option value="plateaus">Sky Plateaus: a few huge platforms</option><option value="canopy">Great Canopy: tree branches and bamboo</option><option value="pagoda">Pagoda Falls: a sunset pagoda, stone islands and lacquer posts</option><option value="isles">Moonlit Isles: floating islands, a cherry tree and bamboo groves</option><option value="colosseum">Colosseum: a bowl of round platforms around a big arena floor</option><option value="dojo">Paper Dojo District: a town you can cut apart</option></select></label>
+      <label class="hidden">Map <select id="map"><option value="spire">Sky Spires: many small platforms</option><option value="plateaus">Sky Plateaus: a few huge platforms</option><option value="canopy">Great Canopy: tree branches and bamboo</option><option value="pagoda">Pagoda Falls: a sunset pagoda, stone islands and lacquer posts</option><option value="isles">Moonlit Isles: floating islands, a cherry tree and bamboo groves</option><option value="colosseum">Colosseum: a bowl of round platforms around a big arena floor</option><option value="dojo">Paper Dojo District: a town you can cut apart</option><option value="city">Glass Skyline: skyscrapers and steel frames to smash through</option></select></label>
     </div>
     <div class="muted" style="margin:8px 0 4px">Map</div>
     <div class="maps" id="mapPicker"></div>
@@ -204,7 +204,7 @@ window.severVersion.check();
     <div class="list" id="lobbyPlayers"></div>
     <div class="row" id="lobbyHostOpts">
       <label>Mode <select id="lobbyModeSel"></select></label>
-      <label>Map <select id="lobbyMap"><option value="spire">Sky Spires</option><option value="plateaus">Sky Plateaus</option><option value="canopy">Great Canopy</option><option value="pagoda">Pagoda Falls</option><option value="isles">Moonlit Isles</option><option value="colosseum">Colosseum</option><option value="dojo">Paper Dojo District</option></select></label>
+      <label>Map <select id="lobbyMap"><option value="spire">Sky Spires</option><option value="plateaus">Sky Plateaus</option><option value="canopy">Great Canopy</option><option value="pagoda">Pagoda Falls</option><option value="isles">Moonlit Isles</option><option value="colosseum">Colosseum</option><option value="dojo">Paper Dojo District</option><option value="city">Glass Skyline</option></select></label>
       <label>Bots <select id="lobbyBots"><option>0</option><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
       <label>Difficulty <select id="lobbyDiff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option><option value="3">Brutal</option><option value="4">Nightmare</option><option value="5">Shogun</option><option value="6">Demon</option><option value="7">Kami</option></select></label>
     </div>
@@ -274,6 +274,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261114014554"></script>
+<script type="module" src="src/main.js?v=20261114025722"></script>
 </body>
 </html>

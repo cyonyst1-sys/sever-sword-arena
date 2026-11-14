@@ -3,7 +3,8 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildDojo } from './dojo.js?v=20261114014554';
+import { buildCity } from './city.js?v=20261114025722';
+import { buildDojo } from './dojo.js?v=20261114025722';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -86,6 +87,7 @@ export const MAPS = {
   pagoda: { name: 'Pagoda Falls', blurb: 'a three-tier pagoda at sunset, stone islands and rock spires around it, rope bridges, and red lacquer posts to swing from (and cut through)' },
   isles: { name: 'Moonlit Isles', blurb: 'floating grass islands under a full moon, rope bridges, a great cherry tree, and bamboo groves to swing from (and cut through)' },
   dojo: { name: 'Paper Dojo District', blurb: 'a town you can cut apart: slice through paper walls, posts, straw barns, fences and hay; climb the four-tier dojo tower, rooftops and watchtowers' },
+  city: { name: 'Glass Skyline', blurb: 'skyscrapers above the clouds: swing between them and smash through their glass, or climb the steel frames of half-built towers' },
 };
 
 export class Arena {
@@ -452,6 +454,7 @@ export class Arena {
     if (this.mapId === 'pagoda') return buildPagoda(this, TEX);
     if (this.mapId === 'isles') return buildIsles(this, TEX);
     if (this.mapId === 'dojo') return buildDojo(this, TEX);
+    if (this.mapId === 'city') return buildCity(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     this.realScene.background = new THREE.Color(0x9cc4e4);
@@ -815,6 +818,7 @@ export class Arena {
     if (this.brk) { // the breakable chunks in the grid cells along the ray
       const seen = new Set(); brk = [];
       for (let t = 0; t <= max + 3; t += 2.5) { const c = this.brk.cells.get(Math.floor((o.x + d.x * t) / 6) * 4096 + Math.floor((o.z + d.z * t) / 6)); if (c && !seen.has(c)) { seen.add(c); brk.push(...c); } }
+      if (this.rayThin) brk = brk.filter((b) => !b.soft && !b.hard);
     }
     for (const list of [this.boxes, this.rayBoxes, brk]) for (const b of list) {
       let t0 = 0, t1 = best;
