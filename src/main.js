@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113204137';
-import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113204137';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113204137';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113204137';
-import * as net from './net.js?v=20261113204137';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113204137';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113204137';
-import { makeKillFx } from './killfx.js?v=20261113204137';
-import { makeGrapple } from './grapple.js?v=20261113204137';
-import { initShop } from './shop.js?v=20261113204137';
+import { Arena, MAPS } from './arena.js?v=20261113205656';
+import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113205656';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113205656';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113205656';
+import * as net from './net.js?v=20261113205656';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113205656';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113205656';
+import { makeKillFx } from './killfx.js?v=20261113205656';
+import { makeGrapple } from './grapple.js?v=20261113205656';
+import { initShop } from './shop.js?v=20261113205656';
 
 // ---------- settings ----------
 const store = {
@@ -192,7 +192,7 @@ function tryDash(f, dir) {
   if (f.dashCd > 0 || f.stam < 22 || !f.alive) return false;
   const d = dir.clone(); d.y = Math.max(-0.35, Math.min(0.55, d.y)); d.normalize();
   f.preDash = f.vel.length(); // a dash out of a fast swing keeps that speed afterwards
-  f.dashGround = f.onGround || !!branchUnder(f);
+  f.dashGround = f.onGround || !!branchUnder(f); f.dashFree = false;
   f.dashDir.copy(d); f.dashT = DASH_T; f.dashCd = 0.9; f.stam -= 22; f.stamDelay = 0.6;
   if (f.hook) releaseHook(f, false);
   f.dashVictims = new Set();
@@ -242,7 +242,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
   if (f.dashT > 0) {
     f.dashT -= dt; f.vel.copy(f.dashDir).multiplyScalar(DASH_V);
     // dashing along a branch: follow it round its bends and up or down its slope instead of flying off straight
-    const br = f.dashGround && branchUnder(f);
+    const br = f.dashGround && !f.dashFree && branchUnder(f); // (a bot leaping a gap on purpose goes straight)
     if (br) {
       const ax = Math.cos(br.ang), az = Math.sin(br.ang), dp = f.dashDir.x * ax + f.dashDir.z * az;
       if (Math.abs(dp) > 0.55) {
@@ -594,6 +594,8 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   b.wasTravelling = !b.onGround && (!!b.landOn || !!b.padFlight || !!b.dest);
   if (b.onGround) b.landOn = null;
   const idle = { wish: { x: 0, z: 0 }, jump: false, sprint: false };
+  if (b.jumpDash && now() >= b.jumpDash.at) { if (!b.hook && tryDash(b, b.jumpDash.d)) b.dashFree = true; b.jumpDash = null; } // top of the jump: dash up and across
+  if (b.jumpDash) return idle;
   if (b.hook) {
     b.hookT += dt;
     if (b.dest) {
@@ -654,10 +656,26 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   }
   if (b.hookCd2 > 0 || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
   // enemy on another platform: swing over and land on it (pads are the fallback)
-  if (t.plat != null && b.plat != null && !samePlace(b, t) && !(b.stayUntil > now()) && Math.random() < dt * D.cross * 4) {
+  const holding = b.stayUntil > now() && b.pos.distanceTo(t.pos) < 25; // a pause on landing only makes sense next to the enemy
+  if (t.plat != null && b.plat != null && !samePlace(b, t) && !holding && Math.random() < dt * D.cross * 4) {
     const ok = (p) => p && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -16 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 48;
     let tp = arena.plats[t.plat];
     if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && grp(+q.name.slice(1)) !== grp(b.plat)); tp = n ? arena.plats[+n.name.slice(1)] : null; }
+    // a short gap: dash straight across (when the predicted arc lands on it), mixed in with swinging
+    if (b.dashCd <= 0 && b.stam >= 22 && Math.random() < 0.75) {
+      // onto their surface if it's close, else hop onto any nearby branch or leaf that brings us closer
+      let how = null, onto = null;
+      if (ok(tp) && rimDist(tp, b.pos) < 16) { how = dashOnto(b, tp); onto = tp; }
+      if (!how && arena.comp) {
+        const dT = b.pos.distanceTo(t.pos), mine = arena.comp[b.plat];
+        const hops = arena.plats.filter((q) => !q.gone && arena.comp[q.i] !== mine && rimDist(q, b.pos) < 14 && Math.hypot(q.x - t.pos.x, q.z - t.pos.z) + Math.abs(q.y - t.pos.y) < dT - 5)
+          .sort((u, v) => rimDist(u, b.pos) - rimDist(v, b.pos)).slice(0, 5);
+        for (const q of hops) { how = dashOnto(b, q); if (how) { onto = q; break; } }
+      }
+      tp = onto || tp;
+      if (how && how.tj > 0) { b.jumpDash = { at: now() + how.tj, d: how.d }; b.landOn = tp; b.airDashed = true; return { wish: { x: 0, z: 0 }, jump: true, sprint: false }; }
+      if (how && tryDash(b, how.d)) { b.dashFree = true; b.landOn = tp; b.airDashed = true; return idle; }
+    }
     if (ok(tp) && botSwingTo(b, tp, 'cross')) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
     b.padOk = 2.5;
   }
@@ -665,6 +683,29 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   if (dh > 16 && Math.abs(dy) < 3 && !samePlace(b, t) && Math.random() < dt * D.roam) {
     const aim = new THREE.Vector3(dx, 0, dz).normalize(); aim.y = 0.45;
     if (botFireHook(b, aim, 1.6, 'roam')) { b.dest = null; return { wish: { x: 0, z: 0 }, jump: true, sprint: false }; }
+  }
+  return null;
+}
+// A dash direction that carries the bot across a gap and down onto surface p, or null. Simulates the dash
+// (straight, no gravity, DASH_T at DASH_V) and the fall after it, aiming a little inside p's nearest edge.
+function dashOnto(b, p) { // returns { d: direction, tj: seconds to jump first (0 = dash straight away) } or null
+  const rp = rimPoint(p, b.pos), cx = p.x - rp.x, cz = p.z - rp.z, cl = Math.hypot(cx, cz) || 1, inset = Math.min(2, Math.min(p.w, p.d) * 0.35);
+  const ax = rp.x + cx / cl * inset - b.pos.x, az = rp.z + cz / cl * inset - b.pos.z, al = Math.hypot(ax, az) || 1;
+  const m = Math.min(1.2, p.d * 0.2), q = { x: 0, z: 0 }, h = 1 / 30;
+  // straight dashes first; for higher branches, jump and then dash upward from the top of the jump
+  for (const [tj, up] of [[0, 0], [0, -0.12], [0, 0.12], [0, -0.25], [0, 0.25], [0, -0.35], [0, 0.4], [0, 0.55], [0.22, 0.3], [0.22, 0.55], [0.36, 0.55]]) {
+    const d = new THREE.Vector3(ax / al, up, az / al).normalize();
+    let x = b.pos.x, y = b.pos.y + JUMP_V * tj - 12 * tj * tj, z = b.pos.z, vx = d.x * DASH_V, vy = d.y * DASH_V, vz = d.z * DASH_V, landed = null;
+    for (let i = 0, t = 0; i < 120 && landed === null; i++, t += h) {
+      if (t >= DASH_T && t - h < DASH_T) { const k = DASH_V * 0.45; vx = d.x * k; vy = d.y * k; vz = d.z * k; } // the dash ends
+      const py = y; if (t >= DASH_T) vy -= 24 * h;
+      x += vx * h; y += vy * h; z += vz * h; q.x = x; q.z = z;
+      const top = arena.platTop(p, q);
+      if (arena.inPlat(p, q, 0.5) && py < top - 2.2 && y >= top - 2.2) landed = false; // into its underside
+      else if (vy <= 0 && py > top && y <= top) landed = arena.inPlat(p, q, -m);
+      else if (vy < 0 && y < top - 3) landed = false; // dropping past it (rising toward it is fine)
+    }
+    if (landed) return { d, tj };
   }
   return null;
 }
@@ -706,10 +747,19 @@ function botSwingTo(b, tp, why) {
     cands.push({ p: pt, s: d + Math.abs(along - ul) * 0.3 });
   }
   cands.sort((a, c) => a.s - c.s);
-  for (const c of cands.slice(0, 6)) {
+  // would hooking point hp carry us over tp? (in a bamboo forest the rope often bites a nearer stalk:
+  // that's fine as long as it is high enough, far enough along, and the swing clears the near rim)
+  const carries = (hp) => {
+    if (hp.y < tp.y + 5) return false;
+    const along = ((hp.x - b.pos.x) * ux + (hp.z - b.pos.z) * uz) / ul;
+    if (along < ul * 0.55 || Math.hypot(hp.x - tp.x, hp.z - tp.z) > Math.max(26, Math.max(tp.w, tp.d) / 2 + 12)) return false;
+    const ll = Math.hypot(hp.x - o.x, hp.z - o.z) || 1, k = Math.max(0, Math.min(1, (rimDist(tp, o) + 0.5) / ll));
+    return o.y + (hp.y - o.y) * k >= tp.y + 3.5;
+  };
+  for (const c of cands.slice(0, 10)) {
     const dir = c.p.clone().sub(o).normalize();
     const hit = arena.raycast(o, dir, HOOK_MAX);
-    if (!hit || hit.point.distanceTo(c.p) > 1.4) continue; // something in the way
+    if (!hit || (hit.point.distanceTo(c.p) > 1.4 && (c.s < 0 || !carries(hit.point)))) continue; // something in the way that won't do
     if (!fireHook(b, o, dir)) return false;
     b.hookT = 0; b.hookMax = 5; b.hookWhy = why; b.dest = tp;
     if (b.vel.y < 9) b.vel.y = 9; // hop as the hook fires, so the swing starts high
@@ -749,7 +799,7 @@ function botThink(b, dt) {
   if (g) return g;
   // two bots on different platforms hunting each other: one holds its ground and lets the other come
   // (also: a bot that just arrived on a platform holds it for a few seconds instead of leaving straight away)
-  if (b.onGround && b.plat != null && t.plat != null && !samePlace(b, t) && !t.flee && ((t.isBot && t.target === b && b.id < t.id) || b.stayUntil > now())) {
+  if (b.onGround && b.plat != null && t.plat != null && !samePlace(b, t) && !t.flee && ((t.isBot && t.target === b && b.id < t.id && (t.hook || !t.onGround || t.dashT > 0)) || (b.stayUntil > now() && b.pos.distanceTo(t.pos) < 25))) { // wait only while the other is actually on its way
     const p = arena.plats[b.plat], cx = p.x - b.pos.x, cz = p.z - b.pos.z, cl = Math.hypot(cx, cz);
     if (cl > 2) { wish.x = cx / cl * 0.5; wish.z = cz / cl * 0.5; }
     return { wish, jump, sprint };
@@ -1480,4 +1530,4 @@ $('clickPlay').onclick = () => { ensureAudio(); lockPointer(); };
 $('loading').remove();
 requestAnimationFrame(frame);
 // handy for debugging in the console
-window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, tick, applyKill, botSwingTo, willLand, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
+window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };

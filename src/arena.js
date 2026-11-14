@@ -725,7 +725,7 @@ export class Arena {
       }
       if (t0 <= t1 && t0 > 0.3 && t0 < best) { best = t0; hit = b; }
     }
-    return hit ? { dist: best, point: new THREE.Vector3().copy(o).addScaledVector(d, best) } : null;
+    return hit ? { dist: best, point: new THREE.Vector3().copy(o).addScaledVector(d, best), box: hit } : null;
   }
   /** Grapple target: straight ahead if that hits; otherwise the best surface in a cone in front. */
   grappleTarget(o, d, max = 55) {
