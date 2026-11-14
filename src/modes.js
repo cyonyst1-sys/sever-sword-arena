@@ -3,6 +3,7 @@ import * as THREE from 'three';
 
 export const MODES = {
   ffa: { name: 'Free-for-all', blurb: 'Everyone against everyone. First to 15 kills.' },
+  team: { name: 'Team Battle', blurb: 'Red against blue: every kill scores for your team. First team to 30 kills wins. Bots fill both sides evenly.' },
   koth: { name: 'King of the Platform', blurb: 'Stand on the glowing platform alone to score 1 point a second. It moves every 40 s. First to 60.' },
   jugg: { name: 'Juggernaut', blurb: 'One crowned fighter with a 3 m blade against everyone else. Cut them down to take the crown. The juggernaut scores 1 point a second while standing on something (not while flying, swinging or dashing). First to 60.' },
   lbs: { name: 'Last Blade Standing', blurb: 'No respawns, and always at least 12 fighters (bots fill the rest). Platforms glow red, then crumble into the clouds, from the outside in. Last fighter alive wins.' },
@@ -10,7 +11,7 @@ export const MODES = {
   horde: { name: 'Horde', blurb: 'Co-op: everyone together against waves of oni.' },
 };
 export const POINT_MODES = new Set(['koth', 'jugg', 'hunt']); // won on points rather than kills
-export const MODE_GOAL = { ffa: 15, koth: 60, jugg: 60, hunt: 20 };
+export const MODE_GOAL = { team: 30, ffa: 15, koth: 60, jugg: 60, hunt: 20 };
 
 const GOLD = 0xffc23d;
 const add = (g, m) => { g.add(m); return m; };

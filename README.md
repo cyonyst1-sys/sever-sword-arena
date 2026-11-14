@@ -37,6 +37,7 @@ Pick a mode on the home screen (the host picks it in a multiplayer room). Bots p
 - **Headhunter:** kills drop gold heads (the victim's own plus all they carried). Pick them up and bank them at one of two **altars floating in open air**, with no platform anywhere near. Each altar sits inside a ring of pillars, with lines of pillars leading in from the nearest platforms; they can't be cut. Swing in and pass through the big glowing zone inside the ring to bank. Die carrying heads and you drop them all. First to 20 banked.
 
 - **Free-for-all:** everyone against everyone, bots included. One clean cut kills. Respawn after 3 s; first to 15 kills, or the most after 5 minutes.
+- **Team Battle:** red against blue. Players are split evenly and bots fill both sides; every kill scores for your team, and the first team to 30 kills (or the most after 5 minutes) wins. Teammates can't hurt each other; a red or blue marker floats over everyone's head (and a plain outfit takes the team colour). Everyone on the winning side gets the win bonus. Friends who join mid-match go on the smaller team.
 - **Horde:** you (and up to 3 friends) against waves of oni. Anyone cut down comes back at the start of the next wave; the run ends when everyone is down at once.
 
 Solo games are you plus bots (0 to 7, Easy / Normal / Hard).

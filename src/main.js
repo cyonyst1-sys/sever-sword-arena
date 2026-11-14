@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114155021';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114155021';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114155021';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114155021';
-import * as net from './net.js?v=20261114155021';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114155021';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114155021';
-import { makeKillFx } from './killfx.js?v=20261114155021';
-import { makeGrapple } from './grapple.js?v=20261114155021';
-import { initShop } from './shop.js?v=20261114155021';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114155021';
-import { portal } from './portal.js?v=20261114155021';
+import { Arena, MAPS } from './arena.js?v=20261114160837';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114160837';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114160837';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114160837';
+import * as net from './net.js?v=20261114160837';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114160837';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114160837';
+import { makeKillFx } from './killfx.js?v=20261114160837';
+import { makeGrapple } from './grapple.js?v=20261114160837';
+import { initShop } from './shop.js?v=20261114160837';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114160837';
+import { portal } from './portal.js?v=20261114160837';
 
 // ---------- settings ----------
 const store = {
@@ -100,14 +100,24 @@ const rosterGet = (id) => S.roster.find((r) => r.id === id);
 const upLv = (f, id) => { if (!f || f.isBot || S.noUp) return 0; const u = f === me ? profile.up : rosterGet(f.id)?.up; return Math.max(0, Math.min(5, (u && u[id]) | 0)); };
 const upm = (f, id) => upMul(id, upLv(f, id));
 const isEnemy = (a, b) => a.team !== b.team;
+// Team Battle: two sides, red (A) and blue (B)
+const TEAMS = { A: { name: 'Red', col: 0xd23b3b, css: '#e0524a' }, B: { name: 'Blue', col: 0x2f7ae0, css: '#4a8fe8' } };
+const teamMode = () => S.mode === 'team';
+const teamKills = (t) => S.roster.reduce((s, r) => s + (r.team === t ? r.k : 0), 0);
+function assignTeams() { // humans first, then bots, always onto the smaller side
+  let a = 0, b = 0;
+  for (const r of [...S.roster.filter((x) => x.human), ...S.roster.filter((x) => !x.human)]) { r.team = a <= b ? 'A' : 'B'; if (r.team === 'A') a++; else b++; }
+}
+const smallerTeam = () => (S.roster.filter((r) => r.team === 'A').length <= S.roster.filter((r) => r.team === 'B').length ? 'A' : 'B');
 const now = () => performance.now() / 1000;
 
 function makeFighter(info) {
-  const f = new Fighter({ id: info.id, name: info.id === S.myId ? null : info.name, color: PALETTE[info.col % PALETTE.length], team: info.team, isBot: !info.human, horde: !!info.horde, look: info.look });
+  const f = new Fighter({ id: info.id, name: info.id === S.myId ? null : info.name, color: teamMode() && TEAMS[info.team] ? TEAMS[info.team].col : PALETTE[info.col % PALETTE.length], team: info.team, isBot: !info.human, horde: !!info.horde, look: info.look });
   f.addTo(scene); f.group.visible = false; f.trailMesh.visible = true;
   f.net = null; f.respawnAt = Infinity;
   f.grap = makeGrapple(scene, item('grapple', f.look.grapple), grapFx); // their grappling hook, in their style
   f.crown = makeCrown(); f.crown.visible = false; f.group.add(f.crown); // worn by the juggernaut
+  f.teamMark = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.28, 4), new THREE.MeshBasicMaterial({ color: 0xffffff })); f.teamMark.rotation.x = Math.PI; f.teamMark.position.y = 2.45; f.teamMark.visible = false; f.group.add(f.teamMark); // Team Battle: a team-coloured marker over the head
   fighters.set(info.id, f);
   return f;
 }
@@ -119,7 +129,7 @@ function dropFighter(id) {
 function syncFighters() {
   for (const r of S.roster) if (!fighters.has(r.id)) makeFighter(r);
   for (const id of [...fighters.keys()]) if (!S.roster.some((r) => r.id === id)) dropFighter(id);
-  for (const r of S.roster) { const f = fighters.get(r.id); if (f) f.team = r.team; } // teams can change mid-match (Juggernaut)
+  for (const r of S.roster) { const f = fighters.get(r.id); if (f) { f.team = r.team; const T = teamMode() && TEAMS[r.team]; f.teamMark.visible = !!T && r.id !== S.myId; if (T) f.teamMark.material.color.setHex(T.col); } } // teams can change mid-match (Juggernaut)
   me = fighters.get(S.myId) || null;
 }
 function clearWorld() {
@@ -1078,6 +1088,7 @@ function startMatch() {
   if (coop()) S.roster = S.roster.filter((r) => r.human);
   for (const r of S.roster) { r.k = 0; r.d = 0; r.streak = 0; r.pts = 0; r.carry = 0; r.team = coop() ? (r.human ? 'H' : 'R') : r.id; r.horde = !r.human && coop(); }
   fillBots();
+  if (teamMode()) assignTeams(); // red and blue, evened out with the bots
   S.timeLeft = FFA_TIME; S.wave = 0; S.waveT = 3; S.waveActive = false; S.queue = 0; S.ended = false; S.lbsLive = false;
   initObjective();
   syncFighters();
@@ -1091,7 +1102,10 @@ function startMatch() {
 }
 function checkEnd() {
   if (S.ended || S.phase !== 'game') return;
-  if (S.mode === 'ffa') {
+  if (teamMode()) {
+    const a = teamKills('A'), b = teamKills('B');
+    if (a >= MODE_GOAL.team || b >= MODE_GOAL.team || S.timeLeft <= 0) endMatch(a === b ? null : a > b ? 'A' : 'B');
+  } else if (S.mode === 'ffa') {
     const top = [...S.roster].sort((a, b) => b.k - a.k)[0];
     if ((top && top.k >= FFA_KILLS) || S.timeLeft <= 0) endMatch();
   } else if (POINT_MODES.has(S.mode)) {
@@ -1346,7 +1360,7 @@ function hostMsg(from, d) {
   if (d.t === 'hello') {
     if (S.roster.filter((r) => r.human).length >= MAX_PLAYERS || (S.mode === 'horde' && S.roster.filter((r) => r.human).length >= 4)) { net.sendTo(from, { t: 'full' }); net.kick(from); return; }
     const name = String(d.name || 'Player').replace(/[^\p{L}\p{N} _.-]/gu, '').slice(0, 14) || 'Player';
-    const e = newRosterEntry(from, name, true, d.look, d.up); S.roster.push(e);
+    const e = newRosterEntry(from, name, true, d.look, d.up); if (teamMode()) e.team = smallerTeam(); S.roster.push(e);
     if (S.phase === 'game') fillBots();
     syncFighters();
     net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby', obj: S.phase === 'game' ? objForSend() : null, bamboo: S.bambooCuts || [], brk: S.brkCuts || [] });
@@ -1413,7 +1427,7 @@ function feed(html) {
 }
 function showBanner(s) { const b = $('banner'); b.textContent = s; b.style.opacity = 1; clearTimeout(b._h); b._h = setTimeout(() => { b.style.opacity = 0; }, 2200); }
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const colorOf = (r) => '#' + new THREE.Color(r.horde ? 0xff6b6b : PALETTE[r.col % PALETTE.length]).getHexString();
+const colorOf = (r) => '#' + new THREE.Color(r.horde ? 0xff6b6b : teamMode() && TEAMS[r.team] ? TEAMS[r.team].col : PALETTE[r.col % PALETTE.length]).getHexString();
 
 $('name').value = settings.name;
 $('name').addEventListener('input', () => { settings.name = $('name').value.trim().slice(0, 14); saveSettings(); });
@@ -1545,6 +1559,11 @@ function showEnd(res) {
   show('end'); $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
   const list = ranked(res.list, res.mode), name = (MODES[res.mode] || MODES.ffa).name, pts = POINT_MODES.has(res.mode);
   if (res.mode === 'horde') { $('endTitle').textContent = `The horde got you on wave ${res.wave}`; }
+  else if (res.mode === 'team') { // Team Battle: the winning side, and the score
+    const my = res.list.find((r) => r.id === S.myId), sum = (t) => res.list.reduce((s, r) => s + (r.team === t ? r.k : 0), 0);
+    $('endTitle').textContent = !res.winner ? 'Draw' : my && my.team === res.winner ? 'Victory' : `${TEAMS[res.winner].name} team wins`;
+    setTimeout(() => { $('endSub').innerHTML = `Team Battle · <span style="color:${TEAMS.A.css}">Red ${sum('A')}</span> – <span style="color:${TEAMS.B.css}">${sum('B')} Blue</span>`; }, 0);
+  }
   else {
     const w = res.mode === 'lbs' ? (res.winner ? rosterGet(res.winner) || res.list.find((r) => r.id === res.winner) : null) : list[0];
     $('endTitle').textContent = w && w.id === S.myId ? 'Victory' : res.mode === 'lbs' && !w ? 'Nobody survived' : `${w ? w.name : 'Nobody'} wins`;
@@ -1557,7 +1576,7 @@ function showEnd(res) {
   let coins = 0; const bonus = [];
   if (mine && now() - (S.matchStart || now()) > 40) {
     coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0);
-    if (res.mode !== 'horde' && top === S.myId && res.list.length > 1) coins += 30;
+    if (res.mode === 'team' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) coins += 30; // (Team Battle: everyone on the winning side)
     // bonuses: the bot difficulty (whenever there were bots, solo or online), and +10% per friend in the match (up to +30%)
     const bots = res.mode === 'horde' || res.list.some((r) => !r.human), friends = Math.min(3, res.list.filter((r) => r.human).length - 1);
     const dm = bots ? [0.75, 1, 1.3, 1.6, 2, 2.5, 3, 4][S.diff ?? 1] : 1, fm = 1 + 0.1 * Math.max(0, friends);
@@ -1599,7 +1618,8 @@ function updateHud(dt) {
   const top = ranked(S.roster, S.mode)[0];
   const lead = top ? `Leader: <span style="color:${colorOf(top)}">${esc(top.name)}</span> ${pts ? top.pts || 0 : top.k}` : '';
   let status = '';
-  if (S.mode === 'ffa') $('topbar').innerHTML = `${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
+  if (teamMode()) { const a = teamKills('A'), b = teamKills('B'), mt = mr && TEAMS[mr.team]; $('topbar').innerHTML = `Team Battle · ${clock(S.timeLeft)} · <span style="color:${TEAMS.A.css}">Red ${a}</span> – <span style="color:${TEAMS.B.css}">${b} Blue</span> · first to ${MODE_GOAL.team}`; if (me && me.alive && mt) status = `You are on <span style="color:${mt.css}">${mt.name.toUpperCase()}</span>`; }
+  else if (S.mode === 'ffa') $('topbar').innerHTML = `${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
   else if (S.mode === 'koth') {
     $('topbar').innerHTML = `King of the Platform · ${clock(S.timeLeft)} · Throne moves in ${Math.ceil(Math.max(0, until.throne - now()))} s · ${lead}/${MODE_GOAL.koth}`;
     if (me && me.alive && S.obj && o.throne >= 0) {
