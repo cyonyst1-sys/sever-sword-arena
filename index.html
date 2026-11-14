@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261113234330">
+<meta name="build" content="20261113234644">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -85,6 +85,13 @@ window.severVersion.check();
   .card .pr.eq { color:#7fe08a; }
   .card .pr.no { color:#ff8a8a; }
   @media (max-width:640px) { .shopPreview { flex:1 1 100%; } #shopCanvas { width:100%; height:300px; } }
+  .maps { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:6px; }
+  .mapCard { padding:0; overflow:hidden; position:relative; border-radius:10px; aspect-ratio:16/9; border:2px solid var(--line); background:#1d1a19; }
+  .mapCard img { width:100%; height:100%; object-fit:cover; display:block; }
+  .mapCard span { position:absolute; left:0; right:0; bottom:0; padding:10px 7px 4px; font-size:12px; text-align:left; background:linear-gradient(transparent, rgba(0,0,0,.85)); }
+  .mapCard.on { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
+  .lobbyThumb { width:100%; max-width:340px; aspect-ratio:16/9; object-fit:cover; border-radius:10px; display:block; margin:6px 0; border:1px solid var(--line); }
+  @media (max-width:480px) { .maps { grid-template-columns:repeat(2,1fr); } }
   #hud { position:fixed; inset:0; pointer-events:none; z-index:5; font-weight:700; }
   #topbar { position:absolute; top:12px; left:50%; transform:translateX(-50%); background:var(--glass); border:1px solid var(--line); border-radius:999px; padding:6px 16px; font-size:15px; white-space:nowrap; }
   #myscore { position:absolute; top:12px; right:16px; text-align:right; font-family:'Russo One',system-ui; font-size:26px; text-shadow:0 2px 4px #000; }
@@ -120,12 +127,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "./src/main.js": "./src/main.js?v=20261113234330",
-  "./src/arena.js": "./src/arena.js?v=20261113234330",
-  "./src/fighter.js": "./src/fighter.js?v=20261113234330",
-  "./src/slice.js": "./src/slice.js?v=20261113234330",
-  "./src/audio.js": "./src/audio.js?v=20261113234330",
-  "./src/net.js": "./src/net.js?v=20261113234330"
+  "./src/main.js": "./src/main.js?v=20261113234644",
+  "./src/arena.js": "./src/arena.js?v=20261113234644",
+  "./src/fighter.js": "./src/fighter.js?v=20261113234644",
+  "./src/slice.js": "./src/slice.js?v=20261113234644",
+  "./src/audio.js": "./src/audio.js?v=20261113234644",
+  "./src/net.js": "./src/net.js?v=20261113234644"
 } }
 </script>
 </head>
@@ -139,8 +146,10 @@ window.severVersion.check();
     <p class="tag">A third-person sword arena in the sky. Swing your blade with the mouse, and whatever it passes through is cut along that exact line.</p>
     <label>Your name <input id="name" maxlength="14" placeholder="Ronin"></label>
     <div class="row">
-      <label>Map <select id="map"><option value="spire">Sky Spires: many small platforms</option><option value="plateaus">Sky Plateaus: a few huge platforms</option><option value="canopy">Great Canopy: tree branches and bamboo</option><option value="pagoda">Pagoda Falls: a sunset pagoda, stone islands and lacquer posts</option><option value="isles">Moonlit Isles: floating islands, a cherry tree and bamboo groves</option><option value="colosseum">Colosseum: a bowl of round platforms around a big arena floor</option></select></label>
+      <label class="hidden">Map <select id="map"><option value="spire">Sky Spires: many small platforms</option><option value="plateaus">Sky Plateaus: a few huge platforms</option><option value="canopy">Great Canopy: tree branches and bamboo</option><option value="pagoda">Pagoda Falls: a sunset pagoda, stone islands and lacquer posts</option><option value="isles">Moonlit Isles: floating islands, a cherry tree and bamboo groves</option><option value="colosseum">Colosseum: a bowl of round platforms around a big arena floor</option></select></label>
     </div>
+    <div class="muted" style="margin:8px 0 4px">Map</div>
+    <div class="maps" id="mapPicker"></div>
     <div class="row">
       <label>Bots <select id="bots"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option></select></label>
       <label>Difficulty <select id="diff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option><option value="3">Brutal</option><option value="4">Nightmare</option><option value="5">Shogun</option><option value="6">Demon</option><option value="7">Kami</option></select></label>
@@ -191,7 +200,7 @@ window.severVersion.check();
     <div class="code" id="lobbyCode">-----</div>
     <div class="row"><button id="copyLink">Copy invite link</button></div>
     <div class="muted" id="lobbyMode"></div>
-    <div class="muted" id="lobbyMapName"></div>
+    <img id="lobbyThumb" class="lobbyThumb" alt=""><div class="muted" id="lobbyMapName"></div>
     <div class="list" id="lobbyPlayers"></div>
     <div class="row" id="lobbyHostOpts">
       <label>Mode <select id="lobbyModeSel"></select></label>
@@ -265,6 +274,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261113234330"></script>
+<script type="module" src="src/main.js?v=20261113234644"></script>
 </body>
 </html>

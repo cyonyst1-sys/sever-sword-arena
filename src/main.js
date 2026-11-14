@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113234330';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113234330';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113234330';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113234330';
-import * as net from './net.js?v=20261113234330';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113234330';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113234330';
-import { makeKillFx } from './killfx.js?v=20261113234330';
-import { makeGrapple } from './grapple.js?v=20261113234330';
-import { initShop } from './shop.js?v=20261113234330';
+import { Arena, MAPS } from './arena.js?v=20261113234644';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113234644';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113234644';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113234644';
+import * as net from './net.js?v=20261113234644';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113234644';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113234644';
+import { makeKillFx } from './killfx.js?v=20261113234644';
+import { makeGrapple } from './grapple.js?v=20261113234644';
+import { initShop } from './shop.js?v=20261113234644';
 
 // ---------- settings ----------
 const store = {
@@ -1312,6 +1312,7 @@ function renderLobby() {
   $('startBtn').classList.toggle('hidden', !S.host);
   $('lobbyWait').textContent = S.host ? (coop() ? 'Press Start when everyone is in.' : 'Bots fill the empty slots. Press Start when everyone is in.') : 'Waiting for the host to start…';
   $('lobbyMapName').textContent = (MAPS[S.map] || MAPS.spire).name + ': ' + (MAPS[S.map] || MAPS.spire).blurb;
+  $('lobbyThumb').src = thumb(S.map);
   if (S.host) { $('lobbyModeSel').value = S.mode; $('lobbyMap').value = S.map; $('lobbyBots').value = S.bots; $('lobbyDiff').value = S.diff; }
 }
 function showLobby() { S.phase = 'lobby'; show('lobby'); $('hud').classList.add('hidden'); if (document.pointerLockElement) document.exitPointerLock(); renderLobby(); }
@@ -1574,4 +1575,14 @@ $('clickPlay').onclick = () => { ensureAudio(); lockPointer(); };
 $('loading').remove();
 requestAnimationFrame(frame);
 // handy for debugging in the console
-window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
+window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, renderer, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
+
+// ---------- map picker: a thumbnail card for each map (the hidden select still holds the choice) ----------
+function thumb(id) { return `thumbs/${id}.jpg?v=${document.querySelector('meta[name=build]').content}`; }
+function renderMapPicker() {
+  const sel = $('map');
+  $('mapPicker').innerHTML = [...sel.options].map((o) => `<button class="mapCard ${o.value === sel.value ? 'on' : ''}" data-map="${o.value}" title="${esc(o.text)}"><img src="${thumb(o.value)}" alt=""><span>${esc(o.text.split(':')[0])}</span></button>`).join('');
+}
+$('mapPicker').addEventListener('click', (e) => { const b = e.target.closest('.mapCard'); if (!b) return; $('map').value = b.dataset.map; $('map').dispatchEvent(new Event('change')); renderMapPicker(); });
+$('map').addEventListener('change', renderMapPicker);
+renderMapPicker();
