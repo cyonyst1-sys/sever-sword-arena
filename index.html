@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261113192105">
+<meta name="build" content="20261113195339">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -63,6 +63,28 @@ window.severVersion.check();
   .dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
   .code { font-family:'Russo One',system-ui; font-size:34px; letter-spacing:6px; color:var(--gold); }
   .muted { color:var(--muted); font-size:13px; }
+  .coin { display:inline-block; width:14px; height:14px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #fff3b0, var(--gold) 45%, #b8860b); box-shadow:0 0 6px rgba(255,209,102,.6); vertical-align:-2px; margin:0 5px 0 4px; }
+  .earned { margin:6px 0 10px; color:var(--gold); font-size:14px; }
+  .shopPanel { width:min(980px,100%); }
+  .shopHead { display:flex; align-items:center; justify-content:space-between; }
+  .wallet { font-family:'Russo One',system-ui; font-size:22px; color:var(--gold); }
+  .shopBody { display:flex; gap:16px; flex-wrap:wrap; }
+  .shopPreview { flex:0 0 300px; display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+  #shopCanvas { width:300px; height:380px; border-radius:12px; background:radial-gradient(ellipse at 50% 40%, #3a3330, #121010 75%); border:1px solid var(--line); }
+  #shopItemName { text-align:center; font-weight:800; min-height:20px; }
+  .shopRight { flex:1 1 360px; min-width:0; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .tabs button { padding:7px 12px; font-size:14px; }
+  .tabs button.on { background:var(--ink); color:#111; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; max-height:420px; overflow:auto; padding-right:4px; }
+  .card { background:#1d1a19; border:1px solid var(--line); border-radius:10px; padding:10px; cursor:pointer; display:flex; flex-direction:column; gap:6px; text-align:left; font-weight:500; }
+  .card.sel { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
+  .card .sw { height:34px; border-radius:6px; }
+  .card .nm { font-weight:800; font-size:14px; }
+  .card .pr { font-size:12px; color:var(--muted); }
+  .card .pr.eq { color:#7fe08a; }
+  .card .pr.no { color:#ff8a8a; }
+  @media (max-width:640px) { .shopPreview { flex:1 1 100%; } #shopCanvas { width:100%; height:300px; } }
   #hud { position:fixed; inset:0; pointer-events:none; z-index:5; font-weight:700; }
   #topbar { position:absolute; top:12px; left:50%; transform:translateX(-50%); background:var(--glass); border:1px solid var(--line); border-radius:999px; padding:6px 16px; font-size:15px; white-space:nowrap; }
   #myscore { position:absolute; top:12px; right:16px; text-align:right; font-family:'Russo One',system-ui; font-size:26px; text-shadow:0 2px 4px #000; }
@@ -98,12 +120,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "./src/main.js": "./src/main.js?v=20261113192105",
-  "./src/arena.js": "./src/arena.js?v=20261113192105",
-  "./src/fighter.js": "./src/fighter.js?v=20261113192105",
-  "./src/slice.js": "./src/slice.js?v=20261113192105",
-  "./src/audio.js": "./src/audio.js?v=20261113192105",
-  "./src/net.js": "./src/net.js?v=20261113192105"
+  "./src/main.js": "./src/main.js?v=20261113195339",
+  "./src/arena.js": "./src/arena.js?v=20261113195339",
+  "./src/fighter.js": "./src/fighter.js?v=20261113195339",
+  "./src/slice.js": "./src/slice.js?v=20261113195339",
+  "./src/audio.js": "./src/audio.js?v=20261113195339",
+  "./src/net.js": "./src/net.js?v=20261113195339"
 } }
 </script>
 </head>
@@ -128,7 +150,7 @@ window.severVersion.check();
       <button class="primary" id="playSolo" style="align-self:flex-end">Play solo</button>
     </div>
     <div class="muted" id="modeBlurb" style="margin:-4px 0 6px"></div>
-    <div class="row"><button id="toMp">Multiplayer</button><button id="toSettings">Settings</button></div>
+    <div class="row"><button id="toMp">Multiplayer</button><button id="toShop" class="shopBtn">Shop <span class="coin"></span><span id="coinBadge">0</span></button><button id="toSettings">Settings</button></div>
     <div class="controls">
       <b>WASD</b><span>Move</span>
       <b>Mouse</b><span>Look</span>
@@ -202,10 +224,22 @@ window.severVersion.check();
   </div>
 </div>
 
+<div id="shop" class="screen hidden">
+  <div class="panel shopPanel">
+    <div class="shopHead"><h2>Shop</h2><div class="wallet"><span class="coin"></span><b id="shopCoins">0</b></div></div>
+    <p class="muted" style="margin:-6px 0 12px">Looks only: nothing here changes how you fight. Earn coins by playing: 10 a match, 5 a kill, 30 for a win, plus points and waves.</p>
+    <div class="shopBody">
+      <div class="shopPreview"><canvas id="shopCanvas" width="300" height="380"></canvas><div id="shopItemName"></div><button class="primary" id="shopAction">Equip</button></div>
+      <div class="shopRight"><div class="tabs" id="shopTabs"></div><div class="grid" id="shopGrid"></div></div>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-bottom:0"><button id="shopClose" style="flex:0 0 auto">Done</button></div>
+  </div>
+</div>
 <div id="end" class="screen hidden">
   <div class="panel">
     <h2 id="endTitle">Match over</h2>
     <div class="muted" id="endSub"></div>
+    <div id="endCoins" class="earned"></div>
     <table id="endTable"></table>
     <div class="row"><button class="primary" id="againBtn">Play again</button><button id="menuBtn">Main menu</button></div>
   </div>
@@ -231,6 +265,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261113192105"></script>
+<script type="module" src="src/main.js?v=20261113195339"></script>
 </body>
 </html>

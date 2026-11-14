@@ -5,6 +5,8 @@ import { bakeMeshes, Pieces, Particles } from './slice.js';
 import { sfx, ensureAudio, setListener, setVolume } from './audio.js';
 import * as net from './net.js';
 import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js';
+import { profile, addCoins, randomLook, cleanLook } from './cosmetics.js';
+import { initShop } from './shop.js';
 
 // ---------- settings ----------
 const store = {
@@ -36,6 +38,12 @@ const ground = (x, z, y) => arena.groundHeight(x, z, y);
 const blood = new Particles(scene, ground, { color: 0x8a0a10, size: 0.07, decals: true, max: 2400 });
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
 const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 300 }); // bamboo chips
+// sword-trail effects from the shop
+const trailFx = {
+  ember: new Particles(scene, ground, { color: 0xffa040, size: 0.05, gravity: -2, max: 500 }),
+  petal: new Particles(scene, ground, { color: 0xffb7d5, size: 0.08, gravity: 2.5, max: 500 }),
+  zap: new Particles(scene, ground, { color: 0xbff0ff, size: 0.04, gravity: 0, max: 400 }),
+};
 const pieces = new Pieces(scene, ground, blood);
 const fx = new ModeFx(scene); // throne, shrines, heads
 
@@ -70,7 +78,7 @@ const isEnemy = (a, b) => a.team !== b.team;
 const now = () => performance.now() / 1000;
 
 function makeFighter(info) {
-  const f = new Fighter({ id: info.id, name: info.id === S.myId ? null : info.name, color: PALETTE[info.col % PALETTE.length], team: info.team, isBot: !info.human, horde: !!info.horde });
+  const f = new Fighter({ id: info.id, name: info.id === S.myId ? null : info.name, color: PALETTE[info.col % PALETTE.length], team: info.team, isBot: !info.human, horde: !!info.horde, look: info.look });
   f.addTo(scene); f.group.visible = false; f.trailMesh.visible = true;
   f.net = null; f.respawnAt = Infinity;
   const rope = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 5, 1), new THREE.MeshBasicMaterial({ color: 0x1c1c1c }));
@@ -801,10 +809,10 @@ function botThink(b, dt) {
 
 // ---------- host: match flow ----------
 const coop = () => S.mode === 'horde';
-function newRosterEntry(id, name, human) {
+function newRosterEntry(id, name, human, look) {
   const used = new Set(S.roster.map((r) => r.col));
   let col = 0; while (used.has(col) && col < 20) col++;
-  return { id, name, human, col, team: coop() ? (human ? 'H' : 'R') : id, k: 0, d: 0, streak: 0, pts: 0, carry: 0, horde: !human && coop() };
+  return { id, name, human, col, team: coop() ? (human ? 'H' : 'R') : id, k: 0, d: 0, streak: 0, pts: 0, carry: 0, horde: !human && coop(), look: cleanLook(look || (human ? null : randomLook())) };
 }
 function fillBots() {
   if (coop()) return; // horde bots come and go with the waves
@@ -1075,7 +1083,7 @@ function hostMsg(from, d) {
   if (d.t === 'hello') {
     if (S.roster.filter((r) => r.human).length >= MAX_PLAYERS || (S.mode === 'horde' && S.roster.filter((r) => r.human).length >= 4)) { net.sendTo(from, { t: 'full' }); net.kick(from); return; }
     const name = String(d.name || 'Player').replace(/[^\p{L}\p{N} _.-]/gu, '').slice(0, 14) || 'Player';
-    const e = newRosterEntry(from, name, true); S.roster.push(e);
+    const e = newRosterEntry(from, name, true, d.look); S.roster.push(e);
     if (S.phase === 'game') fillBots();
     syncFighters();
     net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby', obj: S.phase === 'game' ? objForSend() : null, bamboo: S.bambooCuts || [] });
@@ -1124,7 +1132,11 @@ function netTick(dt) {
 function roomInfo() { return S.pub ? { code: net.net.code, name: settings.name || 'Ronin', game: S.mode, map: S.map, n: S.roster.filter((r) => r.human).length, max: S.mode === 'horde' ? 4 : MAX_PLAYERS, st: S.phase === 'game' ? 'playing' : 'lobby' } : null; }
 
 // ---------- UI ----------
-const screens = ['home', 'mp', 'lobby', 'settings', 'pause', 'end'];
+const screens = ['home', 'mp', 'lobby', 'settings', 'pause', 'end', 'shop'];
+const shop = initShop({ show, onClose: () => { show('home'); updateCoinBadge(); } });
+function updateCoinBadge() { $('coinBadge').textContent = profile.coins; }
+$('toShop').addEventListener('click', () => shop.open());
+updateCoinBadge();
 function show(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = 0; }, 2600); }
 function feed(html) {
@@ -1209,7 +1221,7 @@ async function hostRoom() {
   try {
     await net.host();
     S.online = true; S.host = true; S.myId = 'host'; S.mode = $('hostMode').value; S.map = $('map').value; S.pub = $('pub').checked; S.bots = 4; S.diff = 1;
-    S.roster = [newRosterEntry('host', settings.name || 'Ronin', true)];
+    S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip)];
     showLobby();
     net.dirStart(() => {}); net.dirSetRoom(roomInfo());
   } catch (e) { toast(e.message || 'Could not create a room.'); }
@@ -1224,7 +1236,7 @@ async function joinRoom(code) {
   try {
     await net.join(code);
     S.online = true; S.host = false; net.dirStop();
-    net.send({ t: 'hello', name: settings.name || 'Ronin' });
+    net.send({ t: 'hello', name: settings.name || 'Ronin', look: profile.equip });
   } catch (e) { toast(e.message || "Couldn't join that room."); }
 }
 function leaveRoom() {
@@ -1235,11 +1247,11 @@ function startSolo(mode) {
   ensureAudio();
   leaveRoom();
   S.mode = mode; S.map = $('map').value; S.bots = +$('bots').value; S.diff = +$('diff').value;
-  S.roster = [newRosterEntry('host', settings.name || 'Ronin', true)];
+  S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip)];
   startMatch();
 }
 function enterGame() {
-  S.phase = 'game'; S.ended = false; S.paused = false;
+  S.phase = 'game'; S.ended = false; S.paused = false; S.matchStart = now();
   show(null); $('hud').classList.remove('hidden');
   $('hint').style.opacity = 1; setTimeout(() => { $('hint').style.opacity = 0; }, 12000);
   if (!locked) $('clickPlay').classList.remove('hidden');
@@ -1267,6 +1279,17 @@ function showEnd(res) {
   $('endSub').textContent = name;
   const rows = list.filter((r) => res.mode !== 'horde' || r.human);
   $('endTable').innerHTML = `<tr><th></th><th>Name</th>${pts ? `<th>${res.mode === 'hunt' ? 'Heads' : 'Points'}</th>` : ''}<th>Kills</th><th>Deaths</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}</td>${pts ? `<td>${r.pts || 0}</td>` : ''}<td>${r.k}</td><td>${r.d}</td></tr>`).join('');
+  // coins: for playing a real match (not quitting straight out), kills, points or waves, and winning
+  const mine = res.list.find((r) => r.id === S.myId), top = res.mode === 'lbs' ? res.winner : list[0] && list[0].id;
+  let coins = 0;
+  if (mine && now() - (S.matchStart || now()) > 40) {
+    coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0);
+    if (res.mode !== 'horde' && top === S.myId && res.list.length > 1) coins += 30;
+    if (!S.online) coins = Math.round(coins * [0.75, 1, 1.3][S.diff ?? 1]);
+    addCoins(coins);
+  }
+  $('endCoins').innerHTML = coins ? `<b>+${coins} coins</b> &middot; you have ${profile.coins}` : 'Play a full match to earn coins';
+  updateCoinBadge();
   $('againBtn').classList.toggle('hidden', S.online && !S.host);
   $('againBtn').textContent = S.online ? 'Back to lobby' : 'Play again';
 }
@@ -1421,6 +1444,8 @@ function tick(rdt, tt) {
       }
       f.prevHand.copy(f.hand); f.prevTip.copy(f.tip);
       f.updateTrail(tt);
+      const tfx = trailFx[f.trailStyle.fx]; // ember, petal and zap trails shed particles off a fast blade
+      if (tfx && f.tipSpeed > 9 && f.trail.length > 1) for (let k = 0; k < 2; k++) { const u = Math.random(), p = _t.copy(f.hand).lerp(f.tip, 0.4 + u * 0.6), j = f.trailStyle.fx === 'zap' ? 5 : 1.5; tfx.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.18 : 0.9); }
       f.group.visible = f.alive && !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0);
       // rope
       if (f.hook) {
@@ -1433,7 +1458,7 @@ function tick(rdt, tt) {
     netTick(rdt);
   } else if (S.phase === 'game') netTick(rdt);
   const pdt = hitstop > 0 ? rdt * 0.08 : rdt; hitstop -= rdt;
-  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt);
+  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt);
   shake *= Math.exp(-9 * rdt); punch *= Math.exp(-6 * rdt);
   updateCamera(rdt);
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it

@@ -2,6 +2,7 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
+import { item, cleanLook } from './cosmetics.js';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -49,8 +50,16 @@ const GEO = {
   sphLo: new THREE.SphereGeometry(1, 7, 5), // small round parts (ears, joints): fewer triangles to cut
   box: new THREE.BoxGeometry(1, 1, 1),
   skirt: new THREE.CylinderGeometry(0.17, 0.25, 0.4, 14, 1),
+  cone: new THREE.ConeGeometry(1, 1, 10, 1),
 };
 
+// materials for cosmetics, made once per look and shared
+const cosMats = new Map();
+export function cosMat(d) {
+  const k = JSON.stringify(d);
+  if (!cosMats.has(k)) { const m = new THREE.MeshStandardMaterial({ color: d.c, metalness: d.m || 0, roughness: d.r ?? 0.6, emissive: d.e || 0, emissiveIntensity: d.ei || 0 }); regMat(m); cosMats.set(k, m); }
+  return cosMats.get(k);
+}
 const UP = new THREE.Vector3(0, 1, 0);
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3(), _m = new THREE.Matrix4();
 // stretch a unit cylinder from a to b, radius r (depth scaled by dz)
@@ -76,14 +85,19 @@ function boxBasis(m, x, y, pos, sx, sy, sz) {
   m.position.copy(pos); m.scale.set(sx, sy, sz);
 }
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const _tcA = new THREE.Color(), _tcB = new THREE.Color();
 
 export const GUARD = { x: 0.42, y: 0.38 };
 export const BLADE_LEN = 1.12;
 const THIGH = 0.46, SHIN = 0.46, UPPER = 0.3, FORE = 0.28;
 
 export class Fighter {
-  constructor({ id, name, color, team, isBot, horde }) {
+  constructor({ id, name, color, team, isBot, horde, look }) {
     Object.assign(this, { id, name, color, team, isBot: !!isBot, horde: !!horde });
+    this.look = horde ? cleanLook(null) : cleanLook(look);
+    const L = { outfit: item('outfit', this.look.outfit), sword: item('sword', this.look.sword), mask: item('mask', this.look.mask), hat: item('hat', this.look.hat) };
+    this.trailStyle = item('trail', this.look.trail); this.tipSpeed = 0;
+    this.bladeW = L.sword.w || 1; this.bladeT = L.sword.t || 1;
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3();
     this.yaw = 0; this.pitch = 0; this.s = { x: GUARD.x, y: GUARD.y };
     this.onGround = false; this.alive = false; this.dashT = 0; this.dashCd = 0; this.dashDir = new THREE.Vector3();
@@ -96,7 +110,8 @@ export class Fighter {
     this.edge = new THREE.Vector3(1, 0, 0); this.lastD = new THREE.Vector3(0, 0, -1);
     this.group = new THREE.Group();
     this.meshes = [];
-    const gi = cloth(horde ? HORDE_COLOR : color), trim = cloth(horde ? 0x8e1717 : color, 0.55), pants = horde ? M.dark : cloth(0x2c2f3a);
+    const O = L.outfit.gi !== undefined && !horde ? L.outfit : null;
+    const gi = cloth(horde ? HORDE_COLOR : O ? O.gi : color), trim = cloth(horde ? 0x8e1717 : O ? O.trim : color, O ? 1 : 0.55), pants = horde ? M.dark : cloth(O ? O.pants : 0x2c2f3a);
     const mk = (geo, mat, cap = CAP.flesh) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.userData.cap = cap; this.group.add(m); this.meshes.push(m); return m; };
     this.p = {
       // trunk
@@ -114,8 +129,14 @@ export class Fighter {
       thL: mk(GEO.taper, pants), knL: mk(GEO.sphLo, pants), shL: mk(GEO.taper, pants), ftL: mk(GEO.box, M.dark),
       thR: mk(GEO.taper, pants), knR: mk(GEO.sphLo, pants), shR: mk(GEO.taper, pants), ftR: mk(GEO.box, M.dark),
       // sword
-      grip: mk(GEO.cyl, M.grip, CAP.wood), guard: mk(GEO.box, M.gold, CAP.steel), blade: mk(GEO.box, M.blade, CAP.steel),
+      grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(GEO.box, L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
     };
+    // mask and headwear: extra parts worn on the head; some hide what they cover
+    this.acc = [];
+    for (const it of [L.mask, L.hat]) {
+      for (const [shape, md, p, s, r = [0, 0, 0]] of it.parts || []) this.acc.push({ m: mk(GEO[shape], cosMat(md)), p, s, r });
+      for (const n of it.hide || []) { const m = this.p[n]; if (m) { this.group.remove(m); this.meshes = this.meshes.filter((x) => x !== m); } }
+    }
     for (const m of this.meshes) m.userData.mi = regMat(m.material);
     // name tag
     this.label = null;
@@ -207,6 +228,7 @@ export class Fighter {
     P.band.position.copy(H(0, 0.035, 0.0)); P.band.scale.set(0.104, 0.03, 0.116); headRot(P.band);
     P.knot.position.copy(H(0, 0.12, 0.07)); P.knot.scale.setScalar(0.04);
     if (P.mask) { P.mask.position.copy(H(0, -0.04, -0.095)); P.mask.scale.set(0.15, 0.08, 0.04); headRot(P.mask); }
+    for (const a of this.acc) { a.m.position.copy(H(a.p[0], a.p[1], a.p[2])); a.m.scale.set(a.s[0], a.s[1], a.s[2]); a.m.rotation.set(hp + a.r[0], a.r[1], a.r[2]); }
 
     // ---- legs
     for (const [side, sgn, off] of [['L', -1, 0], ['R', 1, Math.PI]]) {
@@ -262,8 +284,8 @@ export class Fighter {
     this.lastD.copy(d);
     seg(P.grip, _a.copy(hand).addScaledVector(d, -0.12), _b.copy(hand).addScaledVector(d, 0.08), 0.022);
     boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, 0.09), 0.13, 0.025, 0.07);
-    const bl = this.bladeLen, bw = 0.05 + (bl - BLADE_LEN) * 0.012;
-    boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, 0.1 + bl / 2), bw, bl, 0.012 + (bl - BLADE_LEN) * 0.003);
+    const bl = this.bladeLen, bw = (0.05 + (bl - BLADE_LEN) * 0.012) * this.bladeW;
+    boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, 0.1 + bl / 2), bw, bl, (0.012 + (bl - BLADE_LEN) * 0.003) * this.bladeT);
     // world hand/tip for hit tests
     g.updateMatrixWorld(true);
     this.hand.copy(hand).applyMatrix4(g.matrixWorld);
@@ -277,12 +299,16 @@ export class Fighter {
     if (this.alive) T.push({ h: this.hand.clone().lerp(this.tip, 0.3), t: this.tip.clone(), time: now });
     while (T.length && (now - T[0].time > 0.12 || T.length > 10)) T.shift();
     const pos = this.trailMesh.geometry.attributes.position, col = this.trailMesh.geometry.attributes.color;
+    const st = this.trailStyle, A = _tcA.set(st.a), B = _tcB.set(st.b), n = T.length;
+    this.tipSpeed = n > 1 ? T[n - 1].t.distanceTo(T[n - 2].t) / Math.max(0.001, T[n - 1].time - T[n - 2].time) : 0;
     for (let i = 0; i < 10; i++) {
       const e = T[Math.min(i, T.length - 1)] || { h: this.tip, t: this.tip, time: now };
       pos.setXYZ(i * 2, e.h.x, e.h.y, e.h.z); pos.setXYZ(i * 2 + 1, e.t.x, e.t.y, e.t.z);
       let v = 0;
       if (i > 0 && i < T.length) { const sp = T[i].t.distanceTo(T[i - 1].t) / Math.max(0.001, T[i].time - T[i - 1].time); v = Math.min(1, Math.max(0, (sp - 6) / 14)) * (1 - (now - e.time) / 0.12) * 0.8; }
-      col.setXYZ(i * 2, v * 0.6, v * 0.65, v * 0.7); col.setXYZ(i * 2 + 1, v, v, v);
+      if (st.fx === 'rainbow') { A.setHSL((now * 0.9 + i * 0.07) % 1, 1, 0.45); B.setHSL((now * 0.9 + i * 0.07) % 1, 1, 0.65); }
+      else if (st.fx === 'zap') v *= 0.45 + Math.random() * 0.9; // crackles
+      col.setXYZ(i * 2, v * A.r, v * A.g, v * A.b); col.setXYZ(i * 2 + 1, v * B.r, v * B.g, v * B.b);
     }
     pos.needsUpdate = true; col.needsUpdate = true;
   }

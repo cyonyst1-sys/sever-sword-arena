@@ -83,6 +83,16 @@ A sky arena made of 23 floating platforms at different heights:
 
 Fights happen platform by platform: whoever lands on a platform fights whoever's there, then swings or pads on to the next one. Bots go for enemies on their own platform or the next one over first, climb up to higher platforms by grappling their edge, and use the pads to get around.
 
+## Shop
+Cosmetics only: nothing in the shop changes reach, speed or damage. Open it from the home screen.
+- **Coins**: 10 for playing a match through (40 s or more), 5 per kill, 30 for a win, plus points (King of the Platform, Juggernaut, Headhunter) or waves (Horde). Solo matches pay 0.75x on Easy and 1.3x on Hard. You start with 150. Coins and items are saved in your browser.
+- **Masks**: Shinobi Wrap, Iron Menpo, Tengu, Oni, Kitsune, Skull, Hannya, Void Mask.
+- **Headwear**: Hachimaki, Long Ponytail, Shinobi Hood, Demon Horns, Straw Kasa, Kabuto Helmet, Ember Crown.
+- **Outfits**: ten colour schemes for jacket, trim and trousers (or keep your team colour).
+- **Swords**: Needle, Bone Blade, Cleaver, Jade Edge, Gilded, Obsidian, Frostbite, Bloodmoon, Void Edge. Same reach and cutting as the katana.
+- **Trails**: solid colours, plus Rainbow, Ember (sparks), Sakura Petals and Lightning (crackling sparks).
+- Try anything on the turning, swinging preview before you buy. Other players see what you wear, and bots wear random gear.
+
 ## How the slicing works
 
 Every fighter is built from simple convex shapes (boxes, spheres, cylinders). When a blade connects, the game takes the plane swept by the blade that frame, bakes the posed model into world-space triangles, splits every triangle by that plane, and caps each cut part with the convex hull of the points where the plane crossed it (flesh-red for the body, steel for swords). Each side becomes a rigid piece with its own physics. Pieces lying on the floor nudge each other apart so they come to rest separately instead of piling through each other. Pieces keep their materials and can be sliced again.
@@ -91,6 +101,8 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 
 - `index.html`: page, menus, HUD and styles
 - `src/main.js`: game loop, controls, grappling hook, combat, bots, match rules, networking
+- `src/cosmetics.js`: the shop catalogue (masks, headwear, outfits, swords, trails), coins and what you own
+- `src/shop.js`: the shop screen and its 3D preview
 - `src/arena.js`: all three maps (Sky Spires, Sky Plateaus, Great Canopy), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail
 - `src/slice.js`: mesh slicing, cut caps, piece physics, blood and sparks
