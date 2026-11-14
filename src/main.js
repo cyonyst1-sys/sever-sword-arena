@@ -1,15 +1,15 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114031250';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114031250';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114031250';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114031250';
-import * as net from './net.js?v=20261114031250';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114031250';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114031250';
-import { makeKillFx } from './killfx.js?v=20261114031250';
-import { makeGrapple } from './grapple.js?v=20261114031250';
-import { initShop } from './shop.js?v=20261114031250';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114031250';
+import { Arena, MAPS } from './arena.js?v=20261114031859';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114031859';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114031859';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114031859';
+import * as net from './net.js?v=20261114031859';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114031859';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114031859';
+import { makeKillFx } from './killfx.js?v=20261114031859';
+import { makeGrapple } from './grapple.js?v=20261114031859';
+import { initShop } from './shop.js?v=20261114031859';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114031859';
 
 // ---------- settings ----------
 const store = {
@@ -219,7 +219,7 @@ function tryDash(f, dir) {
 function fireHook(f, origin, dir) {
   if (!f.alive || (f.hookCd || 0) > 0) return false;
   if (!origin) { origin = camera.position.clone(); dir = new THREE.Vector3(); camera.getWorldDirection(dir); origin.addScaledVector(dir, camDist); }
-  arena.rayThin = !!f.isBot; const h = arena.grappleTarget(origin, dir, HOOK_MAX); arena.rayThin = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
+  arena.rayThin = !!f.isBot && !f.hookGlass; const h = arena.grappleTarget(origin, dir, HOOK_MAX); arena.rayThin = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
   f.hookCd = 0.25;
   if (!h) { sfx.hookFire(f.pos); return false; }
   const chest = _t.copy(f.pos); chest.y += 1.3;
@@ -712,6 +712,38 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   const idle = { wish: { x: 0, z: 0 }, jump: false, sprint: false };
   if (b.jumpDash && now() >= b.jumpDash.at) { if (!b.hook && tryDash(b, b.jumpDash.d)) b.dashFree = true; b.jumpDash = null; } // top of the jump: dash up and across
   if (b.jumpDash) return idle;
+  // Glass towers: an enemy on another floor of the same tower? don't trudge the stairs: crash out through the
+  // nearest window, hook the window on their floor from outside, and swing back in through it
+  const W = b.win;
+  if (W && (now() > W.until || !b.alive || t.plat !== W.q.i || (W.phase === 'in' && !b.hook && b.onGround))) b.win = null;
+  else if (W) {
+    const out = (b.pos.z - W.wz) * W.s; // how far outside the wall we are
+    if (W.phase === 'out') {
+      if (out > 1.5 && !b.onGround) W.phase = 'hook';
+      else {
+        if (out > -3.5 && b.dashCd <= 0 && b.stam >= 22) tryDash(b, new THREE.Vector3(0, 0.1, W.s).normalize());
+        return { wish: { x: 0, z: W.s }, jump: false, sprint: true };
+      }
+    }
+    if (W.phase === 'hook') {
+      const o = b.pos.clone(); o.y += 1.5;
+      const aim = new THREE.Vector3(Math.max(W.x0, Math.min(W.x1, b.pos.x)), W.q.y + 1.3, W.wz); // (the lower pane: we come in at floor height)
+      b.hookCd = 0; b.hookGlass = true; const ok = fireHook(b, o, aim.sub(o).normalize()); b.hookGlass = false;
+      if (ok) { b.hookT = 0; b.hookMax = 3; b.hookWhy = 'window'; b.dest = W.q; W.phase = 'in'; }
+      else if (out > 6) b.win = null; // couldn't get a hold: fall back on the usual ways
+      return idle;
+    }
+  }
+  if (!b.win && arena.brk && b.onGround && !b.hook && t.plat != null && b.plat != null && t.plat !== b.plat && Math.random() < dt * 3) {
+    const P = arena.plats[b.plat], Q = arena.plats[t.plat];
+    if (P && Q && (P.kind === 'floor' || P.kind === 'roof') && Q.kind === 'floor' && Math.abs(Q.y - P.y) > 3 && Math.abs(P.z - Q.z) < 1 && Math.abs(P.x - Q.x) < 4) {
+      const z0 = P.z - P.d / 2, z1 = P.z + P.d / 2, s = Math.abs(b.pos.z - z0) < Math.abs(b.pos.z - z1) ? -1 : 1; // out the nearer long face (the stairs run along the others)
+      const x0 = Math.max(P.x - P.w / 2, Q.x - Q.w / 2) + 1, x1 = Math.min(P.x + P.w / 2, Q.x + Q.w / 2) - 1;
+      b.win = { phase: 'out', q: Q, s, wz: s < 0 ? z0 : z1, x0, x1, until: now() + 6 };
+      b.path = null;
+      return { wish: { x: 0, z: s }, jump: false, sprint: true };
+    }
+  }
   if (b.hook) {
     b.hookT += dt;
     if (b.dest) {

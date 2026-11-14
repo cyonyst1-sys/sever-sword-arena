@@ -105,7 +105,7 @@ Skyscrapers above the clouds, made to be swung between and smashed through:
 - **Four glass towers**, walled in glass all the way up. Every pane **shatters** into tumbling shards when you swing, run or dash into it, or cut it. Inside, there's a floor every 6 m with stairs zig-zagging up, office partitions to cut through, and desks. On the roofs are water towers, a helipad and a radio mast to hook.
 - **Three half-built buildings**: nothing but a concrete deck every couple of floors ringed with red steel beams, held by four red **corner columns** that rise from the clouds up into the sky. Hook the columns to swing, or slice one through and the top falls away. The steel can't be cut. Swing from it, run along the beams, or stand on them. Each deck has drywall sheets, pallets of crates and partitions going up, and the lowest floors have their first windows in.
 - A **tower crane** on the biggest frame, with a long jib you can run along and a load of crates hanging off its hook.
-- Bots swing from building to building and crash through the glass to get to you.
+- Bots swing from building to building and crash through the glass to get to you. After an enemy on another floor of the same tower, they skip the stairs: they dash out through a window, hook the window on your floor from outside, and swing back in through it.
 
 ### Colosseum
 

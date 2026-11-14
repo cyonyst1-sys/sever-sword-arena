@@ -3,8 +3,8 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildCity } from './city.js?v=20261114031250';
-import { buildDojo } from './dojo.js?v=20261114031250';
+import { buildCity } from './city.js?v=20261114031859';
+import { buildDojo } from './dojo.js?v=20261114031859';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -694,7 +694,7 @@ export class Arena {
     for (const b of this.boxes) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1;
     for (const r of this.ramps) { const h = this.rampH(r, x, z); if (h !== null && h <= y + (r.noWall ? 1.2 : STEP) && h > g) g = h; } // branch tops: a fast dash up one still lands on it
     for (const c of this.discs) if (c.y1 <= y + STEP && c.y1 > g && (x - c.x) ** 2 + (z - c.z) ** 2 <= (c.r + m) ** 2) g = c.y1; // round platforms and columns
-    if (this.brk) for (const b of this.brkNear(x, z)) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1; // breakables (hay, crates, wall tops)
+    if (this.brk) for (const b of this.brkNear(x, z)) if (b.kind !== 'glass' && x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1; // breakables (hay, crates, wall tops)
     return g;
   }
   // breakable chunks (Paper Dojo) live in a 6 m grid, so collision only looks at the ones nearby
