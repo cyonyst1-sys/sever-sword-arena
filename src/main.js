@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114143624';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114143624';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114143624';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114143624';
-import * as net from './net.js?v=20261114143624';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114143624';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114143624';
-import { makeKillFx } from './killfx.js?v=20261114143624';
-import { makeGrapple } from './grapple.js?v=20261114143624';
-import { initShop } from './shop.js?v=20261114143624';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114143624';
-import { portal } from './portal.js?v=20261114143624';
+import { Arena, MAPS } from './arena.js?v=20261114152753';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114152753';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114152753';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114152753';
+import * as net from './net.js?v=20261114152753';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114152753';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114152753';
+import { makeKillFx } from './killfx.js?v=20261114152753';
+import { makeGrapple } from './grapple.js?v=20261114152753';
+import { initShop } from './shop.js?v=20261114152753';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114152753';
+import { portal } from './portal.js?v=20261114152753';
 
 // ---------- settings ----------
 const store = {
@@ -631,9 +631,9 @@ const deathAt = new THREE.Vector3(); let deathBy = '';
 // ---------- spawning ----------
 // Pagoda Falls: everyone comes in on the outer ring (rock spires and terraces) and rushes the pagoda
 function spawnList() {
-  const kinds = { pagoda: ['spire', 'terrace'], colosseum: ['rim'] }[arena.mapId]; // (Colosseum: its high rim)
+  const kinds = { pagoda: ['spire', 'terrace'], colosseum: ['rim'], bamboo: ['pad'] }[arena.mapId]; // (Colosseum: its high rim)
   if (!kinds) return arena.spawns;
-  const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && kinds.includes(p.kind); });
+  const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && !p.down && kinds.includes(p.kind); });
   return outer.length ? outer : arena.spawns;
 }
 function spawnPoint(f) {
@@ -661,7 +661,7 @@ function spawn(f, p, yaw) {
 function hostSpawn(f) {
   const p = spawnPoint(f), yaw = Math.atan2(p.x, p.z); // face the centre
   spawn(f, p, yaw);
-  if (arena.mapId === 'pagoda' || arena.mapId === 'colosseum') f.rushUntil = now() + 12; // bots charge the centre after coming in
+  if (arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo') f.rushUntil = now() + 12; // bots charge the centre after coming in
   net.broadcast({ t: 'spawn', id: f.id, p: arr(p), y: +yaw.toFixed(3) });
 }
 
@@ -1290,7 +1290,7 @@ function botObjective(b) {
     if (k) { const pos = new THREE.Vector3(k[1], k[2] - 0.5, k[3]); return mk(pos, platUnder(pos)?.i ?? null, 7); }
   }
   // Pagoda Falls: just spawned on the outer ring? rush the pagoda (fighting whoever gets in the way)
-  if ((arena.mapId === 'pagoda' || arena.mapId === 'colosseum') && b.rushUntil > now()) {
+  if ((arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo') && b.rushUntil > now()) {
     const d0 = arena.plats[0], n = arena.nodeMap.get('P0');
     if (d0 && !d0.gone && b.plat !== 0) return mk(n.p.clone(), 0, 10);
   }
@@ -1697,6 +1697,7 @@ function tick(rdt, tt) {
   arena.update(tt); fx.update(tt);
   if (S.phase === 'game' && !S.paused) {
     if (S.host) hostTick(rdt);
+    if (arena.tickPads) arena.tickPads(fighters.values(), now()); // (Bamboo Fort: spawn pads fall away once left)
     for (const f of fighters.values()) {
       if (!f.alive) continue;
       if (f === me) {

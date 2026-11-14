@@ -38,7 +38,7 @@ export const UPGRADES = [
   { id: 'respawn', name: 'Second Wind', desc: 'Respawn sooner after dying', per: 0.06, what: 'wait', less: true },
   { id: 'bounty', name: 'Bounty', desc: 'More coins from every match', per: 0.05, what: 'coins' },
 ];
-export const UP_MAX = 5, UP_PRICES = [600, 1200, 2200, 3800, 6000];
+export const UP_MAX = 5, UP_PRICES = [600, 1000, 1500, 2100, 2800];
 /** Keep only real upgrade levels, 0..5 (used on levels arriving over the network too). */
 export function cleanUp(u) { const o = {}; for (const x of UPGRADES) o[x.id] = Math.max(0, Math.min(UP_MAX, Math.floor(+(u && u[x.id]) || 0))); return o; }
 /** The multiplier an upgrade at level L gives: 1 + per*L, or 1 - per*L for cooldowns and waits. */
