@@ -3,9 +3,9 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildBamboo } from './bamboo.js?v=20261114160837';
-import { buildCity } from './city.js?v=20261114160837';
-import { buildDojo } from './dojo.js?v=20261114160837';
+import { buildBamboo } from './bamboo.js?v=20261114161704';
+import { buildCity } from './city.js?v=20261114161704';
+import { buildDojo } from './dojo.js?v=20261114161704';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 

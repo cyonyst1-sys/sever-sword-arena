@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114160837';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114160837';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114160837';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114160837';
-import * as net from './net.js?v=20261114160837';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114160837';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114160837';
-import { makeKillFx } from './killfx.js?v=20261114160837';
-import { makeGrapple } from './grapple.js?v=20261114160837';
-import { initShop } from './shop.js?v=20261114160837';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114160837';
-import { portal } from './portal.js?v=20261114160837';
+import { Arena, MAPS } from './arena.js?v=20261114161704';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114161704';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114161704';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114161704';
+import * as net from './net.js?v=20261114161704';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114161704';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114161704';
+import { makeKillFx } from './killfx.js?v=20261114161704';
+import { makeGrapple } from './grapple.js?v=20261114161704';
+import { initShop } from './shop.js?v=20261114161704';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114161704';
+import { portal } from './portal.js?v=20261114161704';
 
 // ---------- settings ----------
 const store = {
@@ -903,6 +903,19 @@ function dashOnto(b, p) { // returns { d: direction, tj: seconds to jump first (
   }
   return null;
 }
+// Would a running jump from here in direction wish land on solid ground (a small gap, or a short drop)?
+function hopLands(b, wish) {
+  const wl = Math.hypot(wish.x, wish.z) || 1, sp = Math.max(WALK, Math.hypot(b.vel.x, b.vel.z)), vx = wish.x / wl * sp, vz = wish.z / wl * sp, h = 1 / 30;
+  let x = b.pos.x, y = b.pos.y, z = b.pos.z, vy = JUMP_V;
+  for (let i = 0; i < 60; i++) {
+    const py = y; vy -= G * h; x += vx * h; z += vz * h; y += vy * h;
+    if (arena.wallAt(x, z, y, 1.7, 0.2)) return false; // straight into a wall
+    const g = arena.groundHeight(x, z, py);
+    if (vy < 0 && isFinite(g) && y <= g) return g > b.pos.y - 6 && Math.hypot(x - b.pos.x, z - b.pos.z) > 1.5; // lands on something, not a long way down
+    if (y < b.pos.y - 6) return false;
+  }
+  return false;
+}
 // Would a bot let go right now and come down on platform p (not into its underside)?
 function willLand(b, p) {
   let x = b.pos.x, y = b.pos.y, z = b.pos.z, vx = b.vel.x, vy = b.vel.y, vz = b.vel.z;
@@ -1047,15 +1060,35 @@ function botThink(b, dt) {
     }
   }
   if (!t.anim) b.evaded = false;
-  // stuck? hop
+  // a lip or step ahead too high to walk up: jump it now (and jump-dash up onto anything higher), don't stand there pushing
+  if (b.onGround && (wish.x || wish.z) && !b.jumpDash) {
+    const wl = Math.hypot(wish.x, wish.z) || 1, ux = wish.x / wl, uz = wish.z / wl;
+    const up = arena.groundHeight(b.pos.x + ux * 0.9, b.pos.z + uz * 0.9, b.pos.y + 5) - b.pos.y;
+    if (up > 0.45 && up < 1.8) jump = true;
+    else if (up >= 1.8 && up < 5 && !close && b.dashCd <= 0 && b.stam >= 22 && Math.hypot(b.vel.x, b.vel.z) < 3) { b.jumpDash = { at: now() + 0.22, d: new THREE.Vector3(ux, 0.55, uz).normalize() }; jump = true; }
+  }
+  // stuck anyway? hop; still stuck after two hops? dash up and over
   b.stuck = (b.stuck || 0) + ((wish.x || wish.z) && Math.hypot(b.vel.x, b.vel.z) < 0.6 && b.onGround ? dt : -dt);
-  if (b.stuck > 0.8) { jump = true; b.stuck = 0; b.repath = 0; }
+  if (b.stuck > 0.5) {
+    jump = true; b.stuck = 0; b.repath = 0; b.hopsStuck = (b.hopsStuck || 0) + 1;
+    if (b.hopsStuck >= 2 && b.dashCd <= 0 && b.stam >= 22 && (wish.x || wish.z)) { const wl = Math.hypot(wish.x, wish.z) || 1; b.jumpDash = { at: now() + 0.2, d: new THREE.Vector3(wish.x / wl, 0.5, wish.z / wl).normalize() }; b.hopsStuck = 0; }
+  } else if (Math.hypot(b.vel.x, b.vel.z) > 3) b.hopsStuck = 0;
   if (b.backoff && now() < b.backoff.until && b.onGround) { wish.x = b.backoff.x; wish.z = b.backoff.z; } // taking a run-up
   // don't walk off the platform: if there's no floor ahead, try sideways, else stop
   // (walking onto a jump pad by the edge is fine: the drop just past it is where the pad sends us)
   const padDist = Math.hypot(goal.x - b.pos.x, goal.z - b.pos.z), toPad = padGoal && padDist < 3;
   if (toPad) { const k = Math.max(0.25, padDist / 3); wish.x *= k; wish.z *= k; } // ease onto the pad, not past it
   if (b.onGround && (wish.x || wish.z) && !toPad && !floorAhead(b, wish.x, wish.z, 1.9)) {
+    // at an edge with somewhere to be on the far side: dash (or jump-dash) onto their surface if that lands,
+    // else a plain running jump if it lands on something; only then go round or stop
+    if (!close && t.plat != null && t.plat !== b.plat && !b.jumpDash) {
+      const tp = arena.plats[t.plat];
+      if (tp && !tp.gone && b.dashCd <= 0 && b.stam >= 22) {
+        const how = dashOnto(b, tp);
+        if (how) { b.landOn = tp; b.airDashed = true; if (how.tj > 0) { b.jumpDash = { at: now() + how.tj, d: how.d }; jump = true; } else if (tryDash(b, how.d)) b.dashFree = true; return { wish: { x: how.d.x, z: how.d.z }, jump, sprint }; }
+      }
+      if (hopLands(b, wish)) return { wish, jump: true, sprint: true };
+    }
     const a = { x: -wish.z, z: wish.x }, c = { x: wish.z, z: -wish.x };
     if (floorAhead(b, a.x, a.z, 1.9)) { wish.x = a.x; wish.z = a.z; }
     else if (floorAhead(b, c.x, c.z, 1.9)) { wish.x = c.x; wish.z = c.z; }
