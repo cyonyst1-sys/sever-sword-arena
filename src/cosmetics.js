@@ -17,6 +17,8 @@ export const CATEGORIES = [
   { id: 'outfit', name: 'Outfits' },
   { id: 'sword', name: 'Swords' },
   { id: 'trail', name: 'Trails' },
+  { id: 'kill', name: 'Kill Effects' },
+  { id: 'grapple', name: 'Grapples' },
 ];
 
 export const CATALOG = {
@@ -134,9 +136,32 @@ export const CATALOG = {
     { id: 'sakura', name: 'Sakura Petals', price: 700, sw: 0xffb7d5, a: 0xa04a70, b: 0xffc8e0, fx: 'petal' },
     { id: 'lightning', name: 'Lightning', price: 900, sw: 0x9fe8ff, a: 0x2a7aff, b: 0xcff4ff, fx: 'zap' },
   ],
+  // what happens to someone you cut down (see killfx.js)
+  kill: [
+    { id: 'blood', name: 'Classic', price: 0, sw: 0x8a0a10 },
+    { id: 'sakura', name: 'Sakura Burst', price: 400, sw: 0xffb7d5 },
+    { id: 'ink', name: 'Ink Strike', price: 450, sw: 0x15151c },
+    { id: 'smoke', name: 'Smoke Vanish', price: 450, sw: 0x9a9a9a },
+    { id: 'gold', name: 'Gold Rush', price: 500, sw: 0xffc23d },
+    { id: 'ember', name: 'Ember Ash', price: 650, sw: 0xff6a1a },
+    { id: 'frozen', name: 'Frozen', price: 700, sw: 0xbfe8ff },
+    { id: 'lightning', name: 'Lightning Strike', price: 800, sw: 0x9fe8ff },
+    { id: 'void', name: 'Void Rift', price: 1000, sw: 0x9b51ff },
+  ],
+  // your grappling hook: the line (colour, thickness, pattern, glow) and the head (see grapple.js)
+  grapple: [
+    { id: 'rope', name: 'Rope', price: 0, sw: 0x2a2a2a, c: 0x1c1c1c, r: 0.018, head: 'claw' },
+    { id: 'chain', name: 'Iron Chain', price: 300, sw: 0x5a5f66, c: 0x8a9099, r: 0.03, tex: 'chain', head: 'hook' },
+    { id: 'vine', name: 'Jungle Vine', price: 300, sw: 0x3f8a3a, c: 0x4a8f3a, r: 0.028, tex: 'vine', head: 'leaf' },
+    { id: 'kunai', name: 'Kunai Line', price: 350, sw: 0xc0262c, c: 0xc0262c, r: 0.011, head: 'kunai' },
+    { id: 'shadow', name: 'Shadow Tether', price: 500, sw: 0x1a1022, c: 0x0b0610, r: 0.022, smoke: true, head: 'shadow' },
+    { id: 'spirit', name: 'Spirit Thread', price: 600, sw: 0x5fd0ff, c: 0x5fd0ff, r: 0.02, glow: true, head: 'orb' },
+    { id: 'lightning', name: 'Lightning Whip', price: 800, sw: 0xbff0ff, c: 0x6ac8ff, r: 0.016, glow: true, bolt: true, head: 'spark' },
+    { id: 'dragon', name: 'Dragon Tail', price: 900, sw: 0xd9ad3c, c: 0xd9ad3c, r: 0.04, tex: 'scales', head: 'dragon' },
+  ],
 };
 
-export const DEFAULT_LOOK = { mask: 'none', hat: 'none', outfit: 'default', sword: 'katana', trail: 'classic' };
+export const DEFAULT_LOOK = { mask: 'none', hat: 'none', outfit: 'default', sword: 'katana', trail: 'classic', kill: 'blood', grapple: 'rope' };
 export const item = (cat, id) => CATALOG[cat].find((x) => x.id === id) || CATALOG[cat][0];
 /** Keep only real item ids (used on looks arriving over the network). */
 export function cleanLook(look) {
@@ -147,7 +172,7 @@ export function cleanLook(look) {
 /** A random look for a bot: most wear a few things, some go plain. */
 export function randomLook() {
   const pick = (c, p) => (Math.random() < p ? CATALOG[c][1 + Math.floor(Math.random() * (CATALOG[c].length - 1))].id : CATALOG[c][0].id);
-  return { mask: pick('mask', 0.5), hat: pick('hat', 0.5), outfit: pick('outfit', 0.35), sword: pick('sword', 0.45), trail: pick('trail', 0.5) };
+  return { mask: pick('mask', 0.5), hat: pick('hat', 0.5), outfit: pick('outfit', 0.35), sword: pick('sword', 0.45), trail: pick('trail', 0.5), kill: pick('kill', 0.35), grapple: pick('grapple', 0.4) };
 }
 
 // ---------- your profile: coins, what you own, what you wear (kept in this browser) ----------

@@ -95,7 +95,7 @@ export function splitSoup(s, n, d) {
 
 // ---------- particles (blood, sparks) ----------
 export class Particles {
-  constructor(scene, ground, { color, size = 0.06, max = 1600, decals = false, gravity = 20 }) {
+  constructor(scene, ground, { color, size = 0.06, max = 1600, decals = false, gravity = 20, decalColor = 0x5e0008 }) {
     this.ground = ground; this.max = max; this.g = gravity; this.n = 0; this.head = 0;
     this.p = new Float32Array(max * 3).fill(-9999); this.v = new Float32Array(max * 3); this.life = new Float32Array(max);
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(this.p, 3));
@@ -104,7 +104,7 @@ export class Particles {
     this.decals = null;
     if (decals) {
       const dg = new THREE.CircleGeometry(1, 10); dg.rotateX(-Math.PI / 2);
-      this.decals = new THREE.InstancedMesh(dg, new THREE.MeshBasicMaterial({ color: 0x5e0008, transparent: true, opacity: 0.88, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 700);
+      this.decals = new THREE.InstancedMesh(dg, new THREE.MeshBasicMaterial({ color: decalColor, transparent: true, opacity: 0.88, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }), 700);
       this.decals.count = 0; this.decals.frustumCulled = false; scene.add(this.decals);
       this.dHead = 0; this.dm = new THREE.Matrix4(); this.dq = new THREE.Quaternion(); this.ds = new THREE.Vector3(); this.dp = new THREE.Vector3();
     }
@@ -193,7 +193,7 @@ export class Pieces {
     return { P, N, M: S.M.slice(), Q: S.Q.slice(), caps: S.caps };
   }
   /** Split a soup and launch both halves apart along the plane normal. Returns the cut centre (or null). */
-  split(soup, n, d, baseVel, impulse, spin = 1) {
+  split(soup, n, d, baseVel, impulse, spin = 1, burst = this.blood) { // burst: what sprays from the cut (blood, or a kill effect's particles; null for none)
     const [A, B, c] = splitSoup(soup, n, d);
     if (!A.M.length || !B.M.length) return null;
     const out = [];
@@ -205,11 +205,12 @@ export class Pieces {
       p.bleed = p.flesh ? 2.2 : 0;
       out.push(p);
     }
-    if (c && this.blood) {
+    this.last = out;
+    if (c && burst) {
       const fl = out.some((p) => p.flesh);
       if (fl) for (let i = 0; i < 70; i++) {
         const sg = Math.random() < 0.5 ? 1 : -1, sp = 1 + Math.random() * 4.5;
-        this.blood.emit(c.x + (Math.random() - 0.5) * 0.3, c.y + (Math.random() - 0.5) * 0.3, c.z + (Math.random() - 0.5) * 0.3,
+        burst.emit(c.x + (Math.random() - 0.5) * 0.3, c.y + (Math.random() - 0.5) * 0.3, c.z + (Math.random() - 0.5) * 0.3,
           n.x * sg * sp + impulse.x * 0.15 + (Math.random() - 0.5) * 2, n.y * sg * sp + 1.5 + Math.random() * 2, n.z * sg * sp + impulse.z * 0.15 + (Math.random() - 0.5) * 2, 3);
       }
     }
@@ -221,11 +222,13 @@ export class Pieces {
     for (const p of [...this.list]) {
       p.life -= dt; p.cutCd -= dt;
       const m = p.mesh;
+      if (p.tick) p.tick(p, dt); // a kill effect at work on this piece
       if (p.life < 1) m.scale.setScalar(Math.max(0.01, p.life));
       if (p.life <= 0 || m.position.y < -80) { this.remove(p); continue; }
-      if (p.bleed > 0 && this.blood) {
+      const bs = p.bleedSys || this.blood; // what it leaks: blood, or petals, ink...
+      if (p.bleed > 0 && bs) {
         p.bleed -= dt;
-        if (Math.random() < dt * 25 * Math.min(1, p.bleed)) this.blood.emit(m.position.x, m.position.y, m.position.z, (Math.random() - 0.5) * 1.5 + p.vel.x * 0.3, 0.5 + Math.random(), (Math.random() - 0.5) * 1.5 + p.vel.z * 0.3, 2);
+        if (Math.random() < dt * 25 * Math.min(1, p.bleed)) bs.emit(m.position.x, m.position.y, m.position.z, (Math.random() - 0.5) * 1.5 + p.vel.x * 0.3, 0.5 + Math.random(), (Math.random() - 0.5) * 1.5 + p.vel.z * 0.3, 2);
       }
       if (p.asleep) continue;
       p.onFloor = false;

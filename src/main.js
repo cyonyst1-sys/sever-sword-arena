@@ -5,7 +5,9 @@ import { bakeMeshes, Pieces, Particles } from './slice.js';
 import { sfx, ensureAudio, setListener, setVolume } from './audio.js';
 import * as net from './net.js';
 import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js';
-import { profile, addCoins, randomLook, cleanLook } from './cosmetics.js';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js';
+import { makeKillFx } from './killfx.js';
+import { makeGrapple } from './grapple.js';
 import { initShop } from './shop.js';
 
 // ---------- settings ----------
@@ -38,12 +40,14 @@ const ground = (x, z, y) => arena.groundHeight(x, z, y);
 const blood = new Particles(scene, ground, { color: 0x8a0a10, size: 0.07, decals: true, max: 2400 });
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
 const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 300 }); // bamboo chips
+const killFx = makeKillFx(scene, ground); // kill effects from the shop
 // sword-trail effects from the shop
 const trailFx = {
   ember: new Particles(scene, ground, { color: 0xffa040, size: 0.05, gravity: -2, max: 500 }),
   petal: new Particles(scene, ground, { color: 0xffb7d5, size: 0.08, gravity: 2.5, max: 500 }),
   zap: new Particles(scene, ground, { color: 0xbff0ff, size: 0.04, gravity: 0, max: 400 }),
 };
+const grapFx = { smoke: new Particles(scene, ground, { color: 0x1a1020, size: 0.22, gravity: -0.5, max: 400 }), zap: trailFx.zap }; // grapple styles
 const pieces = new Pieces(scene, ground, blood);
 const fx = new ModeFx(scene); // throne, shrines, heads
 
@@ -81,17 +85,14 @@ function makeFighter(info) {
   const f = new Fighter({ id: info.id, name: info.id === S.myId ? null : info.name, color: PALETTE[info.col % PALETTE.length], team: info.team, isBot: !info.human, horde: !!info.horde, look: info.look });
   f.addTo(scene); f.group.visible = false; f.trailMesh.visible = true;
   f.net = null; f.respawnAt = Infinity;
-  const rope = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 5, 1), new THREE.MeshBasicMaterial({ color: 0x1c1c1c }));
-  const claw = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshStandardMaterial({ color: 0x9aa4ae, metalness: 0.8, roughness: 0.3 }));
-  rope.visible = claw.visible = false; scene.add(rope); scene.add(claw);
-  f.rope = rope; f.claw = claw;
+  f.grap = makeGrapple(scene, item('grapple', f.look.grapple), grapFx); // their grappling hook, in their style
   f.crown = makeCrown(); f.crown.visible = false; f.group.add(f.crown); // worn by the juggernaut
   fighters.set(info.id, f);
   return f;
 }
 function dropFighter(id) {
   const f = fighters.get(id); if (!f) return;
-  f.removeFrom(scene); scene.remove(f.rope); scene.remove(f.claw); fighters.delete(id);
+  f.removeFrom(scene); f.grap.dispose(); fighters.delete(id);
   if (me === f) me = null;
 }
 function syncFighters() {
@@ -475,11 +476,13 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   if (!fell && n) {
     v.pose(0);
     const soup = bakeMeshes(v.meshes);
-    let at = pieces.split(soup, n, -n.dot(pt), v.vel, imp);
-    if (!at) { const mid = v.pos.clone(); mid.y += 1.1; at = pieces.split(soup, n, -n.dot(mid), v.vel, imp); }
+    const kfx = kId && kId !== vId ? fighters.get(kId)?.look.kill : null, burst = killFx.burstFor(kfx); // the killer's kill effect
+    let at = pieces.split(soup, n, -n.dot(pt), v.vel, imp, 1, burst);
+    if (!at) { const mid = v.pos.clone(); mid.y += 1.1; at = pieces.split(soup, n, -n.dot(mid), v.vel, imp, 1, burst); }
+    if (at) killFx.apply(kfx, at, n, pieces.last);
     sfx.slice(at || v.pos);
   } else if (v === me) sfx.fall();
-  v.group.visible = false; v.rope.visible = v.claw.visible = false;
+  v.group.visible = false; v.grap.hide();
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
   feed(fell ? `${vn} fell into the sky` : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
   if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? 'You fell' : `Cut down by ${kn}`; }
@@ -1448,17 +1451,12 @@ function tick(rdt, tt) {
       if (tfx && f.tipSpeed > 9 && f.trail.length > 1) for (let k = 0; k < 2; k++) { const u = Math.random(), p = _t.copy(f.hand).lerp(f.tip, 0.4 + u * 0.6), j = f.trailStyle.fx === 'zap' ? 5 : 1.5; tfx.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.18 : 0.9); }
       f.group.visible = f.alive && !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0);
       // rope
-      if (f.hook) {
-        const a = f.handL, b = f.hook.p, d = _t.subVectors(b, a), L = d.length();
-        f.rope.visible = f.claw.visible = true;
-        f.rope.position.addVectors(a, b).multiplyScalar(0.5); f.rope.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.divideScalar(L || 1)); f.rope.scale.set(0.018, L, 0.018);
-        f.claw.position.copy(b);
-      } else f.rope.visible = f.claw.visible = false;
+      if (f.hook) f.grap.show(f.handL, f.hook.p, rdt); else f.grap.hide();
     }
     netTick(rdt);
   } else if (S.phase === 'game') netTick(rdt);
   const pdt = hitstop > 0 ? rdt * 0.08 : rdt; hitstop -= rdt;
-  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt);
+  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
   shake *= Math.exp(-9 * rdt); punch *= Math.exp(-6 * rdt);
   updateCamera(rdt);
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it

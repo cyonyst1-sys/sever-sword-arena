@@ -91,6 +91,8 @@ Cosmetics only: nothing in the shop changes reach, speed or damage. Open it from
 - **Outfits**: ten colour schemes for jacket, trim and trousers (or keep your team colour).
 - **Swords**: Needle, Bone Blade, Cleaver, Jade Edge, Gilded, Obsidian, Frostbite, Bloodmoon, Void Edge. Same reach and cutting as the katana.
 - **Trails**: solid colours, plus Rainbow, Ember (sparks), Sakura Petals and Lightning (crackling sparks).
+- **Kill effects** (what happens to whoever you cut down; everyone sees them): Sakura Burst (petals instead of blood), Ink Strike (ink splashes and stains), Smoke Vanish (the pieces vanish in smoke), Gold Rush (a chime and a shower of coins), Ember Ash (the pieces glow, then crumble to ash), Frozen (they freeze and shatter on landing), Lightning Strike (a bolt from the sky and thunder), Void Rift (a purple tear along the cut swallows them).
+- **Grapples**: Iron Chain, Jungle Vine, Kunai Line, Shadow Tether (trails smoke), Spirit Thread (glowing), Lightning Whip (crackling bolt), Dragon Tail (gold scales and a dragon head that bites on).
 - Try anything on the turning, swinging preview before you buy. Other players see what you wear, and bots wear random gear.
 
 ## How the slicing works
@@ -103,6 +105,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 - `src/main.js`: game loop, controls, grappling hook, combat, bots, match rules, networking
 - `src/cosmetics.js`: the shop catalogue (masks, headwear, outfits, swords, trails), coins and what you own
 - `src/shop.js`: the shop screen and its 3D preview
+- `src/killfx.js` and `src/grapple.js`: the kill effects and grapple styles
 - `src/arena.js`: all three maps (Sky Spires, Sky Plateaus, Great Canopy), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail
 - `src/slice.js`: mesh slicing, cut caps, piece physics, blood and sparks

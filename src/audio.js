@@ -46,6 +46,12 @@ export const sfx = {
   reel(p) { nz(0.08, 900, 1400, 4, 0.05 * att(p, NEAR)); },
   land(p) { nz(0.1, 200, 80, 1, 0.15 * att(p, NEAR), "lowpass"); },
   spawn(p) { const a = att(p, NEAR); tn(300, 600, 0.4, 0.1 * a, 'sine'); },
+  // kill effects
+  chime(p) { const a = att(p); [1319, 1760, 2637].forEach((f, i) => tn(f, f, 0.5 - i * 0.1, 0.07 * a)); },
+  thunder(p) { const a = att(p, 40); nz(0.12, 5000, 1500, 1, 0.35 * a); nz(1.4, 260, 40, 0.6, 0.55 * a, 'lowpass'); },
+  shatter(p) { const a = att(p); nz(0.3, 7000, 3500, 2, 0.22 * a); [2200, 3100, 4100].forEach((f) => tn(f, f * 0.9, 0.18, 0.04 * a)); },
+  poof(p) { nz(0.45, 900, 180, 0.7, 0.25 * att(p), 'lowpass'); },
+  rift(p) { const a = att(p); tn(110, 35, 0.9, 0.22 * a, 'sawtooth'); nz(0.9, 300, 1800, 3, 0.1 * a); },
   fall() { tn(400, 80, 1.2, 0.15, 'sine'); },
   gong() { tn(110, 108, 1.4, 0.25, 'sine'); tn(220, 218, 1.0, 0.1, 'sine'); tn(331, 329, 0.8, 0.06, 'sine'); },
   click() { tn(900, 700, 0.05, 0.06, 'triangle'); },

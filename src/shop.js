@@ -1,7 +1,9 @@
 // The shop screen: browse by category, try things on a turning, swinging preview fighter, buy and equip.
 import * as THREE from 'three';
 import { Fighter, PALETTE } from './fighter.js';
-import { Particles } from './slice.js';
+import { Particles, Pieces, bakeMeshes } from './slice.js';
+import { makeKillFx } from './killfx.js';
+import { makeGrapple } from './grapple.js';
 import { CATEGORIES, CATALOG, item, profile, owns, buy, equip } from './cosmetics.js';
 
 const $ = (id) => document.getElementById(id);
@@ -25,6 +27,13 @@ export function initShop({ show, onClose }) {
   fx.ember = new Particles(scene, noGround, { color: 0xffa040, size: 0.03, gravity: -2, max: 300 });
   fx.petal = new Particles(scene, noGround, { color: 0xffb7d5, size: 0.05, gravity: 2.5, max: 300 });
   fx.zap = new Particles(scene, noGround, { color: 0xbff0ff, size: 0.025, gravity: 0, max: 300 });
+  fx.smoke = new Particles(scene, noGround, { color: 0x1a1020, size: 0.14, gravity: -0.5, max: 300 });
+  // kill-effect demo: the preview fighter is cut down every few seconds and the pieces land on the floor disc
+  const floorAt = (x, z, y) => (y > -0.5 && Math.hypot(x, z) < 3 ? 0 : -Infinity);
+  const blood = new Particles(scene, floorAt, { color: 0x8a0a10, size: 0.035, max: 800, decals: true });
+  const pieces = new Pieces(scene, floorAt, blood), kfx = makeKillFx(scene, floorAt, { sound: false });
+  let grap = null, grapId = '', killT = 0, dead = false;
+  const GRAP_AT = new THREE.Vector3(0.8, 2.7, -0.6);
   const camAt = { pos: new THREE.Vector3(0.9, 1.25, -3.9), look: new THREE.Vector3(0, 1.0, 0) };
 
   // the look being shown: what you wear, with the selected item tried on
@@ -36,6 +45,8 @@ export function initShop({ show, onClose }) {
     if (f) f.removeFrom(scene);
     f = new Fighter({ id: 'preview', name: null, color: PALETTE[0], team: 'p', look });
     f.alive = true; f.onGround = true; f.addTo(scene);
+    if (look.grapple !== grapId) { if (grap) grap.dispose(); grapId = look.grapple; grap = makeGrapple(scene, item('grapple', grapId), fx); }
+    pieces.clear(); dead = false; killT = 0;
   }
 
   // ---- UI
@@ -83,12 +94,28 @@ export function initShop({ show, onClose }) {
     else { const u = Math.min(1, (ph - 0.22) / 0.6); f.s.x = 0.95 + (0.42 - 0.95) * u; f.s.y = -0.6 + (0.38 + 0.6) * u; }
     f.pose(dt); f.updateTrail(lt);
     const tf = fx[f.trailStyle.fx];
-    if (tf && f.tipSpeed > 6) for (let k = 0; k < 2; k++) { const p = f.hand.clone().lerp(f.tip, 0.4 + Math.random() * 0.6), j = f.trailStyle.fx === 'zap' ? 3 : 0.8; tf.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.15 : 0.8); }
+    if (tf && !dead && f.tipSpeed > 6) for (let k = 0; k < 2; k++) { const p = f.hand.clone().lerp(f.tip, 0.4 + Math.random() * 0.6), j = f.trailStyle.fx === 'zap' ? 3 : 0.8; tf.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.15 : 0.8); }
     for (const p of Object.values(fx)) p.update(dt);
+    // kill effects tab: cut the fighter down along a slanted line, then bring them back
+    if (cat === 'kill') {
+      killT += dt;
+      if (!dead && killT > 0.9) {
+        dead = true; f.pose(0);
+        const n = new THREE.Vector3(0.8, 0.55, 0.25).normalize(), pt = f.pos.clone().add(new THREE.Vector3(0, 1.15, 0));
+        const burst = kfx.burstFor(sel), at = pieces.split(bakeMeshes(f.meshes), n, -n.dot(pt), new THREE.Vector3(), new THREE.Vector3(0, 0.5, 1.2), 1, burst);
+        if (at) kfx.apply(sel, at, n, pieces.last);
+        f.group.visible = false; f.trailMesh.visible = false;
+      }
+      if (killT > 3.4) { pieces.clear(); if (blood.decals) blood.decals.count = 0; dead = false; killT = 0; f.group.visible = true; f.trailMesh.visible = true; }
+    } else if (dead) { pieces.clear(); dead = false; killT = 0; f.group.visible = true; f.trailMesh.visible = true; }
+    pieces.update(dt); blood.update(dt); kfx.update(dt);
+    // grapples tab: hold a line up to a hook point
+    if (cat === 'grapple' && grap) grap.show(f.handL, GRAP_AT, dt); else if (grap) grap.hide();
     // head items get a close-up; the rest show the whole fighter
     const close = cat === 'mask' || cat === 'hat';
-    camAt.pos.lerp(close ? _v.set(0.4, 1.7, -1.5) : _v.set(0.9, 1.25, -3.9), Math.min(1, dt * 5));
-    camAt.look.lerp(close ? _v.set(0, 1.66, 0) : _v.set(0, 1.0, 0), Math.min(1, dt * 5));
+    const wide = cat === 'grapple';
+    camAt.pos.lerp(close ? _v.set(0.4, 1.7, -1.5) : wide ? _v.set(1.4, 1.8, -4.6) : _v.set(0.9, 1.25, -3.9), Math.min(1, dt * 5));
+    camAt.look.lerp(close ? _v.set(0, 1.66, 0) : wide ? _v.set(0.3, 1.55, 0) : _v.set(0, 1.0, 0), Math.min(1, dt * 5));
     camera.position.copy(camAt.pos); camera.lookAt(camAt.look);
     renderer.render(scene, camera);
   }
