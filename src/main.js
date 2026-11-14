@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114180119';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114180119';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114180119';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114180119';
-import * as net from './net.js?v=20261114180119';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114180119';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114180119';
-import { makeKillFx } from './killfx.js?v=20261114180119';
-import { makeGrapple } from './grapple.js?v=20261114180119';
-import { initShop } from './shop.js?v=20261114180119';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114180119';
-import { portal } from './portal.js?v=20261114180119';
+import { Arena, MAPS } from './arena.js?v=20261114181129';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114181129';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114181129';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114181129';
+import * as net from './net.js?v=20261114181129';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114181129';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114181129';
+import { makeKillFx } from './killfx.js?v=20261114181129';
+import { makeGrapple } from './grapple.js?v=20261114181129';
+import { initShop } from './shop.js?v=20261114181129';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114181129';
+import { portal } from './portal.js?v=20261114181129';
 
 // ---------- settings ----------
 const store = {
@@ -299,11 +299,18 @@ function stepFighter(f, dt, wish, sprint, jump) {
     }
     f.vel.y -= G * dt;
     if (f.mantle) { f.mantle.t -= dt; f.vel.x = f.mantle.x; f.vel.z = f.mantle.z; if (f.mantle.t <= 0 || f.onGround || f.hook) f.mantle = null; }
+    // double and triple jump: two more jumps in the air, each on a fresh press (holding the key doesn't chain them)
+    if (f.onGround) f.airJumps = 0;
+    const pressed = jump && (f.isBot || !f.jumpHeld); f.jumpHeld = !!jump; f.airJumpCd = (f.airJumpCd || 0) - dt;
     if (jump && f.onGround) {
       const p = f.padCd <= 0 && arena.padAt(f.pos);
       if (p) { f.vel.copy(p.v); f.padCd = 0.8; f.hook = null; f.padFlight = true; sfx.pad(f.pos); } // jump on a pad to launch
       else { f.vel.y = JUMP_V * Math.sqrt(upm(f, 'jump')); sfx.jump(f.pos); }
-      f.onGround = false;
+      f.onGround = false; f.airJumpCd = 0.18;
+    } else if (pressed && !f.onGround && !f.hook && !f.padFlight && (f.airJumps || 0) < 2 && f.airJumpCd <= 0) {
+      f.airJumps = (f.airJumps || 0) + 1; f.airJumpCd = 0.22;
+      f.vel.y = Math.max(f.vel.y, JUMP_V * 0.92 * Math.sqrt(upm(f, 'jump'))); sfx.jump(f.pos);
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; debris.paper.emit(f.pos.x + Math.cos(a) * 0.3, f.pos.y, f.pos.z + Math.sin(a) * 0.3, Math.cos(a) * 2.5, -0.5, Math.sin(a) * 2.5, 0.5); } // a puff of air under the feet
     }
     if (f.hook) applyHook(f, dt);
   }
@@ -929,6 +936,13 @@ function dashOnto(b, p) { // returns { d: direction, tj: seconds to jump first (
     if (landed) return { d, tj };
   }
   return null;
+}
+// Bots: falling short of a surface whose edge is close? spend an air jump (double / triple jump) to reach it
+function botAirJump(b) {
+  if (b.onGround || b.hook || b.padFlight || (b.airJumps || 0) >= 2 || (b.airJumpCd || 0) > 0 || b.vel.y > -2) return false;
+  const g = ground(b.pos.x, b.pos.z, b.pos.y); if (isFinite(g) && g > b.pos.y - 3) return false; // something close below: just land
+  for (const p of arena.plats) if (!p.gone && !p.ghost && rimDist(p, b.pos) < 5 && arena.platTop(p, b.pos) > b.pos.y - 2.5 && arena.platTop(p, b.pos) < b.pos.y + 2.5) return true;
+  return false;
 }
 // Would a running jump from here in direction wish land on solid ground (a small gap, or a short drop)?
 function hopLands(b, wish) {
@@ -1803,7 +1817,7 @@ function tick(rdt, tt) {
         updateSword(f, rdt);
       } else if (S.host && f.isBot) {
         const b = botThink(f, rdt);
-        stepFighter(f, rdt, f.padFlight ? { x: 0, z: 0 } : b.wish, b.sprint, b.jump);
+        stepFighter(f, rdt, f.padFlight ? { x: 0, z: 0 } : b.wish, b.sprint, b.jump || botAirJump(f));
         updateSword(f, rdt);
       } else remoteUpdate(f, rdt);
     }

@@ -14,7 +14,7 @@ A third-person 3D sword arena that runs in the browser. Swing your sword with th
 | Tap left mouse | Quick slash (alternates left and right) |
 | Hold right mouse | Grappling hook: grabs whatever is in front of you (with a little aim assist) and reels you in. Swing on it, and let go to fly off with your momentum |
 | Shift | Dash about 13 m where you're looking (more with the glide after it). Cuts through anyone in your path. Works in the air: dash out of a grapple swing to reach the next platform, and you keep your swing speed |
-| Space | Jump. On a glowing jump pad, launches you to the next platform |
+| Space | Jump. Press it again in the air for a double jump, and once more for a triple jump (they reset when you land; holding the key does not chain them). On a glowing jump pad, launches you to the next platform |
 | Tab | Scoreboard |
 | Esc | Menu |
 
