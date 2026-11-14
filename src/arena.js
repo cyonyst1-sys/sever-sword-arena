@@ -3,11 +3,11 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261114173822';
-import { buildFoundry } from './foundry.js?v=20261114173822';
-import { buildBamboo } from './bamboo.js?v=20261114173822';
-import { buildCity } from './city.js?v=20261114173822';
-import { buildDojo } from './dojo.js?v=20261114173822';
+import { buildTilt } from './tilt.js?v=20261114180119';
+import { buildFoundry } from './foundry.js?v=20261114180119';
+import { buildBamboo } from './bamboo.js?v=20261114180119';
+import { buildCity } from './city.js?v=20261114180119';
+import { buildDojo } from './dojo.js?v=20261114180119';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -93,7 +93,7 @@ export const MAPS = {
   city: { name: 'Glass Skyline', blurb: 'skyscrapers above the clouds: swing between them and smash through their glass, or climb the steel frames of half-built towers' },
   bamboo: { name: 'Bamboo Fort', blurb: 'a platform built all of bamboo, floor included: slice through anything (even the ground), smash in through the walls, swing from the pillars outside' },
   foundry: { name: 'Saw Foundry', blurb: 'a foundry in the sky full of blades: rail saws, swinging pendulums, saws dropping from above, spinning saw columns, lifts and sliding platforms' },
-  tilt: { name: 'Tipping Point', blurb: 'one big deck hanging from a pendulum chain: it leans toward the side with more fighters and everyone slides downhill, so climb back to the high side or slide off' },
+  tilt: { name: 'Swinging Decks', blurb: 'sixteen small decks hanging on chains: landing shoves them into a swing, and you can cut the chains to drop a deck (and whoever is on it) into the clouds' },
 };
 
 export class Arena {

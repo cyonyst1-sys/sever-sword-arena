@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114173822';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114173822';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114173822';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114173822';
-import * as net from './net.js?v=20261114173822';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114173822';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114173822';
-import { makeKillFx } from './killfx.js?v=20261114173822';
-import { makeGrapple } from './grapple.js?v=20261114173822';
-import { initShop } from './shop.js?v=20261114173822';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114173822';
-import { portal } from './portal.js?v=20261114173822';
+import { Arena, MAPS } from './arena.js?v=20261114180119';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114180119';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114180119';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114180119';
+import * as net from './net.js?v=20261114180119';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114180119';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114180119';
+import { makeKillFx } from './killfx.js?v=20261114180119';
+import { makeGrapple } from './grapple.js?v=20261114180119';
+import { initShop } from './shop.js?v=20261114180119';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114180119';
+import { portal } from './portal.js?v=20261114180119';
 
 // ---------- settings ----------
 const store = {
@@ -412,6 +412,18 @@ function bladeSweep(f, dt) {
   const ps = f.prevS || f.s, swing = Math.hypot(f.s.x - ps.x, f.s.y - ps.y) / dt * 1.6 * (f.bladeLen + 0.1);
   f.prevS = { x: f.s.x, y: f.s.y };
   if (swing > 11 && f.swishCd <= 0) { sfx.swish(swing, f.tip); f.swishCd = 0.22; }
+  // chains (Swinging Decks): a blade moving through one snaps it
+  if (arena.lines && isLocal(f) && !f.isBot) for (const L of arena.lines) { // (players only: bots fighting near the corners would drop every deck)
+    if (!L.alive) continue;
+    const R = f.bladeLen + 2;
+    if (f.pos.x < Math.min(L.a.x, L.b.x) - R || f.pos.x > Math.max(L.a.x, L.b.x) + R || f.pos.z < Math.min(L.a.z, L.b.z) - R || f.pos.z > Math.max(L.a.z, L.b.z) + R || f.pos.y > L.b.y || f.pos.y + 3.5 < L.a.y) continue;
+    for (let k = 0; k <= 6; k++) {
+      const t = 0.12 + 0.88 * k / 6;
+      _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
+      if (_A.distanceTo(_B) / dt < 4) continue;
+      if (segSeg(_A, _B, L.a, L.b, _c1, _c2) < 0.14 * 0.14) { cutChain(L.id, true); break; }
+    }
+  }
   // and the bamboo (canopy): a blade moving through a stalk severs it (a swing, or just carrying it past at speed); bots too
   for (let s = 0; s < arena.bamboo.length; s++) {
     const st = arena.bamboo[s];
@@ -463,6 +475,13 @@ function bladeSweep(f, dt) {
       }
     }
   }
+}
+// snap chain id (and tell everyone if we did it)
+function cutChain(id, mine) {
+  const at = arena.cutLine(id); if (!at) return;
+  sfx.chop(at);
+  for (let i = 0; i < 16; i++) sparks.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5, 0.6);
+  if (mine) { if (S.host) net.broadcast({ t: 'chain', id }); else net.send({ t: 'chain', id }); }
 }
 // cut stalk s at height y (and tell everyone if we did it)
 function cutBamboo(s, y, mine) {
@@ -1417,6 +1436,7 @@ function hostMsg(from, d) {
   const f = fighters.get(from); if (!f) return;
   if (d.t === 'p' && Array.isArray(d.s)) applyState(f, d.s);
   else if (d.t === 'bamboo' && Number.isInteger(d.s) && typeof d.y === 'number') { cutBamboo(d.s, d.y); net.broadcast({ t: 'bamboo', s: d.s, y: d.y }, from); }
+  else if (d.t === 'chain' && Number.isInteger(d.id)) { cutChain(d.id); net.broadcast({ t: 'chain', id: d.id }, from); }
   else if (d.t === 'brk' && Number.isInteger(d.i)) { smashChunk(d.i, Array.isArray(d.n) ? d.n : null, +d.d || 0); net.broadcast({ t: 'brk', i: d.i, n: d.n, d: d.d }, from); }
   else if (d.t === 'cut') {
     const v = fighters.get(d.v);
@@ -1443,6 +1463,7 @@ function clientMsg(d) {
   else if (d.t === 'banner') showBanner(d.s);
   else if (d.t === 'obj') applyObj(d.o);
   else if (d.t === 'bamboo') cutBamboo(d.s, d.y);
+  else if (d.t === 'chain') cutChain(d.id);
   else if (d.t === 'brk') smashChunk(d.i, d.n, d.d);
   else if (d.t === 'feed') feed(d.s);
 }

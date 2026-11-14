@@ -98,15 +98,14 @@ A misty-morning town you can **cut apart**. Shoji walls, wooden posts, a straw b
 - Floors, roofs, decks and the corner posts of buildings stay put, so there is always somewhere to stand. Bamboo and lantern poles line the town's edges to swing from (and cut).
 - Bots shoulder their way through whatever is in their way. The town is rebuilt fresh every match.
 
-### Tipping Point
+### Swinging Decks
 
-One big 32 x 32 m deck hanging from a giant chain like the weight of a pendulum, high above the clouds:
+Sixteen small wooden decks in a 4 x 4 grid, with short gaps between, each hanging on four chains from an iron frame high overhead:
 
-- **It leans toward whichever side has more fighters.** Everyone counts the same, and standing further toward an edge counts a bit more. One fighter alone on a side tips it about 7°, two about 13°, three about 20°, and it never goes past 24°.
-- **It swings back toward level** when the weight evens out, with a little pendulum overshoot.
-- **Everyone on it slides downhill**, faster the steeper it leans. You can walk, jump or dash uphill against it, but hang around on the low side and you slide off the edge. Get back to the high side to level it out.
-- Eight tall **pillars** stand around the deck, and you can hook the **great chain** too, to swing back after a fall.
-- Bots fight as usual, but head for the high side (dashing up if it's steep) when the deck leans hard.
+- **Land on a deck and it swings.** It's shoved the way you were moving, harder the faster you came in, and a straight drop just sets it wobbling. It swings back and forth like a pendulum, rising a little at each end, and slowly settles. Running or dashing across a deck pushes it the other way, and whoever stands on a deck rides along with it.
+- **Decks bump into each other** (diagonal neighbours too) instead of passing through, and pass the swing on.
+- **Cut the chains.** Your sword slices through them. A deck down to its last chain drops into the clouds with whoever is on it, and a fresh one swings back into place 10 s later. Only players can cut chains.
+- Grapple the overhead frame, its legs, or the eight pillars around the outside.
 
 ### Saw Foundry
 
@@ -192,7 +191,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 - `src/city.js`: the Glass Skyline map (glass towers, steel-frame buildings, the crane)
 - `src/bamboo.js`: the Bamboo Fort map (bamboo floor tiles, huts, gazebo, edge wall, pillars, falling spawn pads)
 - `src/foundry.js`: the Saw Foundry map (rail saws, pendulums, falling saws, saw columns, lifts and sliders) and its blade hit test
-- `src/tilt.js`: the Tipping Point map (the weight-driven tilting deck, sliding, the pendulum chain)
+- `src/tilt.js`: the Swinging Decks map (hanging decks that swing when landed on, bump each other, and drop when their chains are cut)
 - `src/killfx.js` and `src/grapple.js`: the kill effects and grapple styles
 - `src/arena.js`: all three maps (Sky Spires, Sky Plateaus, Great Canopy), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail
