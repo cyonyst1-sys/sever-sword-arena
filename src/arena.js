@@ -3,11 +3,11 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261114181129';
-import { buildFoundry } from './foundry.js?v=20261114181129';
-import { buildBamboo } from './bamboo.js?v=20261114181129';
-import { buildCity } from './city.js?v=20261114181129';
-import { buildDojo } from './dojo.js?v=20261114181129';
+import { buildTilt } from './tilt.js?v=20261114182507';
+import { buildFoundry } from './foundry.js?v=20261114182507';
+import { buildBamboo } from './bamboo.js?v=20261114182507';
+import { buildCity } from './city.js?v=20261114182507';
+import { buildDojo } from './dojo.js?v=20261114182507';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -403,12 +403,18 @@ export class Arena {
       this.rayBoxes.push({ x0: x - 0.6, x1: x + 0.6, y0, y1, z0: z - 0.6, z1: z + 0.6, altar: true });
       this.pillars.push({ x, z, w: 1.2, altar: true });
     };
+    this.altarRing = [];
     for (const [cx, cy, cz] of list || []) {
-      for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2; put(cx + Math.cos(a) * 13, cz + Math.sin(a) * 13, cy - 30, cy + 22); }
       const c = { x: cx, z: cz }, near = this.plats.filter((p) => !p.gone).sort((u, v) => this.rimDist(u, c) - this.rimDist(v, c)).slice(0, 3);
-      for (const p of near) { // a line of pillars from the ring out toward this platform
-        const rp = this.rimPoint(p, c), dx = rp.x - cx, dz = rp.z - cz, L = Math.hypot(dx, dz) || 1;
-        for (let d = 20; d < L - 4; d += 7) put(cx + dx / L * d, cz + dz / L * d, cy - 30, cy + 22);
+      const dirs = near.map((p) => { const rp = this.rimPoint(p, c); return Math.atan2(rp.z - cz, rp.x - cx); });
+      // the ring, with a gap where each corridor arrives (so the goal is in plain view down the corridor)
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2; if (dirs.some((d) => Math.abs(Math.atan2(Math.sin(a - d), Math.cos(a - d))) < 0.45)) continue;
+        put(cx + Math.cos(a) * 13, cz + Math.sin(a) * 13, cy - 30, cy + 22); this.altarRing.push({ x: cx + Math.cos(a) * 13, y: cy, z: cz + Math.sin(a) * 13 });
+      }
+      for (const p of near) { // a corridor out toward this platform: two rows of pillars either side of a clear lane
+        const rp = this.rimPoint(p, c), dx = rp.x - cx, dz = rp.z - cz, L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L;
+        for (let d = 20; d < L - 4; d += 9) for (const s of [-8, 8]) put(cx + ux * d - uz * s, cz + uz * d + ux * s, cy - 30, cy + 22);
       }
     }
   }

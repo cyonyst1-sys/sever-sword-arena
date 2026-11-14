@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114181129';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114181129';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114181129';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114181129';
-import * as net from './net.js?v=20261114181129';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114181129';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114181129';
-import { makeKillFx } from './killfx.js?v=20261114181129';
-import { makeGrapple } from './grapple.js?v=20261114181129';
-import { initShop } from './shop.js?v=20261114181129';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114181129';
-import { portal } from './portal.js?v=20261114181129';
+import { Arena, MAPS } from './arena.js?v=20261114182507';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114182507';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114182507';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114182507';
+import * as net from './net.js?v=20261114182507';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114182507';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114182507';
+import { makeKillFx } from './killfx.js?v=20261114182507';
+import { makeGrapple } from './grapple.js?v=20261114182507';
+import { initShop } from './shop.js?v=20261114182507';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114182507';
+import { portal } from './portal.js?v=20261114182507';
 
 // ---------- settings ----------
 const store = {
@@ -300,7 +300,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
     f.vel.y -= G * dt;
     if (f.mantle) { f.mantle.t -= dt; f.vel.x = f.mantle.x; f.vel.z = f.mantle.z; if (f.mantle.t <= 0 || f.onGround || f.hook) f.mantle = null; }
     // double and triple jump: two more jumps in the air, each on a fresh press (holding the key doesn't chain them)
-    if (f.onGround) f.airJumps = 0;
+    if (f.onGround) { f.airJumps = 0; f.airRegen = 0; } else if (f.airJumps > 0 && (f.airRegen = (f.airRegen || 0) + dt) >= 1.2) { f.airJumps--; f.airRegen = 0; } // air jumps come back over time, landing or not
     const pressed = jump && (f.isBot || !f.jumpHeld); f.jumpHeld = !!jump; f.airJumpCd = (f.airJumpCd || 0) - dt;
     if (jump && f.onGround) {
       const p = f.padCd <= 0 && arena.padAt(f.pos);
@@ -871,7 +871,8 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   // Headhunter: carrying heads near an altar? hook the nearest ring pillar and get pulled into the zone
   if (t.shrine && dNow < 48) {
     const ux = t.pos.x - b.pos.x, uz = t.pos.z - b.pos.z, ul = Math.hypot(ux, uz) || 1;
-    const aim = new THREE.Vector3(t.pos.x - ux / ul * 13, t.pos.y + 6, t.pos.z - uz / ul * 13); // the nearest ring pillar: reeling in to it carries us into the zone
+    const ring = (arena.altarRing || []).filter((r) => Math.hypot(r.x - t.pos.x, r.z - t.pos.z) < 16).sort((u, v) => Math.hypot(u.x - b.pos.x, u.z - b.pos.z) - Math.hypot(v.x - b.pos.x, v.z - b.pos.z))[0];
+    const aim = ring ? new THREE.Vector3(ring.x, t.pos.y + 6, ring.z) : new THREE.Vector3(t.pos.x - ux / ul * 13, t.pos.y + 6, t.pos.z - uz / ul * 13); // the nearest ring pillar: reeling in to it carries us into the zone
     if (botFireHook(b, aim, 4, 'shrine', true)) { b.dest = null; return { wish: { x: 0, z: 0 }, jump: true, sprint: false }; }
   }
   // enemy on another platform: swing over and land on it (pads are the fallback)
