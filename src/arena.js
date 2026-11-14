@@ -2,6 +2,7 @@
 // swing between, and jump pads linking neighbouring platforms. Everything solid is an axis-aligned box or a ramp,
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
+import { buildPagoda, buildIsles } from './maps2.js';
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
 export const ISLAND_R = 30;
@@ -71,12 +72,16 @@ function worldUV(geo, sc) {
   uv.needsUpdate = true;
 }
 // rotate a point a quarter turn k times around the centre
+// texture helpers for the map builders in maps2.js
+export const TEX = { rng, canvasTex, stoneTex, woodTex, bambooTex, worldUV, speckle };
 function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; } return [x, z]; }
 
 export const MAPS = {
   spire: { name: 'Sky Spires', blurb: '23 small platforms at many heights: swing from one fight to the next' },
   plateaus: { name: 'Sky Plateaus', blurb: '7 huge platforms at slightly different heights: big brawls with room to dash' },
   canopy: { name: 'Great Canopy', blurb: 'giant tree branches to run along, big leaves to land on, and bamboo to swing from (and cut through)' },
+  pagoda: { name: 'Pagoda Falls', blurb: 'a three-tier pagoda at sunset, stone islands and rock spires around it, rope bridges, and red lacquer posts to swing from (and cut through)' },
+  isles: { name: 'Moonlit Isles', blurb: 'floating grass islands under a full moon, rope bridges, a great cherry tree, and bamboo groves to swing from (and cut through)' },
 };
 
 export class Arena {
@@ -345,17 +350,7 @@ export class Arena {
       if (a.i >= b.i || a.group === b.group) continue;
       if (Math.abs(mid(a) - mid(b)) < 1.2 && (this.inPlat(a, b, 0.5) || this.inPlat(b, a, 0.5))) linkP(a, b);
     }
-    // bots' sense of distance between surfaces: walking connected, or roughly how many swings apart
-    const comp = plats.map(() => -1);
-    for (const p of plats) if (comp[p.i] < 0) { const q = [p.i]; comp[p.i] = p.i; while (q.length) { const u = q.shift(); for (const e of this.nodeMap.get('P' + u).edges) { const v = e.to.plat; if (v !== undefined && comp[v] < 0) { comp[v] = p.i; q.push(v); } } } }
-    this.comp = comp; // which walkable surface (branches + leaves joined together) each piece belongs to
-    this.hops = plats.map((p) => plats.map((q) => Math.round(Math.hypot(p.x - q.x, p.z - q.z) / 25) + (comp[p.i] === comp[q.i] ? 0 : 1)));
-    // swing routes for bots: each surface to its 3 nearest surfaces on other limbs within grapple reach
-    for (const a of plats) {
-      plats.filter((b) => comp[b.i] !== comp[a.i] && Math.abs(mid(b) - mid(a)) < 14)
-        .map((b) => [b, Math.hypot(a.x - b.x, a.z - b.z)]).filter(([, d]) => d < 34).sort((u, v) => u[1] - v[1])
-        .slice(0, 3).forEach(([b]) => this.link('P' + a.i, 'P' + b.i, 'swing'));
-    }
+    this.finishNav();
     // bamboo everywhere, floor to roof, kept clear of branches, leaves and trunks
     for (let gx = -108; gx <= 108; gx += 4.4) for (let gz = -108; gz <= 108; gz += 4.4) {
       const x = gx + (r() - 0.5) * 3.6, z = gz + (r() - 0.5) * 3.6;
@@ -366,21 +361,56 @@ export class Arena {
       this.bamboo.push({ x, z, r: rad, segs: [], inst: this.bamboo.length });
       this.pillars.push({ x, z, w: rad * 2 });
     }
-    // every stalk is one instance of a single mesh (hundreds of stalks, one draw call); the texture runs
-    // by world height, so the nodes stay put wherever a stalk is cut
-    const bm = M.bamboo.clone();
+    this.plantStalks(-62, 78);
+    this.arcPts = [];
+  }
+
+  // ---------- shared by the maps with cuttable stalks (canopy, pagoda, isles) ----------
+  /** Every stalk in this.bamboo becomes one instance of a single mesh (one draw call for hundreds), standing
+   *  from y0 to y1 in this.mats.bamboo. The texture runs by world height, so it stays put wherever a stalk is cut. */
+  plantStalks(y0, y1) {
+    const bm = this.mats.bamboo.clone();
     bm.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader.replace('#include <uv_vertex>', ['#include <uv_vertex>', '#ifdef USE_INSTANCING', 'vMapUv.y = (modelMatrix * instanceMatrix * vec4(position, 1.0)).y / 2.6;', '#endif'].join('\n'));
     };
-    this.bambooIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 7, 1, true), bm, this.bamboo.length);
-    this.bambooIM.frustumCulled = false; S.add(this.bambooIM);
-    for (let s = 0; s < this.bamboo.length; s++) this.addBambooSeg(s, -62, 78);
+    this.bambooIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), bm, Math.max(1, this.bamboo.length));
+    this.bambooIM.frustumCulled = false; this.scene.add(this.bambooIM);
+    for (let s = 0; s < this.bamboo.length; s++) this.addBambooSeg(s, y0, y1);
     this.bambooIM.instanceMatrix.needsUpdate = true;
-    this.arcPts = [];
+  }
+  /** Bots' map knowledge: which surfaces are joined on foot, roughly how far apart others are, and swing routes. */
+  finishNav() {
+    const plats = this.plats, mid = (p) => (p.ya !== undefined ? (p.ya + p.yb) / 2 : p.y);
+    const comp = plats.map(() => -1);
+    for (const p of plats) if (comp[p.i] < 0) { const q = [p.i]; comp[p.i] = p.i; while (q.length) { const u = q.shift(); for (const e of this.nodeMap.get('P' + u).edges) { const v = e.to.plat; if (v !== undefined && comp[v] < 0) { comp[v] = p.i; q.push(v); } } } }
+    this.comp = comp; // which walkable surface (pieces joined together on foot) each piece belongs to
+    this.hops = plats.map((p) => plats.map((q) => Math.round(Math.hypot(p.x - q.x, p.z - q.z) / 25) + (comp[p.i] === comp[q.i] ? 0 : 1)));
+    for (const a of plats) { // swing routes: each surface to its 3 nearest unconnected surfaces within grapple reach
+      plats.filter((b) => comp[b.i] !== comp[a.i] && Math.abs(mid(b) - mid(a)) < 18)
+        .map((b) => [b, Math.hypot(a.x - b.x, a.z - b.z)]).filter(([, d]) => d < 52).sort((u, v) => u[1] - v[1])
+        .slice(0, 3).forEach(([b]) => this.link('P' + a.i, 'P' + b.i, 'swing'));
+    }
+  }
+  /** Sky, fog and light: a gradient dome (top, horizon, below), a hemisphere light, and a sun (or moon) for shadows. */
+  setSky(o) {
+    const S = this.scene;
+    this.realScene.background = new THREE.Color(o.mid); this.realScene.fog = new THREE.Fog(o.fog, o.near, o.far);
+    S.add(new THREE.HemisphereLight(o.hemiSky, o.hemiGround, o.hemi));
+    const L = new THREE.DirectionalLight(o.sunColor, o.sun); this.sun = L; this.sunOff = o.sunOff; L.position.copy(o.sunOff);
+    if (this.quality !== 'low') { L.castShadow = true; L.shadow.mapSize.set(2048, 2048); const c = L.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 220; L.shadow.bias = -0.0004; L.shadow.normalBias = 0.03; }
+    S.add(L); S.add(L.target);
+    S.add(new THREE.Mesh(new THREE.SphereGeometry(520, 32, 16), new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: { top: { value: new THREE.Color(o.top) }, mid: { value: new THREE.Color(o.mid) }, bot: { value: new THREE.Color(o.bot) } },
+      vertexShader: 'varying vec3 vp; void main(){ vp = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vp; void main(){ float h = normalize(vp).y; vec3 c = h > 0.0 ? mix(mid, top, pow(h, 0.55)) : mix(mid, bot, min(1.0, -h * 3.0)); gl_FragColor = vec4(c, 1.0); }',
+    })));
   }
 
   build() {
     this.comp = null; if (this.mapId === 'canopy') return this.buildCanopy();
+    if (this.mapId === 'pagoda') return buildPagoda(this, TEX);
+    if (this.mapId === 'isles') return buildIsles(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     this.realScene.background = new THREE.Color(0x9cc4e4);

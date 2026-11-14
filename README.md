@@ -95,6 +95,19 @@ Cosmetics only: nothing in the shop changes reach, speed or damage. Open it from
 - **Grapples**: Iron Chain, Jungle Vine, Kunai Line, Shadow Tether (trails smoke), Spirit Thread (glowing), Lightning Whip (crackling bolt), Dragon Tail (gold scales and a dragon head that bites on).
 - Try anything on the turning, swinging preview before you buy. Other players see what you wear, and bots wear random gear.
 
+
+### Pagoda Falls
+Sunset over purple mountains, pines, a distant waterfall and a sea of warm cloud, with cherry petals drifting through.
+- A **three-tier pagoda** in the middle: walk around each deck's walled tier, then swing or dash up to the next. The tiled eaves flare out under each deck.
+- A ring of **stone islands** (with torii gates and stone lanterns), three of them joined to the pagoda by **rope bridges**.
+- Further out, tall **rock spires** with small tops and broad, low **terraces** with stone cover; two terraces are bridged in.
+- **Red lacquer posts** (about 375) stand everywhere from the clouds to the sky. They work like the canopy's bamboo: grapple them and pass through them, and any fast blade contact severs one (the top falls, the stump stays).
+
+### Moonlit Isles
+Night under a full moon with a halo, a sky full of stars, far-off floating islands with trees, and fireflies.
+- **Floating grass islands**: a big one in the middle with a **great cherry tree** (solid trunk; you can grapple its blossom), five around it and eight more on the outside, at many heights.
+- **Rope bridges** join the middle island to three of the others, and each of those to an outer island.
+- **Bamboo groves** (about 650 stalks) between the islands to swing from and cut through.
 ## How the slicing works
 
 Every fighter is built from simple convex shapes (boxes, spheres, cylinders). When a blade connects, the game takes the plane swept by the blade that frame, bakes the posed model into world-space triangles, splits every triangle by that plane, and caps each cut part with the convex hull of the points where the plane crossed it (flesh-red for the body, steel for swords). Each side becomes a rigid piece with its own physics. Pieces lying on the floor nudge each other apart so they come to rest separately instead of piling through each other. Pieces keep their materials and can be sliced again.
@@ -105,6 +118,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 - `src/main.js`: game loop, controls, grappling hook, combat, bots, match rules, networking
 - `src/cosmetics.js`: the shop catalogue (masks, headwear, outfits, swords, trails), coins and what you own
 - `src/shop.js`: the shop screen and its 3D preview
+- `src/maps2.js`: the Pagoda Falls and Moonlit Isles maps
 - `src/killfx.js` and `src/grapple.js`: the kill effects and grapple styles
 - `src/arena.js`: all three maps (Sky Spires, Sky Plateaus, Great Canopy), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail
