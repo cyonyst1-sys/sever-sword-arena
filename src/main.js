@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113203413';
-import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113203413';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113203413';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113203413';
-import * as net from './net.js?v=20261113203413';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113203413';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113203413';
-import { makeKillFx } from './killfx.js?v=20261113203413';
-import { makeGrapple } from './grapple.js?v=20261113203413';
-import { initShop } from './shop.js?v=20261113203413';
+import { Arena, MAPS } from './arena.js?v=20261113204137';
+import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113204137';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113204137';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113204137';
+import * as net from './net.js?v=20261113204137';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113204137';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113204137';
+import { makeKillFx } from './killfx.js?v=20261113204137';
+import { makeGrapple } from './grapple.js?v=20261113204137';
+import { initShop } from './shop.js?v=20261113204137';
 
 // ---------- settings ----------
 const store = {
@@ -379,6 +379,18 @@ function bladeSweep(f, dt) {
   const ps = f.prevS || f.s, swing = Math.hypot(f.s.x - ps.x, f.s.y - ps.y) / dt * 1.6 * (f.bladeLen + 0.1);
   f.prevS = { x: f.s.x, y: f.s.y };
   if (swing > 11 && f.swishCd <= 0) { sfx.swish(swing, f.tip); f.swishCd = 0.22; }
+  // and the bamboo (canopy): a blade moving through a stalk severs it (a swing, or just carrying it past at speed); bots too
+  for (let s = 0; s < arena.bamboo.length; s++) {
+    const st = arena.bamboo[s];
+    if (Math.hypot(st.x - f.pos.x, st.z - f.pos.z) > f.bladeLen + 1.8 || (st.cutCd || 0) > now()) continue;
+    for (let k = 0; k <= 6; k++) {
+      const t = 0.12 + 0.88 * k / 6;
+      _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
+      if (_A.distanceTo(_B) / dt < 4) continue;
+      _a0.set(st.x, f.pos.y - 3, st.z); _a1.set(st.x, f.pos.y + 5, st.z);
+      if (segSeg(_A, _B, _a0, _a1, _c1, _c2) < (st.r + 0.06) ** 2) { st.cutCd = now() + 0.3; cutBamboo(s, +_c2.y.toFixed(2), true); break; }
+    }
+  }
   if (tipSpd < CUT_SPD || !f.armed) return;
   for (const g of fighters.values()) {
     if (g === f || !g.alive || g.prot > 0 || !isEnemy(f, g)) continue;
@@ -416,22 +428,12 @@ function bladeSweep(f, dt) {
       }
     }
   }
-  // and the bamboo (canopy): a swing through a stalk cuts a piece out of it
-  for (let s = 0; s < arena.bamboo.length; s++) {
-    const st = arena.bamboo[s];
-    if (Math.hypot(st.x - f.pos.x, st.z - f.pos.z) > f.bladeLen + 1.8 || (st.cutCd || 0) > now()) continue;
-    for (let k = 0; k <= 6; k++) {
-      const t = 0.12 + 0.88 * k / 6;
-      _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
-      if (relSpd(_A, _B) < CUT_SPD) continue;
-      _a0.set(st.x, f.pos.y - 3, st.z); _a1.set(st.x, f.pos.y + 5, st.z);
-      if (segSeg(_A, _B, _a0, _a1, _c1, _c2) < (st.r + 0.06) ** 2) { st.cutCd = now() + 0.3; cutBamboo(s, +_c2.y.toFixed(2), true); break; }
-    }
-  }
 }
 // cut stalk s at height y (and tell everyone if we did it)
 function cutBamboo(s, y, mine) {
   const at = arena.cutBamboo(s, y); if (!at) return;
+  const st = arena.bamboo[s]; // anyone we control who was hooked onto the part that just fell lets go
+  for (const f of fighters.values()) if (f.hook && isLocal(f) && f.hook.p.y > y && Math.hypot(f.hook.p.x - st.x, f.hook.p.z - st.z) < st.r + 0.4) releaseHook(f, false);
   (S.bambooCuts ||= []).push([s, y]);
   sfx.chop(at);
   for (let i = 0; i < 18; i++) leafBits.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6, 0.8);

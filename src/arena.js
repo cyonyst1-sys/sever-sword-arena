@@ -2,6 +2,7 @@
 // swing between, and jump pads linking neighbouring platforms. Everything solid is an axis-aligned box or a ramp,
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
+const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
 export const ISLAND_R = 30;
 const STEP = 0.5;
@@ -356,16 +357,25 @@ export class Arena {
         .slice(0, 3).forEach(([b]) => this.link('P' + a.i, 'P' + b.i, 'swing'));
     }
     // bamboo everywhere, floor to roof, kept clear of branches, leaves and trunks
-    for (let gx = -108; gx <= 108; gx += 7.5) for (let gz = -108; gz <= 108; gz += 7.5) {
-      const x = gx + (r() - 0.5) * 5.5, z = gz + (r() - 0.5) * 5.5;
-      if (Math.hypot(x, z) > 112 || r() < 0.15) continue;
+    for (let gx = -108; gx <= 108; gx += 4.4) for (let gz = -108; gz <= 108; gz += 4.4) {
+      const x = gx + (r() - 0.5) * 3.6, z = gz + (r() - 0.5) * 3.6;
+      if (Math.hypot(x, z) > 112 || r() < 0.1) continue;
       if (trunks.some((t) => Math.hypot(x - t.x, z - t.z) < t.r + 3)) continue;
       if (plats.some((p) => this.inPlat(p, { x, z }, 1.6))) continue;
-      const rad = 0.15 + r() * 0.07, s = this.bamboo.length;
-      this.bamboo.push({ x, z, r: rad, segs: [] });
-      this.addBambooSeg(s, -62, 78);
+      const rad = 0.15 + r() * 0.07;
+      this.bamboo.push({ x, z, r: rad, segs: [], inst: this.bamboo.length });
       this.pillars.push({ x, z, w: rad * 2 });
     }
+    // every stalk is one instance of a single mesh (hundreds of stalks, one draw call); the texture runs
+    // by world height, so the nodes stay put wherever a stalk is cut
+    const bm = M.bamboo.clone();
+    bm.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <uv_vertex>', ['#include <uv_vertex>', '#ifdef USE_INSTANCING', 'vMapUv.y = (modelMatrix * instanceMatrix * vec4(position, 1.0)).y / 2.6;', '#endif'].join('\n'));
+    };
+    this.bambooIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 7, 1, true), bm, this.bamboo.length);
+    this.bambooIM.frustumCulled = false; S.add(this.bambooIM);
+    for (let s = 0; s < this.bamboo.length; s++) this.addBambooSeg(s, -62, 78);
+    this.bambooIM.instanceMatrix.needsUpdate = true;
     this.arcPts = [];
   }
 
@@ -805,34 +815,37 @@ export class Arena {
   }
 
   // ---------- bamboo (canopy): grapple onto it, pass through it, cut it with a sword ----------
+  // A stalk is one standing piece (its instance in bambooIM). One cut severs it: everything above the
+  // cut topples and falls away, and the stump below stays (you can still hook it, or cut it lower).
   addBambooSeg(s, y0, y1) {
-    const st = this.bamboo[s], len = y1 - y0; if (len < 0.4) return;
-    const geo = new THREE.CylinderGeometry(st.r, st.r, len, 8, 1);
-    const uv = geo.attributes.uv, pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) uv.setY(i, (pos.getY(i) + (y0 + y1) / 2) / 2.6); // nodes every 2.6 m, wherever it's cut
-    uv.needsUpdate = true;
-    const m = new THREE.Mesh(geo, this.mats.bamboo); m.position.set(st.x, (y0 + y1) / 2, st.z); m.castShadow = false;
-    this.scene.add(m);
+    const st = this.bamboo[s], len = y1 - y0;
+    st.segs = []; this.rayBoxes = this.rayBoxes.filter((b) => b.bamboo !== s);
+    _bm.compose(_bp.set(st.x, (y0 + y1) / 2, st.z), _bq.identity(), _bs.set(len < 0.4 ? 0 : st.r, len < 0.4 ? 0 : len, len < 0.4 ? 0 : st.r));
+    this.bambooIM.setMatrixAt(st.inst, _bm); this.bambooIM.instanceMatrix.needsUpdate = true;
+    if (len < 0.4) return;
     const box = { x0: st.x - st.r, x1: st.x + st.r, y0, y1, z0: st.z - st.r, z1: st.z + st.r, bamboo: s };
     this.rayBoxes.push(box);
-    st.segs.push({ y0, y1, mesh: m, box });
+    st.segs.push({ y0, y1, box });
   }
-  /** Cut stalk s at height y: a short piece drops out, leaving the parts above (hanging from the roof) and below. */
+  /** Cut stalk s at height y: the part above topples and falls; the stump below stays. */
   cutBamboo(s, y) {
     const st = this.bamboo[s]; if (!st) return null;
-    const seg = st.segs.find((g) => y > g.y0 + 0.2 && y < g.y1 - 0.2); if (!seg) return null;
-    st.segs = st.segs.filter((g) => g !== seg);
-    this.scene.remove(seg.mesh); seg.mesh.geometry.dispose();
-    this.rayBoxes = this.rayBoxes.filter((b) => b !== seg.box);
-    this.addBambooSeg(s, seg.y0, y - 0.55); this.addBambooSeg(s, y + 0.55, seg.y1);
-    // the cut-out piece tumbles away
-    const chunk = new THREE.Mesh(new THREE.CylinderGeometry(st.r, st.r, 1.1, 8), this.mats.bamboo);
-    chunk.position.set(st.x, y, st.z); this.scene.add(chunk);
-    const vx = (Math.random() - 0.5) * 4, vz = (Math.random() - 0.5) * 4, spin = (Math.random() - 0.5) * 10; let vy = 2, life = 4;
+    const seg = st.segs.find((g) => y > g.y0 + 0.3 && y < g.y1 - 0.3); if (!seg) return null;
+    this.addBambooSeg(s, seg.y0, y); // the stump
+    // the severed top: a separate stalk that slides off the cut, tips over and drops out of sight
+    const len = seg.y1 - y, geo = new THREE.CylinderGeometry(st.r, st.r, len, 7, 1, true);
+    const uv = geo.attributes.uv, pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) uv.setY(i, (pos.getY(i) + y + len / 2) / 2.6);
+    geo.translate(0, len / 2, 0); // pivot at the cut
+    const top = new THREE.Mesh(geo, this.mats.bamboo); top.position.set(st.x, y, st.z); this.scene.add(top);
+    const a = Math.random() * Math.PI * 2, ax = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)), slide = new THREE.Vector3(-Math.sin(a), 0, Math.cos(a));
+    let tilt = 0, w = 0.15 + Math.random() * 0.2, vy = 0, life = 7;
     this.anim.push((t, dt) => {
       if (life <= 0) return; dt = dt || 1 / 60; life -= dt;
-      vy -= 24 * dt; chunk.position.x += vx * dt; chunk.position.z += vz * dt; chunk.position.y += vy * dt; chunk.rotation.z += spin * dt; chunk.rotation.x += spin * 0.6 * dt;
-      if (life <= 0) { this.scene.remove(chunk); chunk.geometry.dispose(); }
+      w += dt * 0.9; tilt = Math.min(Math.PI * 0.6, tilt + w * dt); // topples, faster and faster
+      vy -= 14 * dt; top.position.y += vy * dt; top.position.addScaledVector(slide, dt * 1.5); // and slips down off the stump
+      top.quaternion.setFromAxisAngle(ax, tilt);
+      if (life <= 0 || top.position.y < -140) { life = 0; this.scene.remove(top); geo.dispose(); }
     });
     this.dirty = true;
     return new THREE.Vector3(st.x, y, st.z);

@@ -67,7 +67,7 @@ Fewer, much bigger platforms for larger battles:
 Same size as the other maps: a giant forest canopy high above a misty floor.
 - **Multi-armed tree branches** grow out from five huge trunks and stretch across the map. The branches are oval, wider than they are tall, so their tops are broad running surfaces; they are thicker low down, skinnier up high, and every limb tapers toward its tip. They climb, dip and level out again, on many layers (from about 27 m below to 37 m above the middle), and steer around the other trunks instead of running into them. Run along them and fight on them.
 - **Big, thick leaves** spread through the branches act as landing pads for getting onto a branch. Each grows on a curved stalk that swells out of the bark, with a spray of small leaves at the bud.
-- **Hundreds of thin bamboo stalks** run from the floor up to the leaf roof all over the map. They are the grapple points. You and your dash pass straight through them; only the sword cuts them (a cut piece drops out) and only the grapple attaches.
+- **A dense forest of thin bamboo** (about 870 stalks) runs from the floor up to the leaf roof. They are the grapple points. You and your dash pass straight through them, and only the grapple attaches. Any fast blade contact severs a stalk in one slice: a swing, or just carrying your sword through one as you fly past (bots too). The top topples and falls away, and the stump stays (you can still hook it, or cut it lower).
 - Branches you can hook too. In Last Blade Standing a whole branch with its leaves crumbles at once.
 
 ### Sky Spires
