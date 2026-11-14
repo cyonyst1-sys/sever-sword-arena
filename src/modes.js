@@ -5,7 +5,7 @@ export const MODES = {
   ffa: { name: 'Free-for-all', blurb: 'Everyone against everyone. First to 15 kills.' },
   koth: { name: 'King of the Platform', blurb: 'Stand on the glowing platform alone to score 1 point a second. It moves every 40 s. First to 60.' },
   jugg: { name: 'Juggernaut', blurb: 'One crowned fighter with a 3 m blade against everyone else. Cut them down to take the crown. The juggernaut scores 1 point a second while standing on something (not while flying, swinging or dashing). First to 60.' },
-  lbs: { name: 'Last Blade Standing', blurb: 'No respawns. Platforms glow red, then crumble into the clouds, from the outside in. Last fighter alive wins.' },
+  lbs: { name: 'Last Blade Standing', blurb: 'No respawns, and always at least 12 fighters (bots fill the rest). Platforms glow red, then crumble into the clouds, from the outside in. Last fighter alive wins.' },
   hunt: { name: 'Headhunter', blurb: 'Every kill drops gold heads. Carry them to a shrine to bank them; die and you drop them all. First to 20 banked.' },
   horde: { name: 'Horde', blurb: 'Co-op: everyone together against waves of oni.' },
 };

@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113234145';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113234145';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113234145';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113234145';
-import * as net from './net.js?v=20261113234145';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113234145';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113234145';
-import { makeKillFx } from './killfx.js?v=20261113234145';
-import { makeGrapple } from './grapple.js?v=20261113234145';
-import { initShop } from './shop.js?v=20261113234145';
+import { Arena, MAPS } from './arena.js?v=20261113234330';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113234330';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113234330';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113234330';
+import * as net from './net.js?v=20261113234330';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113234330';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113234330';
+import { makeKillFx } from './killfx.js?v=20261113234330';
+import { makeGrapple } from './grapple.js?v=20261113234330';
+import { initShop } from './shop.js?v=20261113234330';
 
 // ---------- settings ----------
 const store = {
@@ -55,11 +55,11 @@ const fx = new ModeFx(scene); // throne, shrines, heads
 // ---------- constants ----------
 const G = 24, JUMP_V = 8.8, WALK = 12.5, DASH_V = 34, DASH_T = 0.38, CUT_SPD = 7, RAD = 0.38, HGT = 1.8;
 const PULL = 34, REEL = 11, HOOK_MAX = 60;
-const FFA_KILLS = 15, FFA_TIME = 300, MAX_PLAYERS = 8;
+const FFA_KILLS = 15, FFA_TIME = 300, MAX_PLAYERS = 8, LBS_MIN = 12; // Last Blade Standing always fills up to at least 12 fighters
 // every kill makes your sword longer (and your reach with it)
 const BLADE_BASE = 1.12, BLADE_PER_KILL = 0.08, BLADE_MAX = 3.0;
 const bladeFor = (k) => Math.min(BLADE_MAX, BLADE_BASE + (k || 0) * BLADE_PER_KILL);
-const BOT_NAMES = ['Kaito', 'Ren', 'Hana', 'Jiro', 'Mika', 'Sora', 'Yuki', 'Taro', 'Aki', 'Nobu', 'Kenji', 'Rin', 'Daichi', 'Emi'];
+const BOT_NAMES = ['Kaito', 'Ren', 'Hana', 'Jiro', 'Mika', 'Sora', 'Yuki', 'Taro', 'Aki', 'Nobu', 'Kenji', 'Rin', 'Daichi', 'Emi', 'Haru', 'Ichiro', 'Kiku', 'Masa', 'Nao', 'Shin'];
 const DIFF = [
   { wind: 0.62, cd: [1.0, 1.8], evade: 0.12, dash: 0.12, turn: 5, hookCd: 3, roam: 0.3, cross: 0.8 },
   { wind: 0.48, cd: [0.7, 1.3], evade: 0.3, dash: 0.25, turn: 7.5, hookCd: 1.4, roam: 0.6, cross: 2.5 },
@@ -914,7 +914,7 @@ function newRosterEntry(id, name, human, look) {
 function fillBots() {
   if (coop()) return; // horde bots come and go with the waves
   const humans = S.roster.filter((r) => r.human).length;
-  const want = Math.max(0, Math.min(S.bots, MAX_PLAYERS - humans));
+  const want = S.mode === 'lbs' ? Math.max(LBS_MIN - humans, Math.min(S.bots, MAX_PLAYERS - humans), 0) : Math.max(0, Math.min(S.bots, MAX_PLAYERS - humans));
   let bots = S.roster.filter((r) => !r.human);
   while (bots.length > want) { const b = bots.pop(); S.roster = S.roster.filter((r) => r !== b); }
   const names = BOT_NAMES.filter((n) => !S.roster.some((r) => r.name === n));
