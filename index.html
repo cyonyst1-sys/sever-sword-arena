@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261113222934">
+<meta name="build" content="20261113223348">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -120,12 +120,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "./src/main.js": "./src/main.js?v=20261113222934",
-  "./src/arena.js": "./src/arena.js?v=20261113222934",
-  "./src/fighter.js": "./src/fighter.js?v=20261113222934",
-  "./src/slice.js": "./src/slice.js?v=20261113222934",
-  "./src/audio.js": "./src/audio.js?v=20261113222934",
-  "./src/net.js": "./src/net.js?v=20261113222934"
+  "./src/main.js": "./src/main.js?v=20261113223348",
+  "./src/arena.js": "./src/arena.js?v=20261113223348",
+  "./src/fighter.js": "./src/fighter.js?v=20261113223348",
+  "./src/slice.js": "./src/slice.js?v=20261113223348",
+  "./src/audio.js": "./src/audio.js?v=20261113223348",
+  "./src/net.js": "./src/net.js?v=20261113223348"
 } }
 </script>
 </head>
@@ -143,7 +143,7 @@ window.severVersion.check();
     </div>
     <div class="row">
       <label>Bots <select id="bots"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option></select></label>
-      <label>Difficulty <select id="diff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option></select></label>
+      <label>Difficulty <select id="diff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option><option value="3">Brutal</option><option value="4">Nightmare</option><option value="5">Shogun</option><option value="6">Demon</option><option value="7">Kami</option></select></label>
     </div>
     <div class="row">
       <label>Mode <select id="mode"></select></label>
@@ -197,7 +197,7 @@ window.severVersion.check();
       <label>Mode <select id="lobbyModeSel"></select></label>
       <label>Map <select id="lobbyMap"><option value="spire">Sky Spires</option><option value="plateaus">Sky Plateaus</option><option value="canopy">Great Canopy</option><option value="pagoda">Pagoda Falls</option><option value="isles">Moonlit Isles</option></select></label>
       <label>Bots <select id="lobbyBots"><option>0</option><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
-      <label>Difficulty <select id="lobbyDiff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option></select></label>
+      <label>Difficulty <select id="lobbyDiff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option><option value="3">Brutal</option><option value="4">Nightmare</option><option value="5">Shogun</option><option value="6">Demon</option><option value="7">Kami</option></select></label>
     </div>
     <div class="row"><button class="primary" id="startBtn">Start match</button><button id="leaveBtn">Leave</button></div>
     <div class="muted" id="lobbyWait"></div>
@@ -265,6 +265,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261113222934"></script>
+<script type="module" src="src/main.js?v=20261113223348"></script>
 </body>
 </html>

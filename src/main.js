@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113222934';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113222934';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113222934';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113222934';
-import * as net from './net.js?v=20261113222934';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113222934';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113222934';
-import { makeKillFx } from './killfx.js?v=20261113222934';
-import { makeGrapple } from './grapple.js?v=20261113222934';
-import { initShop } from './shop.js?v=20261113222934';
+import { Arena, MAPS } from './arena.js?v=20261113223348';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113223348';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113223348';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113223348';
+import * as net from './net.js?v=20261113223348';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113223348';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113223348';
+import { makeKillFx } from './killfx.js?v=20261113223348';
+import { makeGrapple } from './grapple.js?v=20261113223348';
+import { initShop } from './shop.js?v=20261113223348';
 
 // ---------- settings ----------
 const store = {
@@ -64,6 +64,12 @@ const DIFF = [
   { wind: 0.62, cd: [1.0, 1.8], evade: 0.12, dash: 0.12, turn: 5, hookCd: 3, roam: 0.3, cross: 0.8 },
   { wind: 0.48, cd: [0.7, 1.3], evade: 0.3, dash: 0.25, turn: 7.5, hookCd: 1.4, roam: 0.6, cross: 2.5 },
   { wind: 0.36, cd: [0.4, 0.9], evade: 0.5, dash: 0.45, turn: 11, hookCd: 0.8, roam: 0.9, cross: 4 },
+  // beyond Hard: quicker wind-ups, near-constant attacks, dodging most swings, dash-cutting often, turning faster than you can circle
+  { wind: 0.28, cd: [0.28, 0.6], evade: 0.65, dash: 0.65, turn: 14, hookCd: 0.6, roam: 1.1, cross: 5 }, // Brutal
+  { wind: 0.22, cd: [0.2, 0.45], evade: 0.76, dash: 0.85, turn: 18, hookCd: 0.45, roam: 1.3, cross: 6 }, // Nightmare
+  { wind: 0.17, cd: [0.14, 0.32], evade: 0.85, dash: 1.1, turn: 23, hookCd: 0.32, roam: 1.5, cross: 7 }, // Shogun
+  { wind: 0.13, cd: [0.09, 0.22], evade: 0.92, dash: 1.4, turn: 30, hookCd: 0.22, roam: 1.7, cross: 8 }, // Demon
+  { wind: 0.09, cd: [0.05, 0.14], evade: 0.97, dash: 1.8, turn: 40, hookCd: 0.14, roam: 2, cross: 9 }, // Kami
 ];
 const PATTERNS = [
   [{ x: -1.0, y: 0.25 }, { x: 1.0, y: -0.15 }], [{ x: 1.0, y: 0.25 }, { x: -1.0, y: -0.15 }],
@@ -1379,7 +1385,7 @@ function showEnd(res) {
   if (mine && now() - (S.matchStart || now()) > 40) {
     coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0);
     if (res.mode !== 'horde' && top === S.myId && res.list.length > 1) coins += 30;
-    if (!S.online) coins = Math.round(coins * [0.75, 1, 1.3][S.diff ?? 1]);
+    if (!S.online) coins = Math.round(coins * [0.75, 1, 1.3, 1.6, 2, 2.5, 3, 4][S.diff ?? 1]);
     addCoins(coins);
   }
   $('endCoins').innerHTML = coins ? `<b>+${coins} coins</b> &middot; you have ${profile.coins}` : 'Play a full match to earn coins';
