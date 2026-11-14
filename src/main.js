@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113231000';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113231000';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113231000';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113231000';
-import * as net from './net.js?v=20261113231000';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113231000';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113231000';
-import { makeKillFx } from './killfx.js?v=20261113231000';
-import { makeGrapple } from './grapple.js?v=20261113231000';
-import { initShop } from './shop.js?v=20261113231000';
+import { Arena, MAPS } from './arena.js?v=20261113233311';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113233311';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113233311';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113233311';
+import * as net from './net.js?v=20261113233311';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113233311';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113233311';
+import { makeKillFx } from './killfx.js?v=20261113233311';
+import { makeGrapple } from './grapple.js?v=20261113233311';
+import { initShop } from './shop.js?v=20261113233311';
 
 // ---------- settings ----------
 const store = {
@@ -526,8 +526,9 @@ const deathAt = new THREE.Vector3(); let deathBy = '';
 // ---------- spawning ----------
 // Pagoda Falls: everyone comes in on the outer ring (rock spires and terraces) and rushes the pagoda
 function spawnList() {
-  if (arena.mapId !== 'pagoda') return arena.spawns;
-  const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && (p.kind === 'spire' || p.kind === 'terrace'); });
+  const kinds = { pagoda: ['spire', 'terrace'], spire: ['rim'] }[arena.mapId]; // (Sky Spires: the coliseum's high rim)
+  if (!kinds) return arena.spawns;
+  const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && kinds.includes(p.kind); });
   return outer.length ? outer : arena.spawns;
 }
 function spawnPoint(f) {
@@ -555,7 +556,7 @@ function spawn(f, p, yaw) {
 function hostSpawn(f) {
   const p = spawnPoint(f), yaw = Math.atan2(p.x, p.z); // face the centre
   spawn(f, p, yaw);
-  if (arena.mapId === 'pagoda') f.rushUntil = now() + 12; // bots charge the centre after coming in
+  if (arena.mapId === 'pagoda' || arena.mapId === 'spire') f.rushUntil = now() + 12; // bots charge the centre after coming in
   net.broadcast({ t: 'spawn', id: f.id, p: arr(p), y: +yaw.toFixed(3) });
 }
 
@@ -1129,7 +1130,7 @@ function botObjective(b) {
     if (k) { const pos = new THREE.Vector3(k[1], k[2] - 0.5, k[3]); return mk(pos, platUnder(pos)?.i ?? null, 7); }
   }
   // Pagoda Falls: just spawned on the outer ring? rush the pagoda (fighting whoever gets in the way)
-  if (arena.mapId === 'pagoda' && b.rushUntil > now()) {
+  if ((arena.mapId === 'pagoda' || arena.mapId === 'spire') && b.rushUntil > now()) {
     const d0 = arena.plats[0], n = arena.nodeMap.get('P0');
     if (d0 && !d0.gone && b.plat !== 0) return mk(n.p.clone(), 0, 10);
   }

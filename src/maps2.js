@@ -220,3 +220,40 @@ export function buildIsles(A, T) {
   const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x33456e, transparent: true, opacity: 0.95 })); sea.position.y = -75; S.add(sea);
   drift(A, 260, 0xd8ff8a, 0.14, [0, 0, 0], 0.8);
 }
+
+// ================= Sky Spires: the coliseum bowl =================
+// A round arena floor in the middle, then rings of round platforms stepping up and out like the seats of a
+// coliseum. Everyone starts on the high rim and swings down on the stone columns between the rings.
+function disc(A, o) {
+  const p = { kind: o.kind, x: o.x, z: o.z, y: o.y, w: o.R * 2, d: o.R * 2, ang: 0, round: o.R, i: A.plats.length, meshes: [], boxes: [], ramps: [], rays: [] };
+  A.plats.push(p); A.tag = p;
+  A.addDisc(o.x, o.z, o.R, o.y - 0.4, o.y, A.mats.floor, 48); // the walking surface
+  A.addDisc(o.x, o.z, o.R - 0.25, o.y - 2.4, o.y - 0.4, A.mats.stone, 40); // its stone rim
+  A.tag = null;
+  const h = 6 + o.R * 0.9, cone = new THREE.Mesh(new THREE.ConeGeometry(o.R * 0.85, h, 12, 3), A.mats.rock);
+  cone.rotation.x = Math.PI; prop(A, p, cone, o.x, o.y - 2.4 - h / 2, o.z);
+  A.node('P' + p.i, o.x, o.y, o.z).plat = p.i;
+  const sp = new THREE.Vector3(o.x, o.y, o.z); sp.plat = p.i; A.spawns.push(sp);
+  return p;
+}
+export function buildBowl(A, T) {
+  const S = A.scene;
+  A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -45;
+  A.setSky({ top: 0x3f7fc4, mid: 0xa9cbe6, bot: 0xe7eef3, fog: 0xa9cbe6, near: 90, far: 330, hemiSky: 0xd8ecff, hemiGround: 0x5a4a38, hemi: 0.85, sunColor: 0xfff0d8, sun: 2.0, sunOff: new THREE.Vector3(30, 50, 18) });
+  const clouds = new THREE.Mesh(new THREE.CircleGeometry(600, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf2f5f8, fog: false, transparent: true, opacity: 0.92 })); clouds.position.y = -75; S.add(clouds);
+  // the arena floor (lowest), then three rings, each higher and further out
+  const hub = disc(A, { x: 0, z: 0, y: 0, R: 18, kind: 'hub' });
+  const ring = (n, rad, y, R, kind, off) => { for (let i = 0; i < n; i++) { const a = (i + off) / n * TAU; disc(A, { x: Math.round(Math.cos(a) * rad), z: Math.round(Math.sin(a) * rad), y: y + (i % 2 ? 1 : -1), R, kind }); } };
+  ring(8, 34, 10, 6.5, 'tier', 0);
+  ring(10, 56, 21, 6, 'tier', 0.5);
+  ring(12, 80, 33, 6, 'rim', 0.25);
+  { const m = new THREE.Mesh(new THREE.TorusGeometry(12, 0.25, 6, 64), new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.7, roughness: 0.35 })); m.rotation.x = Math.PI / 2; prop(A, hub, m, 0, 0.03, 0); } // arena ring
+  // stone columns between the rings, from the clouds to the sky: the things you swing on
+  for (const [n, rad, off] of [[12, 45, 0.5], [14, 68, 0]]) for (let i = 0; i < n; i++) {
+    const a = (i + off) / n * TAU, x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+    A.addDisc(x, z, 1.4, -70, 72, A.mats.stone, 14);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 1.5, 1.6, 14), A.mats.dark); cap.position.set(x, 72.8, z); S.add(cap);
+    A.pillars.push({ x, z, w: 2.8 });
+  }
+  A.finishNav();
+}

@@ -32,9 +32,9 @@ export class ModeFx {
     const g = new THREE.Group();
     const beam = add(g, new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 80, 24, 1, true), new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })));
     beam.position.set(p.x, p.y + 40, p.z);
-    const plate = add(g, new THREE.Mesh(new THREE.BoxGeometry(p.w, 0.06, p.d), new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.12, depthWrite: false })));
+    const plate = add(g, new THREE.Mesh(p.round ? new THREE.CylinderGeometry(p.round, p.round, 0.06, 40) : new THREE.BoxGeometry(p.w, 0.06, p.d), new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.12, depthWrite: false })));
     plate.position.set(p.x, p.y + 0.05, p.z); plate.rotation.y = -(p.ang || 0);
-    const edge = add(g, new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(p.w + 0.2, 0.5, p.d + 0.2)), new THREE.LineBasicMaterial({ color: GOLD })));
+    const edge = add(g, new THREE.LineSegments(new THREE.EdgesGeometry(p.round ? new THREE.CylinderGeometry(p.round + 0.1, p.round + 0.1, 0.5, 40) : new THREE.BoxGeometry(p.w + 0.2, 0.5, p.d + 0.2)), new THREE.LineBasicMaterial({ color: GOLD })));
     edge.position.set(p.x, p.y + 0.25, p.z); edge.rotation.y = -(p.ang || 0);
     this.root.add(g); this.throne = { g, plat: p, beam, plate };
   }

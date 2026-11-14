@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261113231000">
+<meta name="build" content="20261113233311">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -120,12 +120,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "./src/main.js": "./src/main.js?v=20261113231000",
-  "./src/arena.js": "./src/arena.js?v=20261113231000",
-  "./src/fighter.js": "./src/fighter.js?v=20261113231000",
-  "./src/slice.js": "./src/slice.js?v=20261113231000",
-  "./src/audio.js": "./src/audio.js?v=20261113231000",
-  "./src/net.js": "./src/net.js?v=20261113231000"
+  "./src/main.js": "./src/main.js?v=20261113233311",
+  "./src/arena.js": "./src/arena.js?v=20261113233311",
+  "./src/fighter.js": "./src/fighter.js?v=20261113233311",
+  "./src/slice.js": "./src/slice.js?v=20261113233311",
+  "./src/audio.js": "./src/audio.js?v=20261113233311",
+  "./src/net.js": "./src/net.js?v=20261113233311"
 } }
 </script>
 </head>
@@ -139,7 +139,7 @@ window.severVersion.check();
     <p class="tag">A third-person sword arena in the sky. Swing your blade with the mouse, and whatever it passes through is cut along that exact line.</p>
     <label>Your name <input id="name" maxlength="14" placeholder="Ronin"></label>
     <div class="row">
-      <label>Map <select id="map"><option value="spire">Sky Spires: many small platforms</option><option value="plateaus">Sky Plateaus: a few huge platforms</option><option value="canopy">Great Canopy: tree branches and bamboo</option><option value="pagoda">Pagoda Falls: a sunset pagoda, stone islands and lacquer posts</option><option value="isles">Moonlit Isles: floating islands, a cherry tree and bamboo groves</option></select></label>
+      <label>Map <select id="map"><option value="spire">Sky Spires: a coliseum bowl of round platforms</option><option value="plateaus">Sky Plateaus: a few huge platforms</option><option value="canopy">Great Canopy: tree branches and bamboo</option><option value="pagoda">Pagoda Falls: a sunset pagoda, stone islands and lacquer posts</option><option value="isles">Moonlit Isles: floating islands, a cherry tree and bamboo groves</option></select></label>
     </div>
     <div class="row">
       <label>Bots <select id="bots"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option></select></label>
@@ -265,6 +265,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261113231000"></script>
+<script type="module" src="src/main.js?v=20261113233311"></script>
 </body>
 </html>

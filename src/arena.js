@@ -2,7 +2,7 @@
 // swing between, and jump pads linking neighbouring platforms. Everything solid is an axis-aligned box or a ramp,
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
-import { buildPagoda, buildIsles } from './maps2.js';
+import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
 export const ISLAND_R = 30;
@@ -77,7 +77,7 @@ export const TEX = { rng, canvasTex, stoneTex, woodTex, bambooTex, worldUV, spec
 function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; } return [x, z]; }
 
 export const MAPS = {
-  spire: { name: 'Sky Spires', blurb: '23 small platforms at many heights: swing from one fight to the next' },
+  spire: { name: 'Sky Spires', blurb: 'a coliseum bowl of round platforms: start on the high rim and swing down to fight on the arena floor' },
   plateaus: { name: 'Sky Plateaus', blurb: '7 huge platforms at slightly different heights: big brawls with room to dash' },
   canopy: { name: 'Great Canopy', blurb: 'giant tree branches to run along, big leaves to land on, and bamboo to swing from (and cut through)' },
   pagoda: { name: 'Pagoda Falls', blurb: 'a three-tier pagoda at sunset, stone islands and rock spires around it, rope bridges, and red lacquer posts to swing from (and cut through)' },
@@ -89,7 +89,7 @@ export class Arena {
     // everything the map adds lives under one group, so switching maps can remove it all
     this.realScene = scene; this.root = new THREE.Group(); scene.add(this.root);
     this.scene = this.root; this.quality = quality; this.mapId = MAPS[mapId] ? mapId : 'spire';
-    this.boxes = []; this.ramps = []; this.rayBoxes = []; this.bamboo = []; this.pads = []; this.nodes = []; this.nodeMap = new Map(); this.spawns = []; this.anim = [];
+    this.boxes = []; this.discs = []; this.ramps = []; this.rayBoxes = []; this.bamboo = []; this.pads = []; this.nodes = []; this.nodeMap = new Map(); this.spawns = []; this.anim = [];
     this.mats = {
       stone: new THREE.MeshStandardMaterial({ map: stoneTex(150, 5), roughness: 0.92 }),
       dark: new THREE.MeshStandardMaterial({ map: stoneTex(110, 9), roughness: 0.95 }),
@@ -115,6 +115,15 @@ export class Arena {
     const box = { x0, x1, y0, y1, z0, z1 };
     if (opts.solid !== false) this.boxes.push(box);
     if (this.tag) { this.tag.meshes.push(m); if (opts.solid !== false) this.tag.boxes.push(box); } // belongs to a platform (can crumble)
+    return m;
+  }
+  // a round solid (platform or column): its own collision, plus a grapple box inside it
+  addDisc(x, z, r, y0, y1, mat, seg = 40) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, y1 - y0, seg, 1), mat || this.mats.stone);
+    m.position.set(x, (y0 + y1) / 2, z); m.castShadow = m.receiveShadow = true; this.scene.add(m);
+    const c = { x, z, r, y0, y1 }, k = r * 0.88, box = { x0: x - k, x1: x + k, y0, y1, z0: z - k, z1: z + k };
+    this.discs.push(c); this.rayBoxes.push(box);
+    if (this.tag) { this.tag.meshes.push(m); (this.tag.discs ||= []).push(c); this.tag.rays.push(box); }
     return m;
   }
   // anything else that should fall with platform p
@@ -409,6 +418,7 @@ export class Arena {
 
   build() {
     this.comp = null; if (this.mapId === 'canopy') return this.buildCanopy();
+    if (this.mapId === 'spire') return buildBowl(this, TEX);
     if (this.mapId === 'pagoda') return buildPagoda(this, TEX);
     if (this.mapId === 'isles') return buildIsles(this, TEX);
     const S = this.scene, M = this.mats;
@@ -648,6 +658,7 @@ export class Arena {
 
     for (const b of this.boxes) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1;
     for (const r of this.ramps) { const h = this.rampH(r, x, z); if (h !== null && h <= y + (r.noWall ? 1.2 : STEP) && h > g) g = h; } // branch tops: a fast dash up one still lands on it
+    for (const c of this.discs) if (c.y1 <= y + STEP && c.y1 > g && (x - c.x) ** 2 + (z - c.z) ** 2 <= (c.r + m) ** 2) g = c.y1; // round platforms and columns
     return g;
   }
   /** Is there a wall at (x,z) for a body standing at feet height y? */
@@ -658,6 +669,7 @@ export class Arena {
   }
   wallAt(x, z, y, h = 1.7, m = 0.3) {
     for (const b of this.boxes) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 > y + STEP && b.y0 < y + h) return true;
+    for (const c of this.discs) if (c.y1 > y + STEP && c.y0 < y + h && (x - c.x) ** 2 + (z - c.z) ** 2 <= (c.r + m) ** 2) return true;
     return false;
   }
   /** Push a standing cylinder (feet at pos.y) out of walls; handles ceilings. Returns true if grounded. */
@@ -678,6 +690,14 @@ export class Arena {
           if (i === 0) pos.x = b.x0 - rad; else if (i === 1) pos.x = b.x1 + rad; else if (i === 2) pos.z = b.z0 - rad; else pos.z = b.z1 + rad;
         }
       }
+      for (const c of this.discs) { // round platforms and columns: push out sideways
+        if (c.y1 <= top + STEP || c.y0 >= pos.y + h) continue;
+        let dx = pos.x - c.x, dz = pos.z - c.z; const d = Math.hypot(dx, dz), min = c.r + rad;
+        if (d >= min) continue;
+        if (d < 1e-4) { dx = 1; dz = 0; } else { dx /= d; dz /= d; }
+        pos.x = c.x + dx * min; pos.z = c.z + dz * min;
+        const vn = vel.x * dx + vel.z * dz; if (vn < 0) { vel.x -= dx * vn; vel.z -= dz * vn; }
+      }
       for (const r of this.ramps) { // the high sides of ramps are walls too
         const hh = this.rampH(r, pos.x, pos.z);
         if (r.noWall || hh === null || hh <= top + STEP || r.base >= pos.y + h) continue;
@@ -692,6 +712,7 @@ export class Arena {
       if (pos.x < b.x0 || pos.x > b.x1 || pos.z < b.z0 || pos.z > b.z1) continue;
       if (b.y0 > pos.y + STEP && pos.y + h > b.y0) { pos.y = b.y0 - h; vel.y = 0; }
     }
+    if (vel.y > 0) for (const c of this.discs) if ((pos.x - c.x) ** 2 + (pos.z - c.z) ** 2 < c.r * c.r && c.y0 > pos.y + STEP && pos.y + h > c.y0) { pos.y = c.y0 - h; vel.y = 0; }
     const g = this.groundHeight(pos.x, pos.z, top);
     if (vel.y <= 0 && pos.y <= g + 0.02) { pos.y = g; vel.y = 0; return true; }
     if (wasGround && vel.y <= 0 && pos.y - g < 0.4) { pos.y = g; vel.y = 0; return true; } // stick to ramps going down
@@ -779,15 +800,17 @@ export class Arena {
   // A platform is a rectangle w long (along angle `ang`) by d wide, centred on (x, z); a branch also
   // slopes from height ya at one end to yb at the other.
   platFrame(p, q) { const a = p.ang || 0, ux = Math.cos(a), uz = Math.sin(a), dx = q.x - p.x, dz = q.z - p.z; return [dx * ux + dz * uz, -dx * uz + dz * ux]; }
-  inPlat(p, q, m) { const [a, b] = this.platFrame(p, q); return Math.abs(a) < p.w / 2 + m && Math.abs(b) < p.d / 2 + m; }
+  inPlat(p, q, m) { if (p.round) return (q.x - p.x) ** 2 + (q.z - p.z) ** 2 < (p.round + m) ** 2 * Math.sign(p.round + m); const [a, b] = this.platFrame(p, q); return Math.abs(a) < p.w / 2 + m && Math.abs(b) < p.d / 2 + m; }
   platTop(p, q) { if (p.ya === undefined) return p.y; const [a] = this.platFrame(p, q); const t = Math.max(0, Math.min(1, a / p.w + 0.5)); return p.ya + (p.yb - p.ya) * t; }
   rimDist(p, q) {
+    if (p.round) return Math.max(0, Math.hypot(q.x - p.x, q.z - p.z) - p.round);
     const [a, b] = this.platFrame(p, q);
     const ca = Math.max(-p.w / 2, Math.min(a, p.w / 2)), cb = Math.max(-p.d / 2, Math.min(b, p.d / 2));
     return Math.hypot(a - ca, b - cb);
   }
   // the point on a platform's top edge closest to q
   rimPoint(p, q) {
+    if (p.round) { let dx = q.x - p.x, dz = q.z - p.z; const l = Math.hypot(dx, dz); if (l < 1e-3) { dx = 1; dz = 0; } else { dx /= l; dz /= l; } return new THREE.Vector3(p.x + dx * p.round, p.y - 0.15, p.z + dz * p.round); }
     const [a, b] = this.platFrame(p, q);
     let ca = Math.max(-p.w / 2, Math.min(a, p.w / 2)), cb = Math.max(-p.d / 2, Math.min(b, p.d / 2));
     if (Math.abs(ca) < p.w / 2 && Math.abs(cb) < p.d / 2) { // above/below it: use the nearest side
@@ -808,7 +831,7 @@ export class Arena {
     for (const p of this.plats) if (p.warn && !keep.has(p)) { this.scene.remove(p.warn); p.warn.geometry.dispose(); p.warn = null; }
     for (const p of keep) {
       if (p.gone || p.warn) continue;
-      const m = new THREE.Mesh(new THREE.BoxGeometry(p.w + 0.3, 0.14, p.d + 0.3), new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.35, depthWrite: false }));
+      const m = new THREE.Mesh(p.round ? new THREE.CylinderGeometry(p.round + 0.15, p.round + 0.15, 0.14, 40) : new THREE.BoxGeometry(p.w + 0.3, 0.14, p.d + 0.3), new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.35, depthWrite: false }));
       const an = p.ang || 0, ux = Math.cos(an), uz = Math.sin(an);
       if (p.ya !== undefined) { // follow the branch's slope
         const dir = new THREE.Vector3(ux * p.w, p.yb - p.ya, uz * p.w).normalize();
@@ -830,6 +853,7 @@ export class Arena {
       this.boxes = this.boxes.filter((b) => !deadB.has(b));
       this.ramps = this.ramps.filter((r) => !deadR.has(r));
       this.rayBoxes = this.rayBoxes.filter((b) => !deadRay.has(b));
+      if (p.discs) { const dd = new Set(p.discs); this.discs = this.discs.filter((c) => !dd.has(c)); }
       falling.push(...p.meshes);
       for (const pad of this.pads) if (pad.from === p.i || pad.to === p.i) { pad.gone = true; falling.push(...pad.meshes); }
       for (const n of this.nodes) if (n.plat === p.i || n.to === p.i) n.gone = true;
