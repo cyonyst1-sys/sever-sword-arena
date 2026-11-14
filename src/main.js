@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113235305';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113235305';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113235305';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113235305';
-import * as net from './net.js?v=20261113235305';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113235305';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113235305';
-import { makeKillFx } from './killfx.js?v=20261113235305';
-import { makeGrapple } from './grapple.js?v=20261113235305';
-import { initShop } from './shop.js?v=20261113235305';
+import { Arena, MAPS } from './arena.js?v=20261114000745';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114000745';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261114000745';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114000745';
+import * as net from './net.js?v=20261114000745';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114000745';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114000745';
+import { makeKillFx } from './killfx.js?v=20261114000745';
+import { makeGrapple } from './grapple.js?v=20261114000745';
+import { initShop } from './shop.js?v=20261114000745';
 
 // ---------- settings ----------
 const store = {
@@ -631,6 +631,13 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
       if (b.hookT > 6 || (topHook && b.pos.y < b.dest.y - 0.4)) { releaseHook(b, false); b.dest = null; b.hookCd = 0; b.noTopUntil = now() + 3; return null; }
       return idle;
     }
+    if (b.hookWhy === 'shrine' && b.hookT > 0.5 && !(rosterGet(b.id)?.carry > 0)) { releaseHook(b, true); b.hookCd2 = 0.3; b.repath = 0; return null; } // banked: let go and fly on
+    // still carrying, and pulled up to a pillar in one of the lines leading in: fire again, at the ring, from mid-air
+    if (b.hookWhy === 'shrine' && t.shrine && b.hookT > 0.3 && Math.hypot(b.hook.p.x - t.pos.x, b.hook.p.z - t.pos.z) > 14.5 && b.hook.p.distanceTo(_t.copy(b.pos).setY(b.pos.y + 1.3)) < 6) {
+      const ux = t.pos.x - b.pos.x, uz = t.pos.z - b.pos.z, ul = Math.hypot(ux, uz) || 1, o = b.pos.clone(); o.y += 1.5;
+      const dir = new THREE.Vector3(t.pos.x - ux / ul * 13, t.pos.y + 6, t.pos.z - uz / ul * 13).sub(o).normalize();
+      if (fireHook(b, o, dir)) { b.hookT = 0; b.hookMax = 4; b.hookWhy = 'shrine'; return idle; }
+    }
     // a free swing (roam): let go over somewhere safe
     const below = ground(b.pos.x, b.pos.z, b.pos.y);
     const safe = isFinite(below) && below > b.pos.y - 9 && below >= t.pos.y - 3;
@@ -679,6 +686,12 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   }
   const forced = b.forceCross > now();
   if (b.hookCd2 > 0 || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
+  // Headhunter: carrying heads near an altar? hook the nearest ring pillar and get pulled into the zone
+  if (t.shrine && dNow < 48) {
+    const ux = t.pos.x - b.pos.x, uz = t.pos.z - b.pos.z, ul = Math.hypot(ux, uz) || 1;
+    const aim = new THREE.Vector3(t.pos.x - ux / ul * 13, t.pos.y + 6, t.pos.z - uz / ul * 13); // the nearest ring pillar: reeling in to it carries us into the zone
+    if (botFireHook(b, aim, 4, 'shrine', true)) { b.dest = null; return { wish: { x: 0, z: 0 }, jump: true, sprint: false }; }
+  }
   // enemy on another platform: swing over and land on it (pads are the fallback)
   const holding = b.stayUntil > now() && b.pos.distanceTo(t.pos) < 25; // a pause on landing only makes sense next to the enemy
   if (t.plat != null && b.plat != null && (forced || !samePlace(b, t)) && !holding && Math.random() < dt * D.cross * 4) {
@@ -1009,6 +1022,7 @@ function applyObj(o) {
   arena.warnPlatform(o.warn ?? -1);
   fx.setThrone(o.throne >= 0 ? arena.plats[o.throne] : null);
   fx.setShrines((o.shrines || []).map((s) => ({ x: s[0], y: s[1], z: s[2] })));
+  arena.setAltars((o.shrines || []).map((s) => [s[0], s[1], s[2]])); // the pillar rings and lines round each altar
   fx.setTokens(o.tokens || []);
 }
 function pickThrone(prev) {
@@ -1020,11 +1034,20 @@ function initObjective() {
   S.obj = freshObj(); until = { throne: 0, crumble: 0, warnEnd: 0 }; scoreT = 0;
   if (S.mode === 'koth') { S.obj.throne = pickThrone(-1); until.throne = now() + THRONE_TIME; }
   if (S.mode === 'lbs') until.crumble = now() + LBS_GRACE;
-  if (S.mode === 'hunt') { // two shrines, on big platforms as far apart as possible
-    const big = arena.plats.filter((p) => p.w * p.d >= 80 && p.kind !== 'hub');
+  if (S.mode === 'hunt') { // two altars out in open air (no platform near), as far apart as possible
+    const spots = [];
+    for (let t = 0; t < 600 && spots.length < 24; t++) {
+      const a = Math.random() * Math.PI * 2, R = 20 + Math.random() * 95, x = Math.cos(a) * R, z = Math.sin(a) * R, c = { x, z };
+      const near = arena.plats.filter((p) => !p.gone).map((p) => ({ p, d: arena.rimDist(p, c) })).sort((u, v) => u.d - v.d);
+      if (!near.length || near[0].d < 12 || near[0].d > 45) continue; // clear of every platform, but swinging distance from one
+      const y = near.slice(0, 3).reduce((s, q) => s + q.p.y, 0) / Math.min(3, near.length) + 4;
+      if (arena.boxes.some((b) => (b.x1 - b.x0 > 6 || b.z1 - b.z0 > 6) && b.x1 > x - 15 && b.x0 < x + 15 && b.z1 > z - 15 && b.z0 < z + 15 && b.y1 > y - 12 && b.y0 < y + 12)) continue; // nothing solid in the way
+      spots.push([+x.toFixed(1), +y.toFixed(1), +z.toFixed(1), near[0].p.i]);
+    }
     let best = null, bd = -1;
-    for (const a of big) for (const b of big) { const d = Math.hypot(a.x - b.x, a.z - b.z); if (a !== b && d > bd) { bd = d; best = [a, b]; } }
-    S.obj.shrines = (best || arena.plats.slice(0, 2)).map((p) => [p.x, p.y, p.z, p.i]);
+    for (const a of spots) for (const b of spots) { const d = Math.hypot(a[0] - b[0], a[2] - b[2]); if (a !== b && d > bd) { bd = d; best = [a, b]; } }
+    if (!best) { const big = arena.plats.filter((p) => p.w * p.d >= 80); best = (big.length > 1 ? big : arena.plats).slice(0, 2).map((p) => [p.x, p.y + 6, p.z, p.i]); }
+    S.obj.shrines = best;
   }
 }
 function throneOccupants() {
@@ -1086,7 +1109,7 @@ function modeTick(dt) {
         if (Math.hypot(k[1] - f.pos.x, k[3] - f.pos.z) < 1.6 && Math.abs(k[2] - 0.5 - f.pos.y) < 2) { o.tokens.splice(i, 1); r.carry = (r.carry || 0) + 1; changed = true; sfx.hookHit(f.pos); }
       }
       if (r.carry > 0) for (const s of o.shrines) { // bank them at a shrine
-        if (Math.hypot(s[0] - f.pos.x, s[2] - f.pos.z) < 3.5 && Math.abs(s[1] - f.pos.y) < 2.5) {
+        if (Math.hypot(s[0] - f.pos.x, s[2] - f.pos.z) < 11.5 && Math.abs(s[1] - (f.pos.y + 0.9)) < 8) { // anywhere in the glowing zone inside the ring
           const msg = `${esc(r.name)} banked ${r.carry} head${r.carry > 1 ? 's' : ''}`; feed(msg); net.broadcast({ t: 'feed', s: msg });
           r.pts = (r.pts || 0) + r.carry; r.carry = 0; changed = true; sfx.pad(f.pos);
         }
@@ -1124,7 +1147,7 @@ function botObjective(b) {
     const carry = rosterGet(b.id)?.carry || 0;
     if (carry > 0 && o.shrines.length) {
       let s = null, sd = Infinity; for (const q of o.shrines) { const d = Math.hypot(q[0] - b.pos.x, q[2] - b.pos.z); if (d < sd) { sd = d; s = q; } }
-      if (carry >= 3 || sd < 25) return mk(new THREE.Vector3(s[0], s[1], s[2]), s[3], carry >= 3 ? 6 : 4);
+      if (carry >= 3 || sd < 45) { const g = mk(new THREE.Vector3(s[0], s[1], s[2]), s[3], carry >= 3 ? 6 : 4); g.shrine = true; return g; }
     }
     let k = null, kd = 35; for (const q of o.tokens) { const d = Math.hypot(q[1] - b.pos.x, q[3] - b.pos.z) + Math.abs(q[2] - b.pos.y) * 2; if (d < kd) { kd = d; k = q; } }
     if (k) { const pos = new THREE.Vector3(k[1], k[2] - 0.5, k[3]); return mk(pos, platUnder(pos)?.i ?? null, 7); }

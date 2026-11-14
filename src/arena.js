@@ -375,6 +375,30 @@ export class Arena {
     this.arcPts = [];
   }
 
+  // ---------- Headhunter altars: out in open air, reached only by swinging ----------
+  /** Around each altar [x, y, z]: a ring of pillars, and lines of pillars leading in from the nearest platforms.
+   *  You can grapple them and pass through them, but they can't be cut. */
+  setAltars(list) {
+    const key = JSON.stringify(list || []); if (key === this.altarKey) return; this.altarKey = key;
+    for (const m of this.altarMeshes || []) this.scene.remove(m);
+    this.altarMeshes = []; this.rayBoxes = this.rayBoxes.filter((b) => !b.altar); this.pillars = (this.pillars || []).filter((p) => !p.altar);
+    const mat = this.mats.altar || (this.mats.altar = new THREE.MeshStandardMaterial({ color: 0x3b3542, roughness: 0.5, metalness: 0.35, emissive: 0x3a1c00, emissiveIntensity: 0.5 }));
+    const geo = this.altarGeo || (this.altarGeo = new THREE.CylinderGeometry(0.55, 0.65, 1, 10));
+    const put = (x, z, y0, y1) => {
+      const m = new THREE.Mesh(geo, mat); m.position.set(x, (y0 + y1) / 2, z); m.scale.y = y1 - y0; m.castShadow = true; this.scene.add(m); this.altarMeshes.push(m);
+      this.rayBoxes.push({ x0: x - 0.6, x1: x + 0.6, y0, y1, z0: z - 0.6, z1: z + 0.6, altar: true });
+      this.pillars.push({ x, z, w: 1.2, altar: true });
+    };
+    for (const [cx, cy, cz] of list || []) {
+      for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2; put(cx + Math.cos(a) * 13, cz + Math.sin(a) * 13, cy - 30, cy + 22); }
+      const c = { x: cx, z: cz }, near = this.plats.filter((p) => !p.gone).sort((u, v) => this.rimDist(u, c) - this.rimDist(v, c)).slice(0, 3);
+      for (const p of near) { // a line of pillars from the ring out toward this platform
+        const rp = this.rimPoint(p, c), dx = rp.x - cx, dz = rp.z - cz, L = Math.hypot(dx, dz) || 1;
+        for (let d = 20; d < L - 4; d += 7) put(cx + dx / L * d, cz + dz / L * d, cy - 30, cy + 22);
+      }
+    }
+  }
+
   // ---------- shared by the maps with cuttable stalks (canopy, pagoda, isles) ----------
   /** Every stalk in this.bamboo becomes one instance of a single mesh (one draw call for hundreds), standing
    *  from y0 to y1 in this.mats.bamboo. The texture runs by world height, so it stays put wherever a stalk is cut. */

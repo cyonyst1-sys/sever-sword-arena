@@ -6,7 +6,7 @@ export const MODES = {
   koth: { name: 'King of the Platform', blurb: 'Stand on the glowing platform alone to score 1 point a second. It moves every 40 s. First to 60.' },
   jugg: { name: 'Juggernaut', blurb: 'One crowned fighter with a 3 m blade against everyone else. Cut them down to take the crown. The juggernaut scores 1 point a second while standing on something (not while flying, swinging or dashing). First to 60.' },
   lbs: { name: 'Last Blade Standing', blurb: 'No respawns, and always at least 12 fighters (bots fill the rest). Platforms glow red, then crumble into the clouds, from the outside in. Last fighter alive wins.' },
-  hunt: { name: 'Headhunter', blurb: 'Every kill drops gold heads. Carry them to a shrine to bank them; die and you drop them all. First to 20 banked.' },
+  hunt: { name: 'Headhunter', blurb: 'Every kill drops gold heads. Carry them to an altar floating in open air and swing through its glowing ring to bank them; die and you drop them all. First to 20 banked.' },
   horde: { name: 'Horde', blurb: 'Co-op: everyone together against waves of oni.' },
 };
 export const POINT_MODES = new Set(['koth', 'jugg', 'hunt']); // won on points rather than kills
@@ -44,12 +44,15 @@ export class ModeFx {
     this.shrines = [];
     for (const pos of list) {
       const g = new THREE.Group();
-      const beam = add(g, new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 60, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xff9a2e, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })));
-      beam.position.set(pos.x, pos.y + 30, pos.z);
-      const ring = add(g, new THREE.Mesh(new THREE.TorusGeometry(3.5, 0.08, 6, 40), new THREE.MeshBasicMaterial({ color: 0xff9a2e })));
-      ring.rotation.x = Math.PI / 2; ring.position.set(pos.x, pos.y + 0.08, pos.z);
-      const gem = add(g, new THREE.Mesh(new THREE.OctahedronGeometry(0.6, 0), this.tokenMat));
-      gem.position.set(pos.x, pos.y + 1.6, pos.z);
+      // the altar floats in open air: a glowing zone (swing through it to bank your heads), rings at its
+      // top and bottom, a gem in the middle and a thin beam so you can spot it from far off
+      const glow = new THREE.MeshBasicMaterial({ color: 0xff9a2e, transparent: true, opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+      const zone = add(g, new THREE.Mesh(new THREE.CylinderGeometry(11.5, 11.5, 16, 48, 1, true), glow)); zone.position.set(pos.x, pos.y, pos.z);
+      const beam = add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 120, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xffb35a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })));
+      beam.position.set(pos.x, pos.y, pos.z);
+      for (const dy of [-8, 8]) { const ring = add(g, new THREE.Mesh(new THREE.TorusGeometry(11.5, 0.12, 6, 64), new THREE.MeshBasicMaterial({ color: 0xff9a2e }))); ring.rotation.x = Math.PI / 2; ring.position.set(pos.x, pos.y + dy, pos.z); }
+      const gem = add(g, new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 0), this.tokenMat));
+      gem.position.set(pos.x, pos.y, pos.z);
       this.root.add(g); this.shrines.push({ g, gem, pos });
     }
   }
@@ -66,7 +69,7 @@ export class ModeFx {
   }
   update(t) {
     if (this.throne) { this.throne.beam.material.opacity = 0.16 + 0.08 * Math.sin(t * 3); this.throne.plate.material.opacity = 0.08 + 0.06 * Math.sin(t * 3); }
-    for (const s of this.shrines) { s.gem.rotation.y = t * 1.5; s.gem.position.y = s.pos.y + 1.6 + Math.sin(t * 2) * 0.2; }
+    for (const s of this.shrines) { s.gem.rotation.y = t * 1.5; s.gem.position.y = s.pos.y + Math.sin(t * 2) * 0.4; }
     for (const m of this.tokens.values()) { m.rotation.y = t * 2.5; m.position.y = m.userData.base + 0.15 * Math.sin(t * 3 + m.id); }
   }
 }
