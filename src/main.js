@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114162451';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114162451';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114162451';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114162451';
-import * as net from './net.js?v=20261114162451';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114162451';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114162451';
-import { makeKillFx } from './killfx.js?v=20261114162451';
-import { makeGrapple } from './grapple.js?v=20261114162451';
-import { initShop } from './shop.js?v=20261114162451';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114162451';
-import { portal } from './portal.js?v=20261114162451';
+import { Arena, MAPS } from './arena.js?v=20261114163054';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114163054';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114163054';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114163054';
+import * as net from './net.js?v=20261114163054';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114163054';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114163054';
+import { makeKillFx } from './killfx.js?v=20261114163054';
+import { makeGrapple } from './grapple.js?v=20261114163054';
+import { initShop } from './shop.js?v=20261114163054';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114163054';
+import { portal } from './portal.js?v=20261114163054';
 
 // ---------- settings ----------
 const store = {
@@ -502,6 +502,7 @@ function brkSweep(f, dt) {
       if (!b.alive || b.hard) continue;
       const h = segBox(_A, _B, b); if (h < 0) continue;
       if (f.hook && inBox(f.hook.p, b, 0.3)) continue; // never the one you're swinging from
+      if (f.isBot && b.y1 <= f.pos.y + 0.25 && b.y1 >= f.pos.y - 1.5) continue; // bots don't chop out the floor they're fighting on (players still can)
       n ||= cutNormal(f);
       _c1.lerpVectors(_A, _B, h);
       _imp.subVectors(_B, _A).divideScalar(dt).clampLength(0, 14);
@@ -821,7 +822,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   // falling with nothing close below: swing to the nearest platform and land on it
   const under = ground(b.pos.x, b.pos.z, b.pos.y);
   if (!b.onGround && !b.padFlight && b.vel.y < -7 && !(isFinite(under) && under > b.pos.y - 12) && (b.hookCd || 0) <= 0) {
-    const order = arena.plats.filter((p) => !(insidePlat(p, b.pos, 0.5) && p.y > b.pos.y))
+    const order = arena.plats.filter((p) => !p.ghost && !p.gone && !(insidePlat(p, b.pos, 0.5) && p.y > b.pos.y))
       .map((p) => ({ p, d: Math.hypot(p.x - b.pos.x, p.z - b.pos.z) + Math.max(0, p.y - b.pos.y) * 0.9 })).sort((u, v) => u.d - v.d);
     for (const { p } of order.slice(0, 4)) if (botSwingTo(b, p, 'save')) return idle;
   }
@@ -844,7 +845,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   // enemy on another platform: swing over and land on it (pads are the fallback)
   const holding = b.stayUntil > now() && b.pos.distanceTo(t.pos) < 25; // a pause on landing only makes sense next to the enemy
   if (t.plat != null && b.plat != null && (forced || !samePlace(b, t)) && !holding && (onPad || Math.random() < dt * D.cross * 4)) {
-    const ok = (p) => p && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -30 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 60; // (swinging down a long way is fine)
+    const ok = (p) => p && !p.ghost && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -30 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 60; // (swinging down a long way is fine)
     let tp = arena.plats[t.plat];
     if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && grp(+q.name.slice(1)) !== grp(b.plat)); tp = n ? arena.plats[+n.name.slice(1)] : null; }
     // a short gap: dash straight across (when the predicted arc lands on it), mixed in with swinging
@@ -854,7 +855,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
       if (ok(tp) && rimDist(tp, b.pos) < 16) { how = dashOnto(b, tp); onto = tp; }
       if (!how && arena.comp) {
         const dT = b.pos.distanceTo(t.pos), mine = arena.comp[b.plat];
-        const hops = arena.plats.filter((q) => !q.gone && (forced ? q.i !== b.plat : arena.comp[q.i] !== mine) && rimDist(q, b.pos) < 14 && Math.hypot(q.x - t.pos.x, q.z - t.pos.z) + Math.abs(q.y - t.pos.y) < dT - 5)
+        const hops = arena.plats.filter((q) => !q.gone && !q.ghost && (forced ? q.i !== b.plat : arena.comp[q.i] !== mine) && rimDist(q, b.pos) < 14 && Math.hypot(q.x - t.pos.x, q.z - t.pos.z) + Math.abs(q.y - t.pos.y) < dT - 5)
           .sort((u, v) => rimDist(u, b.pos) - rimDist(v, b.pos)).slice(0, 5);
         for (const q of hops) { how = dashOnto(b, q); if (how) { onto = q; break; } }
       }
@@ -866,7 +867,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     // no route planned (islands far apart): swing to any reachable surface that gets us closer, and go from there
     if (arena.comp) {
       const dT = b.pos.distanceTo(t.pos), mine = arena.comp[b.plat];
-      const opts = arena.plats.filter((q) => !q.gone && q.i !== b.plat && (forced || arena.comp[q.i] !== mine) && rimDist(q, b.pos) < 40 && q.y - b.pos.y < 18 && q.y - b.pos.y > -30 && Math.hypot(q.x - t.pos.x, q.z - t.pos.z) + Math.abs(q.y - t.pos.y) < dT - 6)
+      const opts = arena.plats.filter((q) => !q.gone && !q.ghost && q.i !== b.plat && (forced || arena.comp[q.i] !== mine) && rimDist(q, b.pos) < 40 && q.y - b.pos.y < 18 && q.y - b.pos.y > -30 && Math.hypot(q.x - t.pos.x, q.z - t.pos.z) + Math.abs(q.y - t.pos.y) < dT - 6)
         .sort((u, v) => rimDist(u, b.pos) - rimDist(v, b.pos)).slice(0, 3);
       for (const q of opts) if (botSwingTo(b, q, 'cross')) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
     }
@@ -977,7 +978,7 @@ function botSwingTo(b, tp, why) {
 }
 // platform helpers (platforms can be rotated, and canopy branches slope)
 const insidePlat = (p, q, m) => arena.inPlat(p, q, m);
-const platUnder = (q) => { let best = null, bt = -Infinity; for (const p of arena.plats) { if (p.gone || !insidePlat(p, q, 0.4)) continue; const t = arena.platTop(p, q); if (t <= q.y + 0.6 && t > bt) { bt = t; best = p; } } return best; };
+const platUnder = (q) => { let best = null, bt = -Infinity; for (const p of arena.plats) { if (p.gone || p.ghost || !insidePlat(p, q, 0.4)) continue; const t = arena.platTop(p, q); if (t <= q.y + 0.6 && t > bt) { bt = t; best = p; } } return best; };
 const rimDist = (p, q) => arena.rimDist(p, q);
 // the point on a platform's top lip closest to q
 const rimPoint = (p, q) => arena.rimPoint(p, q);
@@ -1084,7 +1085,7 @@ function botThink(b, dt) {
     // else a plain running jump if it lands on something; only then go round or stop
     if (!close && t.plat != null && t.plat !== b.plat && !b.jumpDash) {
       const tp = arena.plats[t.plat];
-      if (tp && !tp.gone && b.dashCd <= 0 && b.stam >= 22) {
+      if (tp && !tp.gone && !tp.ghost && b.dashCd <= 0 && b.stam >= 22) {
         const how = dashOnto(b, tp);
         if (how) { b.landOn = tp; b.airDashed = true; if (how.tj > 0) { b.jumpDash = { at: now() + how.tj, d: how.d }; jump = true; } else if (tryDash(b, how.d)) b.dashFree = true; return { wish: { x: how.d.x, z: how.d.z }, jump, sprint }; }
       }
