@@ -257,3 +257,4 @@ export function buildBowl(A, T) {
   }
   A.finishNav();
 }
+export { deck, prop, bridge, stalk, clear, drift, farRing };

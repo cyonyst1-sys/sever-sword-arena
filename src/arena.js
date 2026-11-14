@@ -3,6 +3,8 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
+import { buildDojo } from './dojo.js?v=20261114014554';
+const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
 export const ISLAND_R = 30;
@@ -83,6 +85,7 @@ export const MAPS = {
   canopy: { name: 'Great Canopy', blurb: 'giant tree branches to run along, big leaves to land on, and bamboo to swing from (and cut through)' },
   pagoda: { name: 'Pagoda Falls', blurb: 'a three-tier pagoda at sunset, stone islands and rock spires around it, rope bridges, and red lacquer posts to swing from (and cut through)' },
   isles: { name: 'Moonlit Isles', blurb: 'floating grass islands under a full moon, rope bridges, a great cherry tree, and bamboo groves to swing from (and cut through)' },
+  dojo: { name: 'Paper Dojo District', blurb: 'a town you can cut apart: slice through paper walls, posts, straw barns, fences and hay; climb the four-tier dojo tower, rooftops and watchtowers' },
 };
 
 export class Arena {
@@ -152,6 +155,8 @@ export class Arena {
     }
     geo.computeVertexNormals(); worldUV(geo, 0.5);
     const m = new THREE.Mesh(geo, mat || this.mats.dark); m.castShadow = m.receiveShadow = true; this.scene.add(m);
+    if (this.tag) this.tag.meshes.push(m);
+    return r;
   }
   addRampR(k, lx, lz, hx, hz, hL, hH, w, base, mat) {
     const [a, b] = Q(k, lx, lz), [c, d] = Q(k, hx, hz);
@@ -446,6 +451,7 @@ export class Arena {
     if (this.mapId === 'colosseum') return buildBowl(this, TEX);
     if (this.mapId === 'pagoda') return buildPagoda(this, TEX);
     if (this.mapId === 'isles') return buildIsles(this, TEX);
+    if (this.mapId === 'dojo') return buildDojo(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     this.realScene.background = new THREE.Color(0x9cc4e4);
@@ -684,7 +690,18 @@ export class Arena {
     for (const b of this.boxes) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1;
     for (const r of this.ramps) { const h = this.rampH(r, x, z); if (h !== null && h <= y + (r.noWall ? 1.2 : STEP) && h > g) g = h; } // branch tops: a fast dash up one still lands on it
     for (const c of this.discs) if (c.y1 <= y + STEP && c.y1 > g && (x - c.x) ** 2 + (z - c.z) ** 2 <= (c.r + m) ** 2) g = c.y1; // round platforms and columns
+    if (this.brk) for (const b of this.brkNear(x, z)) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1; // breakables (hay, crates, wall tops)
     return g;
+  }
+  // breakable chunks (Paper Dojo) live in a 6 m grid, so collision only looks at the ones nearby
+  brkNear(x, z) { return (this.brk && this.brk.cells.get(Math.floor(x / 6) * 4096 + Math.floor(z / 6))) || NONE; }
+  brkQuery(x0, x1, z0, z1) {
+    const g = this.brk; if (!g) return NONE;
+    const out = [], st = ++g.stamp;
+    for (let ix = Math.floor(x0 / 6); ix <= Math.floor(x1 / 6); ix++) for (let iz = Math.floor(z0 / 6); iz <= Math.floor(z1 / 6); iz++) {
+      const c = g.cells.get(ix * 4096 + iz); if (c) for (const b of c) if (b.q !== st) { b.q = st; out.push(b); }
+    }
+    return out;
   }
   /** Is there a wall at (x,z) for a body standing at feet height y? */
   /** Is (x, y, z) inside a branch log (canopy)? Keeps the camera out of them. */
@@ -700,8 +717,10 @@ export class Arena {
   /** Push a standing cylinder (feet at pos.y) out of walls; handles ceilings. Returns true if grounded. */
   collide(pos, vel, rad, h, wasGround, prevY = pos.y) {
     const top = Math.max(pos.y, prevY); // fast falls can pass a floor in one frame: judge floors from where we were too
+    const lists = this.brk ? [this.boxes, this.brkQuery(pos.x - 1, pos.x + 1, pos.z - 1, pos.z + 1)] : [this.boxes];
     for (let it = 0; it < 2; it++) {
-      for (const b of this.boxes) {
+      for (const list of lists) for (const b of list) {
+        if (b.alive === false) continue;
         if (b.y1 <= top + STEP || b.y0 >= pos.y + h) continue;
         const cx = Math.max(b.x0, Math.min(pos.x, b.x1)), cz = Math.max(b.z0, Math.min(pos.z, b.z1));
         let dx = pos.x - cx, dz = pos.z - cz; const d2 = dx * dx + dz * dz;
@@ -733,7 +752,8 @@ export class Arena {
       }
     }
     // ceilings
-    if (vel.y > 0) for (const b of this.boxes) {
+    if (vel.y > 0) for (const list of lists) for (const b of list) {
+      if (b.alive === false) continue;
       if (pos.x < b.x0 || pos.x > b.x1 || pos.z < b.z0 || pos.z > b.z1) continue;
       if (b.y0 > pos.y + STEP && pos.y + h > b.y0) { pos.y = b.y0 - h; vel.y = 0; }
     }
@@ -791,8 +811,12 @@ export class Arena {
   }
   /** First hit along a ray: solid boxes, plus grapple-only things (bamboo, branch logs) you can hook but pass through. */
   raycast(o, d, max) {
-    let best = max, hit = null;
-    for (const list of [this.boxes, this.rayBoxes]) for (const b of list) {
+    let best = max, hit = null, brk = NONE;
+    if (this.brk) { // the breakable chunks in the grid cells along the ray
+      const seen = new Set(); brk = [];
+      for (let t = 0; t <= max + 3; t += 2.5) { const c = this.brk.cells.get(Math.floor((o.x + d.x * t) / 6) * 4096 + Math.floor((o.z + d.z * t) / 6)); if (c && !seen.has(c)) { seen.add(c); brk.push(...c); } }
+    }
+    for (const list of [this.boxes, this.rayBoxes, brk]) for (const b of list) {
       let t0 = 0, t1 = best;
       for (const [oa, da, lo, hi] of [[o.x, d.x, b.x0, b.x1], [o.y, d.y, b.y0, b.y1], [o.z, d.z, b.z0, b.z1]]) {
         if (Math.abs(da) < 1e-9) { if (oa < lo || oa > hi) { t0 = Infinity; break; } continue; }
@@ -884,6 +908,7 @@ export class Arena {
       for (const n of this.nodes) if (n.plat === p.i || n.to === p.i) n.gone = true;
     }
     this.pads = this.pads.filter((pad) => !pad.gone);
+    if (this.onDrop) for (const p of group) this.onDrop(p); // (Paper Dojo: its walls and everything built on it go too)
     let v = 0;
     this.anim.push((t, dt) => {
       if (!falling.length) return;

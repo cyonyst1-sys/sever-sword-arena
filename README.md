@@ -86,6 +86,17 @@ A sky arena made of 23 floating platforms at different heights:
 
 Fights happen platform by platform: whoever lands on a platform fights whoever's there, then swings or pads on to the next one. Bots go for enemies on their own platform or the next one over first, climb up to higher platforms by grappling their edge, and use the pads to get around.
 
+### Paper Dojo District
+
+A misty-morning town you can **cut apart**. Shoji walls, wooden posts, a straw barn, hay bales, fences, crates, market stalls and training dummies are all built from chunks:
+
+- **Slice anything.** A sword stroke cuts every chunk it passes through: each splits along the line of your blade and falls away, leaving a hole the shape of your swing.
+- **Crash through paper.** Running into a paper wall bursts straight through it. A **dash** smashes through anything, wood and straw included.
+- **Things collapse.** Whatever is left with nothing holding it up comes down: cut both posts of a fence and its rails drop, cut a stall's posts and its canopy falls, cut the bottom of a hay pile and the bales above tumble.
+- **Vertical.** A four-tier **dojo tower** in the middle, with a paper room on every level and stairs spiralling up its outside to a bell at the top. Around it are two-storey houses with stairs to their roofs, rooftop bridges to the tower, four tall **watchtowers**, and four floating **shrine islands** joined by bridges.
+- Floors, roofs, decks and the corner posts of buildings stay put, so there is always somewhere to stand. Bamboo and lantern poles line the town's edges to swing from (and cut).
+- Bots shoulder their way through whatever is in their way. The town is rebuilt fresh every match.
+
 ### Colosseum
 
 A colosseum bowl in the sky, built entirely of **round platforms**:
@@ -132,6 +143,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 - `src/cosmetics.js`: the shop catalogue (masks, headwear, outfits, swords, trails), coins and what you own
 - `src/shop.js`: the shop screen and its 3D preview
 - `src/maps2.js`: the Pagoda Falls and Moonlit Isles maps
+- `src/dojo.js`: the Paper Dojo District map and its breakable chunks (walls, stacks, fences, stalls) and how they collapse
 - `src/killfx.js` and `src/grapple.js`: the kill effects and grapple styles
 - `src/arena.js`: all three maps (Sky Spires, Sky Plateaus, Great Canopy), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail

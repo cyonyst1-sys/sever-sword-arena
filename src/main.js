@@ -1,14 +1,15 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114000745';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114000745';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261114000745';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114000745';
-import * as net from './net.js?v=20261114000745';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114000745';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114000745';
-import { makeKillFx } from './killfx.js?v=20261114000745';
-import { makeGrapple } from './grapple.js?v=20261114000745';
-import { initShop } from './shop.js?v=20261114000745';
+import { Arena, MAPS } from './arena.js?v=20261114014554';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114014554';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261114014554';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114014554';
+import * as net from './net.js?v=20261114014554';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114014554';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114014554';
+import { makeKillFx } from './killfx.js?v=20261114014554';
+import { makeGrapple } from './grapple.js?v=20261114014554';
+import { initShop } from './shop.js?v=20261114014554';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114014554';
 
 // ---------- settings ----------
 const store = {
@@ -49,7 +50,14 @@ const trailFx = {
   zap: new Particles(scene, ground, { color: 0xbff0ff, size: 0.04, gravity: 0, max: 400 }),
 };
 const grapFx = { smoke: new Particles(scene, ground, { color: 0x1a1020, size: 0.22, gravity: -0.5, max: 400 }), zap: trailFx.zap }; // grapple styles
-const pieces = new Pieces(scene, ground, blood);
+const pieces = new Pieces(scene, ground, blood); pieces.max = 220;
+// Paper Dojo debris: paper scraps flutter, wood splinters and straw drop
+const debris = {
+  paper: new Particles(scene, ground, { color: 0xf4eedc, size: 0.1, gravity: 3, max: 600 }),
+  wood: new Particles(scene, ground, { color: 0x7a5432, size: 0.07, gravity: 16, max: 400 }),
+  straw: new Particles(scene, ground, { color: 0xd8b85a, size: 0.08, gravity: 7, max: 500 }),
+};
+debris.cloth = debris.paper;
 const fx = new ModeFx(scene); // throne, shrines, heads
 
 // ---------- constants ----------
@@ -288,6 +296,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
   const n = Math.min(6, Math.ceil(f.vel.length() * dt / 0.35)) || 1;
   for (let k = 0; k < n; k++) {
     const py = f.pos.y; f.pos.addScaledVector(f.vel, dt / n);
+    if (arena.brk) crash(f);
     f.onGround = arena.collide(f.pos, f.vel, RAD, HGT, (k ? f.onGround : was) && f.dashT <= 0 && !f.hook, py);
   }
   if (f.hook) { // rope can't stretch
@@ -399,6 +408,7 @@ function bladeSweep(f, dt) {
       if (segSeg(_A, _B, _a0, _a1, _c1, _c2) < (st.r + 0.06) ** 2) { st.cutCd = now() + 0.3; cutBamboo(s, +_c2.y.toFixed(2), true); break; }
     }
   }
+  if (arena.brk) brkSweep(f, dt);
   if (tipSpd < CUT_SPD || !f.armed) return;
   for (const g of fighters.values()) {
     if (g === f || !g.alive || g.prot > 0 || !isEnemy(f, g)) continue;
@@ -446,6 +456,77 @@ function cutBamboo(s, y, mine) {
   sfx.chop(at);
   for (let i = 0; i < 18; i++) leafBits.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6, 0.8);
   if (mine) { if (S.host) net.broadcast({ t: 'bamboo', s, y }); else net.send({ t: 'bamboo', s, y }); }
+}
+// ---------- Paper Dojo: breakable chunks ----------
+// a segment against a box: the fraction along it where it enters, or -1
+function segBox(a, c, b) {
+  if (Math.max(a.x, c.x) < b.x0 || Math.min(a.x, c.x) > b.x1 || Math.max(a.y, c.y) < b.y0 || Math.min(a.y, c.y) > b.y1 || Math.max(a.z, c.z) < b.z0 || Math.min(a.z, c.z) > b.z1) return -1;
+  let t0 = 0, t1 = 1;
+  for (const [o, e, lo, hi] of [[a.x, c.x, b.x0, b.x1], [a.y, c.y, b.y0, b.y1], [a.z, c.z, b.z0, b.z1]]) {
+    const d = e - o; if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) return -1; continue; }
+    let u = (lo - o) / d, v = (hi - o) / d; if (u > v) [u, v] = [v, u];
+    t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) return -1;
+  }
+  return t0;
+}
+const inBox = (p, b, m) => p.x > b.x0 - m && p.x < b.x1 + m && p.y > b.y0 - m && p.y < b.y1 + m && p.z > b.z0 - m && p.z < b.z1 + m;
+const _imp = new THREE.Vector3();
+// a blade moving through chunks slices each one it passes (a swing, or just carrying it past at speed)
+function brkSweep(f, dt) {
+  if (!isLocal(f)) return;
+  const R = f.bladeLen + 1.5, list = arena.brkQuery(f.pos.x - R, f.pos.x + R, f.pos.z - R, f.pos.z + R);
+  if (!list.length) return;
+  let n = null, cnt = 0;
+  for (let k = 0; k <= 6 && cnt < 10; k++) {
+    const t = 0.12 + 0.88 * k / 6;
+    _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
+    if (_A.distanceTo(_B) / dt < 4) continue;
+    for (const b of list) {
+      if (!b.alive) continue;
+      const h = segBox(_A, _B, b); if (h < 0) continue;
+      if (f.hook && inBox(f.hook.p, b, 0.3)) continue; // never the one you're swinging from
+      n ||= cutNormal(f);
+      _c1.lerpVectors(_A, _B, h);
+      _imp.subVectors(_B, _A).divideScalar(dt).clampLength(0, 14);
+      smashChunk(b.i, [+n.x.toFixed(3), +n.y.toFixed(3), +n.z.toFixed(3)], +(-n.dot(_c1)).toFixed(3), true, _imp);
+      if (++cnt >= 10) break;
+    }
+  }
+}
+// running into paper bursts through it; a dash smashes through anything (and bots shoulder through whatever is in their way)
+function crash(f) {
+  if (!isLocal(f)) return;
+  const hs = Math.hypot(f.vel.x, f.vel.z); if (hs < 5) return;
+  const R = RAD + 0.14;
+  for (const b of arena.brkQuery(f.pos.x - 1, f.pos.x + 1, f.pos.z - 1, f.pos.z + 1)) {
+    if (!b.alive || b.y1 <= f.pos.y + 0.45 || b.y0 >= f.pos.y + HGT) continue;
+    if (!(b.soft || f.dashT > 0 || f.isBot)) continue;
+    const cx = Math.max(b.x0, Math.min(f.pos.x, b.x1)), cz = Math.max(b.z0, Math.min(f.pos.z, b.z1));
+    if ((f.pos.x - cx) ** 2 + (f.pos.z - cz) ** 2 > R * R) continue;
+    if ((cx - f.pos.x) * f.vel.x + (cz - f.pos.z) * f.vel.z < 0) continue; // only what we're moving into
+    smashChunk(b.i, null, 0, true, f.vel);
+  }
+}
+// break chunk i: it splits along the cut (or is knocked loose whole), and anything left unsupported comes down
+function smashChunk(i, n, d, mine, push) {
+  const b = arena.brk && arena.brk.list[i]; if (!b || !b.alive) return;
+  const fall = breakChunk(arena, b), c = new THREE.Vector3((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2);
+  const v = push ? new THREE.Vector3(push.x, Math.max(0, push.y), push.z).multiplyScalar(0.35) : new THREE.Vector3();
+  const nv = n && new THREE.Vector3().fromArray(n);
+  let made = nv && pieces.split(chunkSoup(b), nv, d, v, v, 0.6, null) ? pieces.last : null;
+  if (!made) { const p = pieces.make(chunkSoup(b)); if (p) { p.vel.copy(v); p.vel.y += 1.2; p.w.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(5); made = [p]; } }
+  for (const p of made || []) p.life = 14;
+  fall.forEach((q, k) => { // the loose parts drop (only so many as pieces; the rest just crumble away)
+    if (k < 28) { const p = pieces.make(chunkSoup(q)); if (p) { p.life = 12; p.vel.set((Math.random() - 0.5) * 1.5 + v.x * 0.3, 0, (Math.random() - 0.5) * 1.5 + v.z * 0.3); p.w.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(1.5); } }
+    else { const e = debris[q.kind]; for (let j = 0; j < 4; j++) e.emit((q.x0 + q.x1) / 2, (q.y0 + q.y1) / 2, (q.z0 + q.z1) / 2, (Math.random() - 0.5) * 2, Math.random(), (Math.random() - 0.5) * 2, 1.5); }
+  });
+  const e = debris[b.kind];
+  for (let j = 0; j < (b.soft ? 26 : 16); j++) e.emit(c.x + (Math.random() - 0.5) * 0.6, c.y + (Math.random() - 0.5) * 0.6, c.z + (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 5 + v.x * 0.2, Math.random() * 3, (Math.random() - 0.5) * 5 + v.z * 0.2, b.soft ? 2.4 : 1.4);
+  if (b.soft || b.kind === 'cloth') sfx.tear(c); else sfx.chop(c);
+  const gone = [b, ...fall]; // anyone we control hooked onto something that just broke lets go
+  for (const f of fighters.values()) if (f.hook && isLocal(f) && gone.some((q) => inBox(f.hook.p, q, 0.3))) releaseHook(f, false);
+  (S.brkCuts ||= []).push([i, n, d]);
+  if (mine) { const m = { t: 'brk', i, n, d }; if (S.host) net.broadcast(m); else net.send(m); }
 }
 function dashSweep(f) {
   if (f.dashT <= 0) return;
@@ -936,7 +1017,7 @@ function fillBots() {
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
   useMap(S.map);
-  clearWorld(); fx.clear(); S.bambooCuts = [];
+  clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
   if (coop()) S.roster = S.roster.filter((r) => r.human);
   for (const r of S.roster) { r.k = 0; r.d = 0; r.streak = 0; r.pts = 0; r.carry = 0; r.team = coop() ? (r.human ? 'H' : 'R') : r.id; r.horde = !r.human && coop(); }
   fillBots();
@@ -1211,7 +1292,7 @@ function hostMsg(from, d) {
     const e = newRosterEntry(from, name, true, d.look); S.roster.push(e);
     if (S.phase === 'game') fillBots();
     syncFighters();
-    net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby', obj: S.phase === 'game' ? objForSend() : null, bamboo: S.bambooCuts || [] });
+    net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby', obj: S.phase === 'game' ? objForSend() : null, bamboo: S.bambooCuts || [], brk: S.brkCuts || [] });
     if (S.phase === 'game') { const f = fighters.get(from); f.respawnAt = !coop() && S.mode !== 'lbs' ? now() + 1 : Infinity; if (S.mode === 'horde' && !S.waveActive) f.respawnAt = now() + 1; for (const g of fighters.values()) if (g.alive) net.sendTo(from, { t: 'spawn', id: g.id, p: arr(g.pos), y: +g.yaw.toFixed(3) }); }
     toast(`${name} joined`);
     sendRoster(); if (S.online) net.dirSetRoom(roomInfo());
@@ -1220,6 +1301,7 @@ function hostMsg(from, d) {
   const f = fighters.get(from); if (!f) return;
   if (d.t === 'p' && Array.isArray(d.s)) applyState(f, d.s);
   else if (d.t === 'bamboo' && Number.isInteger(d.s) && typeof d.y === 'number') { cutBamboo(d.s, d.y); net.broadcast({ t: 'bamboo', s: d.s, y: d.y }, from); }
+  else if (d.t === 'brk' && Number.isInteger(d.i)) { smashChunk(d.i, Array.isArray(d.n) ? d.n : null, +d.d || 0); net.broadcast({ t: 'brk', i: d.i, n: d.n, d: d.d }, from); }
   else if (d.t === 'cut') {
     const v = fighters.get(d.v);
     if (v && v.alive && f.alive && Array.isArray(d.n) && Array.isArray(d.p)) {
@@ -1229,10 +1311,10 @@ function hostMsg(from, d) {
   } else if (d.t === 'fell') { if (applyKill(from, null, null, null, null, true)) net.broadcast({ t: 'kill', v: from, k: null, fell: 1 }, from); }
 }
 function clientMsg(d) {
-  if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); S.bambooCuts = []; if (d.obj) applyObj(d.obj); for (const [s, y] of d.bamboo || []) cutBamboo(s, y); syncFighters(); enterGame(); } else showLobby(); }
+  if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = []; if (d.obj) applyObj(d.obj); for (const [s, y] of d.bamboo || []) cutBamboo(s, y); for (const c of d.brk || []) smashChunk(c[0], c[1], c[2]); syncFighters(); enterGame(); } else showLobby(); }
   else if (d.t === 'full') { toast('That room is full.'); toMenu(); }
   else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
-  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; S.bambooCuts = []; syncFighters(); enterGame(); }
+  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; S.bambooCuts = []; S.brkCuts = []; syncFighters(); enterGame(); }
   else if (d.t === 's') {
     S.timeLeft = d.tl; S.wave = d.wv;
     for (const s of d.f) { const f = fighters.get(s[0]); if (f && f !== me) applyState(f, s.slice(1)); }
@@ -1244,6 +1326,7 @@ function clientMsg(d) {
   else if (d.t === 'banner') showBanner(d.s);
   else if (d.t === 'obj') applyObj(d.o);
   else if (d.t === 'bamboo') cutBamboo(d.s, d.y);
+  else if (d.t === 'brk') smashChunk(d.i, d.n, d.d);
   else if (d.t === 'feed') feed(d.s);
 }
 function netTick(dt) {
@@ -1584,7 +1667,7 @@ function tick(rdt, tt) {
     netTick(rdt);
   } else if (S.phase === 'game') netTick(rdt);
   const pdt = hitstop > 0 ? rdt * 0.08 : rdt; hitstop -= rdt;
-  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
+  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt); debris.paper.update(pdt); debris.wood.update(pdt); debris.straw.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
   shake *= Math.exp(-9 * rdt); punch *= Math.exp(-6 * rdt);
   updateCamera(rdt);
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it

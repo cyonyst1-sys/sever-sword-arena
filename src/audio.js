@@ -35,6 +35,7 @@ function tn(f0, f1, dur, vol, type) {
 export const sfx = {
   swish(sp, p) { const a = att(p, NEAR); nz(0.18, 600 + Math.min(sp, 40) * 40, 3200, 1.1, a * (0.08 + Math.min(0.2, sp / 150))); },
   slice(p) { const a = att(p); nz(0.25, 3200, 700, 0.8, 0.35 * a); tn(170, 45, 0.22, 0.4 * a); nz(0.35, 500, 120, 0.7, 0.3 * a, 'lowpass'); },
+  tear(p) { const a = att(p); nz(0.16, 5200, 1800, 2, 0.22 * a); nz(0.1, 2600, 900, 3, 0.12 * a); },
   chop(p) { const a = att(p); nz(0.12, 2200, 900, 2.5, 0.3 * a); tn(260, 140, 0.1, 0.18 * a, 'triangle'); nz(0.25, 700, 300, 1, 0.12 * a, 'lowpass'); },
   steel(p) { const a = att(p); [880, 1760, 2640].forEach((f, i) => tn(f, f, 0.25 - i * 0.05, 0.06 * a)); },
   clang(p) { const a = att(p); [523, 1307, 1931, 2780].forEach((f, i) => tn(f, f * 0.98, 0.55 - i * 0.08, 0.11 * a)); nz(0.06, 4000, 3000, 1, 0.3 * a); },
