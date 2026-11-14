@@ -6,7 +6,7 @@
 # tools/bump-version.sh runs this automatically, so the zips always match the latest build.
 cd "$(dirname "$0")/.." || exit 1
 set -e
-rm -rf dist
+mkdir -p dist && rm -rf dist/* # (empty it rather than delete it: still works while the folder is open in File Explorer)
 for target in web crazygames; do
   out="dist/$target"
   mkdir -p "$out"

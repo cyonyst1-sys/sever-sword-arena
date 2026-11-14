@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114034906';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114034906';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114034906';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261114034906';
-import * as net from './net.js?v=20261114034906';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114034906';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114034906';
-import { makeKillFx } from './killfx.js?v=20261114034906';
-import { makeGrapple } from './grapple.js?v=20261114034906';
-import { initShop } from './shop.js?v=20261114034906';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114034906';
-import { portal } from './portal.js?v=20261114034906';
+import { Arena, MAPS } from './arena.js?v=20261114040704';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114040704';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114040704';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114040704';
+import * as net from './net.js?v=20261114040704';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114040704';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114040704';
+import { makeKillFx } from './killfx.js?v=20261114040704';
+import { makeGrapple } from './grapple.js?v=20261114040704';
+import { initShop } from './shop.js?v=20261114040704';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114040704';
+import { portal } from './portal.js?v=20261114040704';
 
 // ---------- settings ----------
 const store = {
@@ -1486,6 +1486,7 @@ async function hostRoom() {
     S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip)];
     showLobby();
     net.dirStart(() => {}); net.dirSetRoom(roomInfo());
+    portal.showInvite(net.net.code); // (CrazyGames' invite button, while the room is open)
   } catch (e) { toast(e.message || 'Could not create a room.'); }
   $('hostBtn').disabled = false;
 }
@@ -1497,12 +1498,12 @@ async function joinRoom(code) {
   toast('Joining ' + code + '…');
   try {
     await net.join(code);
-    S.online = true; S.host = false; net.dirStop();
+    S.online = true; S.host = false; net.dirStop(); portal.showInvite(code);
     net.send({ t: 'hello', name: settings.name || 'Ronin', look: profile.equip });
   } catch (e) { toast(e.message || "Couldn't join that room."); }
 }
 function leaveRoom() {
-  if (S.online) { net.dirSetRoom(null); net.leave(); net.dirStop(); }
+  if (S.online) { net.dirSetRoom(null); net.leave(); net.dirStop(); } portal.hideInvite();
   S.online = false; S.host = true; S.myId = 'host';
 }
 function startSolo(mode) {
@@ -1563,10 +1564,18 @@ function showEnd(res) {
 }
 
 // invite links
-portal.inviteRoom().then((code) => {
+portal.inviteRoom().then(async (code) => {
   const room = net.cleanCode(code);
-  if (room.length === 5 && S.phase === 'menu') { show('mp'); $('joinCode').value = room; net.dirStart(renderRooms); toast('Enter your name on the home screen if you like, then press Join.'); }
+  if (room.length === 5 && S.phase === 'menu') {
+    show('mp'); $('joinCode').value = room; net.dirStart(renderRooms);
+    if (portal.active) joinRoom(room); // on CrazyGames an invite link drops you straight into the room
+    else toast('Enter your name on the home screen if you like, then press Join.');
+    return;
+  }
+  // CrazyGames "play with friends": the party leader goes straight into a hosted lobby
+  if (S.phase === 'menu' && await portal.instantMultiplayer()) { show('mp'); hostRoom(); }
 });
+portal.onMute((m) => setMuted(m)); // follow CrazyGames' sound toggle
 
 // ---------- HUD ----------
 let hudT = 0;

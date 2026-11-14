@@ -23,6 +23,18 @@ export const portal = {
     if (sdk) try { return sdk.game.inviteLink({ room: code }); } catch (e) { /* fall through */ }
     return location.origin + location.pathname + '?room=' + code;
   },
+  // CrazyGames' own invite button, shown while we're in a multiplayer room
+  showInvite(code) { call((s) => s.game.showInviteButton({ room: code })); },
+  hideInvite() { call((s) => s.game.hideInviteButton()); },
+  // a party leader started the game from CrazyGames' "play with friends": go straight to a hosted lobby
+  async instantMultiplayer() { await ready; try { return !!(sdk && sdk.game.isInstantMultiplayer); } catch (e) { return false; } },
+  // follow the portal's mute setting: fn(true) when muted, now and whenever it changes
+  onMute(fn) {
+    call((s) => {
+      fn(!!(s.game.settings && s.game.settings.muteAudio));
+      s.game.addSettingsChangeListener((st) => fn(!!(st && st.muteAudio)));
+    });
+  },
   // Room code a player was invited to, if any (portal invite param or ?room=).
   async inviteRoom() {
     await ready;

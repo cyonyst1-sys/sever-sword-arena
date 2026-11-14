@@ -4,7 +4,7 @@
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114034906';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114040704';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });

@@ -4,7 +4,7 @@ export function ensureAudio() {
   try {
     if (!AC) {
       AC = new (window.AudioContext || window.webkitAudioContext)();
-      MG = AC.createGain(); MG.gain.value = vol; MG.connect(AC.destination);
+      MG = AC.createGain(); MG.gain.value = muted ? 0 : vol; MG.connect(AC.destination);
       NB = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
       const d = NB.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     }
@@ -12,7 +12,9 @@ export function ensureAudio() {
   } catch (e) { AC = null; }
 }
 export function setListener(v) { listener = v; }
-export function setVolume(v) { vol = v; if (MG) MG.gain.value = v; }
+let muted = false; // (the portal can mute the game, e.g. CrazyGames' own sound toggle)
+export function setVolume(v) { vol = v; if (MG) MG.gain.value = muted ? 0 : v; }
+export function setMuted(m) { muted = !!m; if (MG) MG.gain.value = muted ? 0 : vol; }
 // Sounds fade with distance from the camera, falling off fast. Movement sounds (swings, jumps, landings,
 // dashes) only carry ~15 m; combat sounds (slices, clashes, hooks) carry ~32 m.
 const NEAR = 15, FAR = 32;
