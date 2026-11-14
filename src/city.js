@@ -4,7 +4,7 @@
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114030746';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114031250';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -14,6 +14,8 @@ export function buildCity(A, T) {
   A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -50;
   A.brk = { list: [], cells: new Map(), stamp: 0 };
   kindMats(T);
+  // red steel columns that cut like bamboo: a band (a bolted splice) every 2.6 m
+  M.bamboo = new THREE.MeshStandardMaterial({ map: T.canvasTex((g, s) => { const gr = g.createLinearGradient(0, 0, s, 0); gr.addColorStop(0, '#7e2a12'); gr.addColorStop(0.45, '#cf5a30'); gr.addColorStop(1, '#7a2810'); g.fillStyle = gr; g.fillRect(0, 0, s, s); g.fillStyle = '#3a1408'; g.fillRect(0, 0, s, s * 0.05); g.fillStyle = '#e0e0e0'; for (let i = 0; i < 6; i++) g.fillRect(i * s / 6 + 4, s * 0.012, 4, 4); }, 128), roughness: 0.5, metalness: 0.35 });
   A.setSky({ top: 0x2a68c8, mid: 0xa6cff0, bot: 0xe9f2fa, fog: 0xc3dbef, near: 120, far: 470, hemiSky: 0xe6f2ff, hemiGround: 0x56606e, hemi: 0.95, sunColor: 0xfff3dc, sun: 2.2, sunOff: new THREE.Vector3(40, 70, 25) });
   const concrete = M.concrete = std(0xffffff, { map: T.canvasTex((g, s) => { g.fillStyle = '#a3a19c'; g.fillRect(0, 0, s, s); T.speckle(g, s, T.rng(3), 3500, 0.22); g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, 0, s, 2); g.fillRect(0, 0, 2, s); }), roughness: 0.95 });
   const facade = M.facade = std(0xffffff, { map: T.canvasTex((g, s) => {
@@ -104,7 +106,7 @@ export function buildCity(A, T) {
     });
     for (const p of ps.slice(1)) p.parent = ps[0].i;
     A.curPlat = ps[0].i; const g = group();
-    for (const X of xs) for (const Z of zs) if (X === x0 || X === x1 || Z === z0 || Z === z1) chunk(A, g, 'steel', X - 0.25, X + 0.25, yb, top, Z - 0.25, Z + 0.25, true);
+    for (const X of [x0, x1]) for (const Z of [z0, z1]) { A.bamboo.push({ x: X, z: Z, r: 0.34, segs: [], inst: A.bamboo.length }); A.pillars.push({ x: X, z: Z, w: 0.7 }); } // only the corner columns: they rise into the sky, and you can hook them or slice them through (the top falls)
     for (const y of [...new Set(decks.map((k) => k[0]))]) { // beams only round the edge of the levels with a deck (the rest is just the outer columns)
       for (const Z of [z0, z1]) chunk(A, g, 'steel', x0 - 0.25, x1 + 0.25, y - 0.4, y, Z - 0.15, Z + 0.15, true);
       for (const X of [x0, x1]) chunk(A, g, 'steel', X - 0.15, X + 0.15, y - 0.4, y, z0 - 0.25, z1 + 0.25, true);
@@ -135,6 +137,7 @@ export function buildCity(A, T) {
     A.curPlat = undefined;
   }
 
+  A.plantStalks(-70, 160); // the frames' corner columns, from the clouds up into the sky
   finishBrk(A);
   A.onDrop = (p) => {
     for (const b of A.brk.list) if (b.alive && b.plat === p.i) kill(A, b);

@@ -1,8 +1,8 @@
 // Kill effects from the shop: what happens to someone you cut down. The body still splits along your
 // cut; the effect changes what sprays out, what the pieces leak, and what becomes of them.
 import * as THREE from 'three';
-import { Particles } from './slice.js?v=20261114030746';
-import { sfx } from './audio.js?v=20261114030746';
+import { Particles } from './slice.js?v=20261114031250';
+import { sfx } from './audio.js?v=20261114031250';
 
 const R = () => Math.random() - 0.5;
 
