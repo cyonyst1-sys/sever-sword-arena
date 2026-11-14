@@ -2,7 +2,7 @@
 // and turn each side into a tumbling rigid piece. Every original part is convex, so the cut face of a part
 // is the convex hull of the points where the plane crossed it.
 import * as THREE from 'three';
-import { MATS } from './fighter.js?v=20261113223348';
+import { MATS } from './fighter.js?v=20261113230036';
 
 let partSeq = 1;
 const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _nm = new THREE.Matrix3();

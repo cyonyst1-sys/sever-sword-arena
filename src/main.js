@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113223348';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113223348';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113223348';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113223348';
-import * as net from './net.js?v=20261113223348';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113223348';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113223348';
-import { makeKillFx } from './killfx.js?v=20261113223348';
-import { makeGrapple } from './grapple.js?v=20261113223348';
-import { initShop } from './shop.js?v=20261113223348';
+import { Arena, MAPS } from './arena.js?v=20261113230036';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113230036';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113230036';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113230036';
+import * as net from './net.js?v=20261113230036';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113230036';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113230036';
+import { makeKillFx } from './killfx.js?v=20261113230036';
+import { makeGrapple } from './grapple.js?v=20261113230036';
+import { initShop } from './shop.js?v=20261113230036';
 
 // ---------- settings ----------
 const store = {
@@ -390,6 +390,7 @@ function bladeSweep(f, dt) {
   for (let s = 0; s < arena.bamboo.length; s++) {
     const st = arena.bamboo[s];
     if (Math.hypot(st.x - f.pos.x, st.z - f.pos.z) > f.bladeLen + 1.8 || (st.cutCd || 0) > now()) continue;
+    if (f.hook && Math.hypot(f.hook.p.x - st.x, f.hook.p.z - st.z) < st.r + 0.35) continue; // never the one you're swinging from
     for (let k = 0; k <= 6; k++) {
       const t = 0.12 + 0.88 * k / 6;
       _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
