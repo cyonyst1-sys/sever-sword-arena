@@ -4,7 +4,7 @@
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114030206';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114030358';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -105,7 +105,7 @@ export function buildCity(A, T) {
     for (const p of ps.slice(1)) p.parent = ps[0].i;
     A.curPlat = ps[0].i; const g = group();
     for (const X of xs) for (const Z of zs) chunk(A, g, 'steel', X - 0.25, X + 0.25, yb, top, Z - 0.25, Z + 0.25, true);
-    for (let y = yb + 4; y <= top + 0.01; y += 4) {
+    for (const y of [...new Set(decks.map((k) => k[0]))]) { // beams only at the levels with a deck (the rest of the frame is just columns)
       for (const Z of zs) chunk(A, g, 'steel', x0 - 0.25, x1 + 0.25, y - 0.4, y, Z - 0.15, Z + 0.15, true);
       for (const X of xs) chunk(A, g, 'steel', X - 0.15, X + 0.15, y - 0.4, y, z0 - 0.25, z1 + 0.25, true);
     }
