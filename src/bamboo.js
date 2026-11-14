@@ -5,7 +5,7 @@
 // them (and come back a few seconds later for the next fighter).
 import * as THREE from 'three';
 import { deck, prop, stalk, drift, farRing } from './maps2.js';
-import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114161704';
+import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114162451';
 
 const TAU = Math.PI * 2, HALF = 30, TILE = 1.5;
 
@@ -126,17 +126,20 @@ export function buildBamboo(A, T) {
   finishBrk(A);
   A.onDrop = (p) => { for (const b of A.brk.list) if (b.alive && b.plat === p.i) kill(A, b); };
   A.finishNav();
-  // pad life: up while someone is on it; once they step or swing off, it drops into the mist; back after 6 s
-  const drop = (p, now) => { p.down = true; p.upAt = now + 6; p.fall = 0; p.fv = 0; const dead = new Set(p.boxes); A.boxes = A.boxes.filter((b) => !dead.has(b)); A.nodeMap.get('P' + p.i).gone = true; };
-  A.tickPads = (fs, now) => {
+  // spawn pads: hidden until someone spawns on one. It appears under them, drops into the mist 3 s later (whether
+  // they've left or not), and is free for the next spawn a few seconds after that.
+  const solid = (p, on) => { const dead = new Set(p.boxes); A.boxes = A.boxes.filter((b) => !dead.has(b)); if (on) A.boxes.push(...p.boxes); A.nodeMap.get('P' + p.i).gone = !on; };
+  for (const p of pads) { p.state = 'idle'; p.busy = false; p.meshes.forEach((m) => { m.visible = false; }); solid(p, false); }
+  A.tickPads = (fighters, now) => {
+    const fs = [...fighters]; // (an iterator can only be walked once)
     for (const p of pads) {
-      if (p.down) {
-        if (now > p.upAt) { p.down = false; p.used = false; p.leftAt = null; p.meshes.forEach((m, j) => { m.position.y = p.base[j]; m.visible = true; }); A.boxes.push(...p.boxes); A.nodeMap.get('P' + p.i).gone = false; }
-        continue;
-      }
-      let on = false;
-      for (const f of fs) if (f.alive && f.pos.y > p.y - 0.6 && f.pos.y < p.y + 3 && A.inPlat(p, f.pos, 0.3)) { on = true; break; }
-      if (on) { p.used = true; p.leftAt = null; } else if (p.used) { if (p.leftAt == null) p.leftAt = now; else if (now - p.leftAt > 0.4) drop(p, now); }
+      if (p.state === 'idle') {
+        for (const f of fs) if (f.alive && Math.abs(f.pos.y - p.y) < 0.3 && Math.hypot(f.vel.x, f.vel.z) < 1 && f.vel.y > -2 && A.inPlat(p, f.pos, 0)) { // someone has just spawned here
+          p.state = 'up'; p.busy = true; p.down = false; p.until = now + 3; p.fall = 0; p.fv = 0;
+          p.meshes.forEach((m, j) => { m.position.y = p.base[j]; m.visible = true; }); solid(p, true); break;
+        }
+      } else if (p.state === 'up' && now > p.until) { p.state = 'cool'; p.down = true; p.until = now + 3; solid(p, false); }
+      else if (p.state === 'cool' && now > p.until) { p.state = 'idle'; p.busy = false; p.down = false; p.meshes.forEach((m) => { m.visible = false; }); }
     }
   };
   A.anim.push((t, dt) => { dt = dt || 0; for (const p of pads) if (p.down && p.fall < 80) { p.fv += 30 * dt; p.fall += p.fv * dt; p.meshes.forEach((m, j) => { m.position.y = p.base[j] - p.fall; if (p.fall >= 80) m.visible = false; }); } });

@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114161704';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114161704';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114161704';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114161704';
-import * as net from './net.js?v=20261114161704';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114161704';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114161704';
-import { makeKillFx } from './killfx.js?v=20261114161704';
-import { makeGrapple } from './grapple.js?v=20261114161704';
-import { initShop } from './shop.js?v=20261114161704';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114161704';
-import { portal } from './portal.js?v=20261114161704';
+import { Arena, MAPS } from './arena.js?v=20261114162451';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114162451';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114162451';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114162451';
+import * as net from './net.js?v=20261114162451';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114162451';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114162451';
+import { makeKillFx } from './killfx.js?v=20261114162451';
+import { makeGrapple } from './grapple.js?v=20261114162451';
+import { initShop } from './shop.js?v=20261114162451';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114162451';
+import { portal } from './portal.js?v=20261114162451';
 
 // ---------- settings ----------
 const store = {
@@ -644,8 +644,8 @@ const deathAt = new THREE.Vector3(); let deathBy = '';
 function spawnList() {
   const kinds = { pagoda: ['spire', 'terrace'], colosseum: ['rim'], bamboo: ['pad'] }[arena.mapId]; // (Colosseum: its high rim)
   if (!kinds) return arena.spawns;
-  const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && !p.down && kinds.includes(p.kind); });
-  return outer.length ? outer : arena.spawns;
+  const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && !p.busy && kinds.includes(p.kind); });
+  return outer.length ? outer : arena.spawns.filter((sp) => !arena.plats[sp.plat]?.busy && arena.plats[sp.plat]?.kind !== 'pad'); // (every pad in use: the main platform)
 }
 function spawnPoint(f) {
   let best = null, bs = -Infinity;
@@ -833,7 +833,8 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     b.prog = { t: now(), d: dNow, tgt: t.plat };
   }
   const forced = b.forceCross > now();
-  if (b.hookCd2 > 0 || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
+  const onPad = arena.plats[b.plat]?.kind === 'pad'; // (Bamboo Fort: the spawn pad drops in 3 s, get off it now)
+  if ((b.hookCd2 > 0 && !onPad) || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
   // Headhunter: carrying heads near an altar? hook the nearest ring pillar and get pulled into the zone
   if (t.shrine && dNow < 48) {
     const ux = t.pos.x - b.pos.x, uz = t.pos.z - b.pos.z, ul = Math.hypot(ux, uz) || 1;
@@ -842,7 +843,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   }
   // enemy on another platform: swing over and land on it (pads are the fallback)
   const holding = b.stayUntil > now() && b.pos.distanceTo(t.pos) < 25; // a pause on landing only makes sense next to the enemy
-  if (t.plat != null && b.plat != null && (forced || !samePlace(b, t)) && !holding && Math.random() < dt * D.cross * 4) {
+  if (t.plat != null && b.plat != null && (forced || !samePlace(b, t)) && !holding && (onPad || Math.random() < dt * D.cross * 4)) {
     const ok = (p) => p && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -30 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 60; // (swinging down a long way is fine)
     let tp = arena.plats[t.plat];
     if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && grp(+q.name.slice(1)) !== grp(b.plat)); tp = n ? arena.plats[+n.name.slice(1)] : null; }

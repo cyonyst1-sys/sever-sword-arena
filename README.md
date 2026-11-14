@@ -107,7 +107,7 @@ A 60 x 60 m platform built entirely of bamboo, floating in jade mist:
 - A **wall of thin bamboo poles**, 20 m tall, rings the edge. You can see through the gaps, but they are too narrow to slip through: anyone who swings or dashes in cuts through the poles in the way (the tops drop), leaving a window that shows where they came in.
 - Inside, **high see-through walls** of thin bamboo poles like the outer wall (14 m between the huts, 10 m round the gazebo) and 18 thick **bamboo pillars** rising 40 m are spread through the fort to swing round and grapple (all cuttable).
 - Outside there's nothing but tall **bamboo pillars** to swing from (and cut).
-- **Spawn pads**: everyone starts on a small pad floating outside the fort and rushes the middle. Once you leave a pad it falls away into the mist, and it comes back 6 s later for the next fighter.
+- **Spawn pads**: there are no platforms outside the fort until someone spawns. A pad appears under each fighter as they spawn, 8 m up outside the wall, and drops into the mist 3 seconds later, whether they have left or not, so get moving (bots leave at once). Everyone rushes the middle.
 
 ### Glass Skyline
 
