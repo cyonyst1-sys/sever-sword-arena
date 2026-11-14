@@ -25,7 +25,7 @@ Everyone moves at full speed all the time, so there's no sprint.
 The crosshair glows cyan when the hook has something to grab. Swords that cross clash and knock both fighters back, so holding your blade in the way blocks a swing.
 
 ## Difficulty
-Bots come in eight levels: Easy, Normal, Hard, then Brutal, Nightmare, Shogun, Demon and Kami. Each step up winds strikes faster, attacks more often, dodges more of your swings, dash-cuts more, turns faster and grapples sooner. Solo coin rewards scale with it (up to 4x on Kami).
+Bots come in eight levels: Easy, Normal, Hard, then Brutal, Nightmare, Shogun, Demon and Kami. Each step up winds strikes faster, attacks more often, dodges more of your swings, dash-cuts more, turns faster and grapples sooner. Coin rewards scale with it (up to 4x on Kami), online too.
 
 ## Modes
 
@@ -88,7 +88,7 @@ Fights happen platform by platform: whoever lands on a platform fights whoever's
 
 ## Shop
 Cosmetics only: nothing in the shop changes reach, speed or damage. Open it from the home screen.
-- **Coins**: 10 for playing a match through (40 s or more), 5 per kill, 30 for a win, plus points (King of the Platform, Juggernaut, Headhunter) or waves (Horde). Solo matches pay 0.75x on Easy, 1.3x on Hard, and more on the harder levels (up to 4x on Kami). You start with 150. Coins and items are saved in your browser.
+- **Coins**: 10 for playing a match through (40 s or more), 5 per kill, 30 for a win, plus points (King of the Platform, Juggernaut, Headhunter) or waves (Horde). Any match with bots, solo or online, pays by the bot difficulty: 0.75x on Easy, 1.3x on Hard, and more on the harder levels (up to 4x on Kami). Playing online with friends adds +10% per friend (up to +30%). The end screen lists the bonuses you got. You start with 150. Coins and items are saved in your browser.
 - **Masks**: Shinobi Wrap, Iron Menpo, Tengu, Oni, Kitsune, Skull, Hannya, Void Mask.
 - **Headwear**: Hachimaki, Long Ponytail, Shinobi Hood, Demon Horns, Straw Kasa, Kabuto Helmet, Ember Crown.
 - **Outfits**: ten colour schemes for jacket, trim and trousers (or keep your team colour).

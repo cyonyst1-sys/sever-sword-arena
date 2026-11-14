@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113230036';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113230036';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113230036';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113230036';
-import * as net from './net.js?v=20261113230036';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113230036';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113230036';
-import { makeKillFx } from './killfx.js?v=20261113230036';
-import { makeGrapple } from './grapple.js?v=20261113230036';
-import { initShop } from './shop.js?v=20261113230036';
+import { Arena, MAPS } from './arena.js?v=20261113231000';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113231000';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113231000';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113231000';
+import * as net from './net.js?v=20261113231000';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113231000';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113231000';
+import { makeKillFx } from './killfx.js?v=20261113231000';
+import { makeGrapple } from './grapple.js?v=20261113231000';
+import { initShop } from './shop.js?v=20261113231000';
 
 // ---------- settings ----------
 const store = {
@@ -919,7 +919,7 @@ function fillBots() {
   const names = BOT_NAMES.filter((n) => !S.roster.some((r) => r.name === n));
   while (bots.length < want) { const e = newRosterEntry('b' + (++S.seq), names.shift() || 'Bot', false); S.roster.push(e); bots.push(e); }
 }
-function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
+function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
   useMap(S.map);
   clearWorld(); fx.clear(); S.bambooCuts = [];
@@ -929,7 +929,7 @@ function startMatch() {
   S.timeLeft = FFA_TIME; S.wave = 0; S.waveT = 3; S.waveActive = false; S.queue = 0; S.ended = false; S.lbsLive = false;
   initObjective();
   syncFighters();
-  net.broadcast({ t: 'start', mode: S.mode, map: S.map, list: S.roster });
+  net.broadcast({ t: 'start', mode: S.mode, map: S.map, diff: S.diff, list: S.roster });
   enterGame();
   for (const f of fighters.values()) if (!coop() || !f.isBot) hostSpawn(f);
   if (S.mode === 'jugg') { const all = [...fighters.values()]; setJugg(all[(Math.random() * all.length) | 0].id); }
@@ -1207,8 +1207,8 @@ function hostMsg(from, d) {
 function clientMsg(d) {
   if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); S.bambooCuts = []; if (d.obj) applyObj(d.obj); for (const [s, y] of d.bamboo || []) cutBamboo(s, y); syncFighters(); enterGame(); } else showLobby(); }
   else if (d.t === 'full') { toast('That room is full.'); toMenu(); }
-  else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
-  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; S.bambooCuts = []; syncFighters(); enterGame(); }
+  else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
+  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; S.bambooCuts = []; syncFighters(); enterGame(); }
   else if (d.t === 's') {
     S.timeLeft = d.tl; S.wave = d.wv;
     for (const s of d.f) { const f = fighters.get(s[0]); if (f && f !== me) applyState(f, s.slice(1)); }
@@ -1382,14 +1382,19 @@ function showEnd(res) {
   $('endTable').innerHTML = `<tr><th></th><th>Name</th>${pts ? `<th>${res.mode === 'hunt' ? 'Heads' : 'Points'}</th>` : ''}<th>Kills</th><th>Deaths</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}</td>${pts ? `<td>${r.pts || 0}</td>` : ''}<td>${r.k}</td><td>${r.d}</td></tr>`).join('');
   // coins: for playing a real match (not quitting straight out), kills, points or waves, and winning
   const mine = res.list.find((r) => r.id === S.myId), top = res.mode === 'lbs' ? res.winner : list[0] && list[0].id;
-  let coins = 0;
+  let coins = 0; const bonus = [];
   if (mine && now() - (S.matchStart || now()) > 40) {
     coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0);
     if (res.mode !== 'horde' && top === S.myId && res.list.length > 1) coins += 30;
-    if (!S.online) coins = Math.round(coins * [0.75, 1, 1.3, 1.6, 2, 2.5, 3, 4][S.diff ?? 1]);
+    // bonuses: the bot difficulty (whenever there were bots, solo or online), and +10% per friend in the match (up to +30%)
+    const bots = res.mode === 'horde' || res.list.some((r) => !r.human), friends = Math.min(3, res.list.filter((r) => r.human).length - 1);
+    const dm = bots ? [0.75, 1, 1.3, 1.6, 2, 2.5, 3, 4][S.diff ?? 1] : 1, fm = 1 + 0.1 * Math.max(0, friends);
+    coins = Math.round(coins * dm * fm);
+    if (dm !== 1) bonus.push(`${['Easy', 'Normal', 'Hard', 'Brutal', 'Nightmare', 'Shogun', 'Demon', 'Kami'][S.diff ?? 1]} x${dm}`);
+    if (friends > 0) bonus.push(`${friends} friend${friends > 1 ? 's' : ''} +${friends * 10}%`);
     addCoins(coins);
   }
-  $('endCoins').innerHTML = coins ? `<b>+${coins} coins</b> &middot; you have ${profile.coins}` : 'Play a full match to earn coins';
+  $('endCoins').innerHTML = coins ? `<b>+${coins} coins</b>${bonus.length ? ' (' + bonus.join(', ') + ')' : ''} &middot; you have ${profile.coins}` : 'Play a full match to earn coins';
   updateCoinBadge();
   $('againBtn').classList.toggle('hidden', S.online && !S.host);
   $('againBtn').textContent = S.online ? 'Back to lobby' : 'Play again';
