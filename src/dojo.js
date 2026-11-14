@@ -6,7 +6,7 @@
 // Vertical: a four-tier dojo tower with stairs spiralling up it, two-storey houses, rooftop bridges, watchtowers
 // and floating shrine islands around the town.
 import * as THREE from 'three';
-import { regMat } from './fighter.js?v=20261114030358';
+import { regMat } from './fighter.js?v=20261114030746';
 import { deck, prop, bridge, stalk, drift, farRing } from './maps2.js';
 
 const TAU = Math.PI * 2, CELL = 6;

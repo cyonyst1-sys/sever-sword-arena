@@ -101,8 +101,9 @@ A misty-morning town you can **cut apart**. Shoji walls, wooden posts, a straw b
 
 Skyscrapers above the clouds, made to be swung between and smashed through:
 
+- All seven buildings stand close together, about 9 to 13 m apart: room to swing between them, and to smash straight from one into the next.
 - **Four glass towers**, walled in glass all the way up. Every pane **shatters** into tumbling shards when you swing, run or dash into it, or cut it. Inside, there's a floor every 6 m with stairs zig-zagging up, office partitions to cut through, and desks. On the roofs are water towers, a helipad and a radio mast to hook.
-- **Three half-built buildings**: nothing but a red **steel frame** (columns every ~6 m, beams every 4 m) with a concrete deck every couple of floors. The steel can't be cut. Swing from it, run along the beams, or stand on them. Each deck has drywall sheets, pallets of crates and partitions going up, and the lowest floors have their first windows in.
+- **Three half-built buildings**: nothing but a red **steel frame** (columns round the outside, beams round the edge of each deck) with a concrete deck every couple of floors. The steel can't be cut. Swing from it, run along the beams, or stand on them. Each deck has drywall sheets, pallets of crates and partitions going up, and the lowest floors have their first windows in.
 - A **tower crane** on the biggest frame, with a long jib you can run along and a load of crates hanging off its hook.
 - Bots swing from building to building and crash through the glass to get to you.
 

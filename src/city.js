@@ -4,7 +4,7 @@
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114030358';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114030746';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -87,10 +87,10 @@ export function buildCity(A, T) {
     A.curPlat = undefined;
     return floors;
   };
-  tower(-36, -38, 16, 18, -4, 7, { water: true });
-  tower(36, -40, 18, 16, 2, 6, { pad: true });
-  tower(-34, 42, 18, 18, 4, 9, { mast: true });
-  tower(38, 40, 16, 16, -6, 5, { water: true });
+  tower(-13, -30, 16, 18, -4, 7, { water: true });
+  tower(14, -30, 18, 16, 2, 6, { pad: true });
+  tower(-14, 31, 18, 18, 4, 9, { mast: true });
+  tower(13, 30, 16, 16, -6, 5, { water: true });
 
   // ---------- half-built buildings: a steel frame (columns every ~6 m, beams every 4 m) and a deck every couple of floors ----------
   const frame = (x, z, w, d, yb, top, decks, o = {}) => {
@@ -104,10 +104,10 @@ export function buildCity(A, T) {
     });
     for (const p of ps.slice(1)) p.parent = ps[0].i;
     A.curPlat = ps[0].i; const g = group();
-    for (const X of xs) for (const Z of zs) chunk(A, g, 'steel', X - 0.25, X + 0.25, yb, top, Z - 0.25, Z + 0.25, true);
-    for (const y of [...new Set(decks.map((k) => k[0]))]) { // beams only at the levels with a deck (the rest of the frame is just columns)
-      for (const Z of zs) chunk(A, g, 'steel', x0 - 0.25, x1 + 0.25, y - 0.4, y, Z - 0.15, Z + 0.15, true);
-      for (const X of xs) chunk(A, g, 'steel', X - 0.15, X + 0.15, y - 0.4, y, z0 - 0.25, z1 + 0.25, true);
+    for (const X of xs) for (const Z of zs) if (X === x0 || X === x1 || Z === z0 || Z === z1) chunk(A, g, 'steel', X - 0.25, X + 0.25, yb, top, Z - 0.25, Z + 0.25, true);
+    for (const y of [...new Set(decks.map((k) => k[0]))]) { // beams only round the edge of the levels with a deck (the rest is just the outer columns)
+      for (const Z of [z0, z1]) chunk(A, g, 'steel', x0 - 0.25, x1 + 0.25, y - 0.4, y, Z - 0.15, Z + 0.15, true);
+      for (const X of [x0, x1]) chunk(A, g, 'steel', X - 0.15, X + 0.15, y - 0.4, y, z0 - 0.25, z1 + 0.25, true);
     }
     ps.forEach((p, k) => { // what's lying around on each deck: drywall sheets, pallets of crates, a partition going up
       A.curPlat = p.i; const hw = p.w / 2, hd = p.d / 2;
@@ -120,18 +120,18 @@ export function buildCity(A, T) {
     return ps;
   };
   const c1 = frame(0, 0, 24, 24, -10, 52, [[-2, 0, 1, 0, 1], [6, 0, 1, 0, 0.5], [14, 0.5, 1, 0, 1], [22, 0, 1, 0, 0.34], [22, 0, 1, 0.66, 1], [30, 0, 1, 0.5, 1], [38, 0, 0.5, 0, 1], [46, 0.5, 1, 0, 0.5]], { glass: [[-2, 5.6]] });
-  frame(70, -6, 18, 18, -4, 40, [[0, 0, 1, 0, 1], [8, 0, 0.5, 0, 1], [16, 0, 1, 0.34, 0.67], [24, 0.5, 1, 0, 1], [32, 0, 1, 0, 0.5]], { glass: [[0, 7.6]] });
-  frame(-70, 6, 18, 18, -8, 28, [[-4, 0, 1, 0, 1], [4, 0.5, 1, 0, 1], [12, 0, 1, 0, 0.5], [20, 0, 0.5, 0.5, 1]]);
+  frame(31, 0, 18, 18, -4, 40, [[0, 0, 1, 0, 1], [8, 0, 0.5, 0, 1], [16, 0, 1, 0.34, 0.67], [24, 0.5, 1, 0, 1], [32, 0, 1, 0, 0.5]], { glass: [[0, 7.6]] });
+  frame(-31, 0, 18, 18, -8, 28, [[-4, 0, 1, 0, 1], [4, 0.5, 1, 0, 1], [12, 0, 1, 0, 0.5], [20, 0, 0.5, 0.5, 1]]);
   { // a tower crane on the big frame: mast, a long jib you can run along, a counterweight, a cab
     const p = c1[c1.length - 1]; A.curPlat = p.i; const g = group();
-    chunk(A, g, 'steel', 5.4, 6.6, 52, 80, 5.4, 6.6, true);
-    chunk(A, g, 'steel', -22, 46, 78.4, 79.4, 5.5, 6.5, true);
-    chunk(A, g, 'steel', -21, -16, 75.4, 78.4, 4.8, 7.2, true);
-    const cab = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2, 2.2), yellow); prop(A, p, cab, 6, 77, 8.2);
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 22, 4), dark); prop(A, p, cable, 34, 67.5, 6);
-    const hook = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1, 1.2), red); prop(A, p, hook, 34, 56.4, 6);
-    stack(A, 34, 6, 53.4, 2, 2, 2, 1, 1, 1, 'wood', false); // a load of crates hanging off the hook (cut it apart)
-    hookBox(p, 33.2, 34.8, 55.9, 57, 5.4, 6.6);
+    chunk(A, g, 'steel', 5.4, 6.6, 46, 80, -6.6, -5.4, true); // (stands on the top deck)
+    chunk(A, g, 'steel', -22, 46, 78.4, 79.4, -6.5, -5.5, true);
+    chunk(A, g, 'steel', -21, -16, 75.4, 78.4, -7.2, -4.8, true);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2, 2.2), yellow); prop(A, p, cab, 6, 77, -3.8);
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 22, 4), dark); prop(A, p, cable, 34, 67.5, -6);
+    const hook = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1, 1.2), red); prop(A, p, hook, 34, 56.4, -6);
+    stack(A, 34, -6, 53.4, 2, 2, 2, 1, 1, 1, 'wood', false); // a load of crates hanging off the hook (cut it apart)
+    hookBox(p, 33.2, 34.8, 55.9, 57, -6.6, -5.4);
     A.curPlat = undefined;
   }
 
