@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114040704';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114040704';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114040704';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114040704';
-import * as net from './net.js?v=20261114040704';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114040704';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114040704';
-import { makeKillFx } from './killfx.js?v=20261114040704';
-import { makeGrapple } from './grapple.js?v=20261114040704';
-import { initShop } from './shop.js?v=20261114040704';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114040704';
-import { portal } from './portal.js?v=20261114040704';
+import { Arena, MAPS } from './arena.js?v=20261114041247';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114041247';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114041247';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114041247';
+import * as net from './net.js?v=20261114041247';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114041247';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114041247';
+import { makeKillFx } from './killfx.js?v=20261114041247';
+import { makeGrapple } from './grapple.js?v=20261114041247';
+import { initShop } from './shop.js?v=20261114041247';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114041247';
+import { portal } from './portal.js?v=20261114041247';
 
 // ---------- settings ----------
 const store = {
@@ -1083,7 +1083,7 @@ function startMatch() {
   if (S.mode === 'jugg') { const all = [...fighters.values()]; setJugg(all[(Math.random() * all.length) | 0].id); }
   S.lbsLive = true;
   sendObj();
-  if (S.online) net.dirSetRoom(roomInfo());
+  if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); }
 }
 function checkEnd() {
   if (S.ended || S.phase !== 'game') return;
@@ -1334,7 +1334,7 @@ net.onNet({
     if (S.phase === 'game' || S.phase === 'end') fillBots();
     syncFighters();
     for (const f of fighters.values()) if (!f.alive && f.isBot && !coop() && S.mode !== 'lbs' && f.respawnAt === Infinity && S.phase === 'game') f.respawnAt = now() + 1;
-    sendRoster(); if (S.online) net.dirSetRoom(roomInfo());
+    sendRoster(); if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); }
   },
   closed() { toast('The host closed the room.'); toMenu(); },
 });
@@ -1348,7 +1348,7 @@ function hostMsg(from, d) {
     net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby', obj: S.phase === 'game' ? objForSend() : null, bamboo: S.bambooCuts || [], brk: S.brkCuts || [] });
     if (S.phase === 'game') { const f = fighters.get(from); f.respawnAt = !coop() && S.mode !== 'lbs' ? now() + 1 : Infinity; if (S.mode === 'horde' && !S.waveActive) f.respawnAt = now() + 1; for (const g of fighters.values()) if (g.alive) net.sendTo(from, { t: 'spawn', id: g.id, p: arr(g.pos), y: +g.yaw.toFixed(3) }); }
     toast(`${name} joined`);
-    sendRoster(); if (S.online) net.dirSetRoom(roomInfo());
+    sendRoster(); if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); }
     return;
   }
   const f = fighters.get(from); if (!f) return;
@@ -1390,6 +1390,8 @@ function netTick(dt) {
     net.broadcast({ t: 's', f, tl: Math.round(S.timeLeft), wv: S.wave });
   } else if (me) net.send({ t: 'p', s: myState(me) });
 }
+// CrazyGames room data: our room, joinable while the host still has space (a guest can always invite)
+function portalRoom() { if (!S.online) return; const n = S.roster.filter((r) => r.human).length, max = S.mode === 'horde' ? 4 : MAX_PLAYERS; portal.room(S.host ? net.net.code : S.roomCode, S.host ? n < max : true); }
 function roomInfo() { return S.pub ? { code: net.net.code, name: settings.name || 'Ronin', game: S.mode, map: S.map, n: S.roster.filter((r) => r.human).length, max: S.mode === 'horde' ? 4 : MAX_PLAYERS, st: S.phase === 'game' ? 'playing' : 'lobby' } : null; }
 
 // ---------- UI ----------
@@ -1449,7 +1451,7 @@ $('copyLink').onclick = () => {
   const link = portal.inviteLink(net.net.code);
   (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast('Invite link copied'), () => toast(link));
 };
-for (const id of ['lobbyModeSel', 'lobbyMap', 'lobbyBots', 'lobbyDiff']) $(id).onchange = () => { if (!S.host) return; S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; for (const r of S.roster) r.team = coop() ? 'H' : r.id; sendRoster(); if (S.online) net.dirSetRoom(roomInfo()); };
+for (const id of ['lobbyModeSel', 'lobbyMap', 'lobbyBots', 'lobbyDiff']) $(id).onchange = () => { if (!S.host) return; S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; for (const r of S.roster) r.team = coop() ? 'H' : r.id; sendRoster(); if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); } };
 
 function renderRooms(rooms) {
   const el = $('rooms');
@@ -1486,7 +1488,7 @@ async function hostRoom() {
     S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip)];
     showLobby();
     net.dirStart(() => {}); net.dirSetRoom(roomInfo());
-    portal.showInvite(net.net.code); // (CrazyGames' invite button, while the room is open)
+    portalRoom(); // (tells CrazyGames we're in a joinable room: its Invite friends button works)
   } catch (e) { toast(e.message || 'Could not create a room.'); }
   $('hostBtn').disabled = false;
 }
@@ -1498,12 +1500,12 @@ async function joinRoom(code) {
   toast('Joining ' + code + '…');
   try {
     await net.join(code);
-    S.online = true; S.host = false; net.dirStop(); portal.showInvite(code);
+    S.online = true; S.host = false; S.roomCode = code; net.dirStop(); portal.room(code, true);
     net.send({ t: 'hello', name: settings.name || 'Ronin', look: profile.equip });
   } catch (e) { toast(e.message || "Couldn't join that room."); }
 }
 function leaveRoom() {
-  if (S.online) { net.dirSetRoom(null); net.leave(); net.dirStop(); } portal.hideInvite();
+  if (S.online) { net.dirSetRoom(null); net.leave(); net.dirStop(); portal.leftRoom(); }
   S.online = false; S.host = true; S.myId = 'host';
 }
 function startSolo(mode) {
@@ -1576,6 +1578,8 @@ portal.inviteRoom().then(async (code) => {
   if (S.phase === 'menu' && await portal.instantMultiplayer()) { show('mp'); hostRoom(); }
 });
 portal.onMute((m) => setMuted(m)); // follow CrazyGames' sound toggle
+// a friend's invite accepted while already playing: leave whatever we're in and join their room
+portal.onJoinRoom((code) => { const room = net.cleanCode(code); if (room.length !== 5) return; if (S.online) leaveRoom(); toMenu(); show('mp'); joinRoom(room); });
 
 // ---------- HUD ----------
 let hudT = 0;

@@ -23,9 +23,12 @@ export const portal = {
     if (sdk) try { return sdk.game.inviteLink({ room: code }); } catch (e) { /* fall through */ }
     return location.origin + location.pathname + '?room=' + code;
   },
-  // CrazyGames' own invite button, shown while we're in a multiplayer room
-  showInvite(code) { call((s) => s.game.showInviteButton({ room: code })); },
-  hideInvite() { call((s) => s.game.hideInviteButton()); },
+  // CrazyGames room data: tell it which room we're in and whether friends can still join it (this drives its
+  // "Invite friends" button), and when we leave
+  room(code, joinable) { call((s) => s.game.updateRoom({ roomId: code, isJoinable: !!joinable, inviteParams: { room: code } })); },
+  leftRoom() { call((s) => s.game.leftRoom()); },
+  // a friend's invite accepted while already in the game: fn(room code)
+  onJoinRoom(fn) { call((s) => s.game.addJoinRoomListener((p) => { const r = p && p.room; if (r) fn(String(r)); })); },
   // a party leader started the game from CrazyGames' "play with friends": go straight to a hosted lobby
   async instantMultiplayer() { await ready; try { return !!(sdk && sdk.game.isInstantMultiplayer); } catch (e) { return false; } },
   // follow the portal's mute setting: fn(true) when muted, now and whenever it changes
