@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js';
-import { Fighter, PALETTE, GUARD } from './fighter.js';
-import { bakeMeshes, Pieces, Particles } from './slice.js';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js';
-import * as net from './net.js';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js';
-import { makeKillFx } from './killfx.js';
-import { makeGrapple } from './grapple.js';
-import { initShop } from './shop.js';
+import { Arena, MAPS } from './arena.js?v=20261113200653';
+import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113200653';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113200653';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113200653';
+import * as net from './net.js?v=20261113200653';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113200653';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113200653';
+import { makeKillFx } from './killfx.js?v=20261113200653';
+import { makeGrapple } from './grapple.js?v=20261113200653';
+import { initShop } from './shop.js?v=20261113200653';
 
 // ---------- settings ----------
 const store = {

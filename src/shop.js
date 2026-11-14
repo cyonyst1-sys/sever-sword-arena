@@ -1,10 +1,10 @@
 // The shop screen: browse by category, try things on a turning, swinging preview fighter, buy and equip.
 import * as THREE from 'three';
-import { Fighter, PALETTE } from './fighter.js';
-import { Particles, Pieces, bakeMeshes } from './slice.js';
-import { makeKillFx } from './killfx.js';
-import { makeGrapple } from './grapple.js';
-import { CATEGORIES, CATALOG, item, profile, owns, buy, equip } from './cosmetics.js';
+import { Fighter, PALETTE } from './fighter.js?v=20261113200653';
+import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261113200653';
+import { makeKillFx } from './killfx.js?v=20261113200653';
+import { makeGrapple } from './grapple.js?v=20261113200653';
+import { CATEGORIES, CATALOG, item, profile, owns, buy, equip } from './cosmetics.js?v=20261113200653';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');

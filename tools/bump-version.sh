@@ -7,6 +7,8 @@
 cd "$(dirname "$0")/.." || exit 1
 v=$(date +%Y%m%d%H%M%S)
 sed -i -E "s/\?v=[0-9]+/?v=${v}/g" index.html
+# the modules import each other with the same ?v=, so a new build never mixes in a cached old module
+sed -i -E "s#(from '\./[a-z]+\.js)(\?v=[0-9]+)?'#\1?v=${v}'#g" src/*.js
 sed -i -E "s/(<meta name=\"build\" content=\")[0-9]+(\">)/\1${v}\2/" index.html
 printf '{ "v": "%s" }\n' "$v" > version.json
 echo "index.html now uses ?v=${v} (version.json updated)"
