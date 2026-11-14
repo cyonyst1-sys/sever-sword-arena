@@ -1,7 +1,8 @@
 // Peer-to-peer rooms using PeerJS (loaded as the global `Peer` from the CDN).
 // The host's browser runs the match; players connect straight to it with a room code.
 // PeerJS's free public server is only used to introduce browsers to each other.
-const PREFIX = 'sever-v1-';
+// test copies (localhost) get their own rooms, so they never show up for real players
+const PREFIX = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) ? 'sever-dev-' : 'sever-v1-';
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid typos
 
 export const net = { mode: null, peer: null, conns: new Map(), host: null, code: null, myId: null };

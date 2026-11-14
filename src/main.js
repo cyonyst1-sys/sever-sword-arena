@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114183950';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114183950';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114183950';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114183950';
-import * as net from './net.js?v=20261114183950';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114183950';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114183950';
-import { makeKillFx } from './killfx.js?v=20261114183950';
-import { makeGrapple } from './grapple.js?v=20261114183950';
-import { initShop } from './shop.js?v=20261114183950';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114183950';
-import { portal } from './portal.js?v=20261114183950';
+import { Arena, MAPS } from './arena.js?v=20261114185137';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114185137';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114185137';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114185137';
+import * as net from './net.js?v=20261114185137';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114185137';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114185137';
+import { makeKillFx } from './killfx.js?v=20261114185137';
+import { makeGrapple } from './grapple.js?v=20261114185137';
+import { initShop } from './shop.js?v=20261114185137';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114185137';
+import { portal } from './portal.js?v=20261114185137';
 
 // ---------- settings ----------
 const store = {
@@ -1835,9 +1835,9 @@ function updateCamera(dt) {
 }
 
 // ---------- main loop ----------
-let last = performance.now();
+let last = performance.now(), lastRaf = last, bgTick = false;
 function frame(t) {
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frame); lastRaf = performance.now();
   const rdt = Math.min(0.05, Math.max(0.0005, (t - last) / 1000)); last = t;
   tick(rdt, t / 1000);
 }
@@ -1898,7 +1898,7 @@ function tick(rdt, tt) {
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it
   updateHud(rdt);
   $('vignette').style.boxShadow = me && !me.alive ? 'inset 0 0 200px rgba(140,0,0,.55)' : 'inset 0 0 160px rgba(160,0,0,0)';
-  renderer.render(scene, camera);
+  if (!bgTick) renderer.render(scene, camera); // (a hidden host still runs the match, it just doesn't draw)
 }
 show('home');
 setVolume(settings.vol);
@@ -1906,6 +1906,12 @@ $('clickPlay').onclick = () => { ensureAudio(); lockPointer(); };
 $('loading').remove();
 portal.loadingStop();
 requestAnimationFrame(frame);
+// A hidden (or covered) tab gets no animation frames, so a host who tabs away would freeze or slow the match for everyone.
+// A worker's timer keeps ticking in the background: while hidden and hosting online, it drives the game instead.
+try {
+  const w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 16)'], { type: 'text/javascript' })));
+  w.onmessage = () => { const t = performance.now(); if (t - lastRaf < 100 || !S.online || !S.host) return; const rdt = Math.min(0.05, Math.max(0.0005, (t - last) / 1000)); last = t; bgTick = true; tick(rdt, t / 1000); bgTick = false; };
+} catch (e) { /* no workers: hidden hosts fall back to the browser's throttled timers */ }
 // handy for debugging in the console
 window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, renderer, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
 
