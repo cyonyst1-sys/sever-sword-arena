@@ -98,6 +98,7 @@ Cosmetics only: nothing in the shop changes reach, speed or damage. Open it from
 
 ### Pagoda Falls
 Sunset over purple mountains, pines, a distant waterfall and a sea of warm cloud, with cherry petals drifting through.
+- **Everyone spawns on the outer ring** (the rock spires and terraces) and rushes the centre.
 - A **three-tier pagoda** in the middle: walk around each deck's walled tier, then swing or dash up to the next. The tiled eaves flare out under each deck.
 - A ring of **stone islands** (with torii gates and stone lanterns), three of them joined to the pagoda by **rope bridges**.
 - Further out, tall **rock spires** with small tops and broad, low **terraces** with stone cover; two terraces are bridged in.

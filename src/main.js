@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113220404';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113220404';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113220404';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113220404';
-import * as net from './net.js?v=20261113220404';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113220404';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113220404';
-import { makeKillFx } from './killfx.js?v=20261113220404';
-import { makeGrapple } from './grapple.js?v=20261113220404';
-import { initShop } from './shop.js?v=20261113220404';
+import { Arena, MAPS } from './arena.js?v=20261113222934';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113222934';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113222934';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113222934';
+import * as net from './net.js?v=20261113222934';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113222934';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113222934';
+import { makeKillFx } from './killfx.js?v=20261113222934';
+import { makeGrapple } from './grapple.js?v=20261113222934';
+import { initShop } from './shop.js?v=20261113222934';
 
 // ---------- settings ----------
 const store = {
@@ -517,9 +517,15 @@ function applyKill(vId, kId, n, pt, imp, fell) {
 const deathAt = new THREE.Vector3(); let deathBy = '';
 
 // ---------- spawning ----------
+// Pagoda Falls: everyone comes in on the outer ring (rock spires and terraces) and rushes the pagoda
+function spawnList() {
+  if (arena.mapId !== 'pagoda') return arena.spawns;
+  const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && (p.kind === 'spire' || p.kind === 'terrace'); });
+  return outer.length ? outer : arena.spawns;
+}
 function spawnPoint(f) {
   let best = null, bs = -Infinity;
-  for (const sp of arena.spawns) {
+  for (const sp of spawnList()) {
     if (arena.plats[sp.plat]?.gone) continue; // that platform has fallen
     let md = 60;
     for (const g of fighters.values()) if (g !== f && g.alive && isEnemy(f, g)) md = Math.min(md, g.pos.distanceTo(sp));
@@ -542,6 +548,7 @@ function spawn(f, p, yaw) {
 function hostSpawn(f) {
   const p = spawnPoint(f), yaw = Math.atan2(p.x, p.z); // face the centre
   spawn(f, p, yaw);
+  if (arena.mapId === 'pagoda') f.rushUntil = now() + 12; // bots charge the centre after coming in
   net.broadcast({ t: 'spawn', id: f.id, p: arr(p), y: +yaw.toFixed(3) });
 }
 
@@ -667,7 +674,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   // enemy on another platform: swing over and land on it (pads are the fallback)
   const holding = b.stayUntil > now() && b.pos.distanceTo(t.pos) < 25; // a pause on landing only makes sense next to the enemy
   if (t.plat != null && b.plat != null && (forced || !samePlace(b, t)) && !holding && Math.random() < dt * D.cross * 4) {
-    const ok = (p) => p && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -16 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 60;
+    const ok = (p) => p && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -30 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 60; // (swinging down a long way is fine)
     let tp = arena.plats[t.plat];
     if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && grp(+q.name.slice(1)) !== grp(b.plat)); tp = n ? arena.plats[+n.name.slice(1)] : null; }
     // a short gap: dash straight across (when the predicted arc lands on it), mixed in with swinging
@@ -689,7 +696,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     // no route planned (islands far apart): swing to any reachable surface that gets us closer, and go from there
     if (arena.comp) {
       const dT = b.pos.distanceTo(t.pos), mine = arena.comp[b.plat];
-      const opts = arena.plats.filter((q) => !q.gone && q.i !== b.plat && (forced || arena.comp[q.i] !== mine) && rimDist(q, b.pos) < 40 && q.y - b.pos.y < 18 && q.y - b.pos.y > -16 && Math.hypot(q.x - t.pos.x, q.z - t.pos.z) + Math.abs(q.y - t.pos.y) < dT - 6)
+      const opts = arena.plats.filter((q) => !q.gone && q.i !== b.plat && (forced || arena.comp[q.i] !== mine) && rimDist(q, b.pos) < 40 && q.y - b.pos.y < 18 && q.y - b.pos.y > -30 && Math.hypot(q.x - t.pos.x, q.z - t.pos.z) + Math.abs(q.y - t.pos.y) < dT - 6)
         .sort((u, v) => rimDist(u, b.pos) - rimDist(v, b.pos)).slice(0, 3);
       for (const q of opts) if (botSwingTo(b, q, 'cross')) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
     }
@@ -1113,6 +1120,11 @@ function botObjective(b) {
     }
     let k = null, kd = 35; for (const q of o.tokens) { const d = Math.hypot(q[1] - b.pos.x, q[3] - b.pos.z) + Math.abs(q[2] - b.pos.y) * 2; if (d < kd) { kd = d; k = q; } }
     if (k) { const pos = new THREE.Vector3(k[1], k[2] - 0.5, k[3]); return mk(pos, platUnder(pos)?.i ?? null, 7); }
+  }
+  // Pagoda Falls: just spawned on the outer ring? rush the pagoda (fighting whoever gets in the way)
+  if (arena.mapId === 'pagoda' && b.rushUntil > now()) {
+    const d0 = arena.plats[0], n = arena.nodeMap.get('P0');
+    if (d0 && !d0.gone && b.plat !== 0) return mk(n.p.clone(), 0, 10);
   }
   return null;
 }
