@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113234644';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113234644';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113234644';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113234644';
-import * as net from './net.js?v=20261113234644';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113234644';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113234644';
-import { makeKillFx } from './killfx.js?v=20261113234644';
-import { makeGrapple } from './grapple.js?v=20261113234644';
-import { initShop } from './shop.js?v=20261113234644';
+import { Arena, MAPS } from './arena.js?v=20261113235008';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113235008';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113235008';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113235008';
+import * as net from './net.js?v=20261113235008';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113235008';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113235008';
+import { makeKillFx } from './killfx.js?v=20261113235008';
+import { makeGrapple } from './grapple.js?v=20261113235008';
+import { initShop } from './shop.js?v=20261113235008';
 
 // ---------- settings ----------
 const store = {
