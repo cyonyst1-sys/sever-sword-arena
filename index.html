@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261114131920">
+<meta name="build" content="20261114142624">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -84,6 +84,8 @@ window.severVersion.check();
   .card .pr { font-size:12px; color:var(--muted); }
   .card .pr.eq { color:#7fe08a; }
   .card .pr.no { color:#ff8a8a; }
+  .card.up .pips { display:flex; gap:4px; } .card.up .pips i { flex:1; height:6px; border-radius:3px; background:#3a3432; } .card.up .pips i.on { background:var(--gold); }
+  .card.up .ds { font-size:12px; color:var(--muted); min-height:30px; }
   @media (max-width:640px) { .shopPreview { flex:1 1 100%; } #shopCanvas { width:100%; height:300px; } }
   .maps { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:6px; }
   .mapCard { padding:0; overflow:hidden; position:relative; border-radius:10px; aspect-ratio:16/9; border:2px solid var(--line); background:#1d1a19; }
@@ -127,12 +129,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261114131920",
-  "./src/arena.js": "./src/arena.js?v=20261114131920",
-  "./src/fighter.js": "./src/fighter.js?v=20261114131920",
-  "./src/slice.js": "./src/slice.js?v=20261114131920",
-  "./src/audio.js": "./src/audio.js?v=20261114131920",
-  "./src/net.js": "./src/net.js?v=20261114131920"
+  "./src/main.js": "./src/main.js?v=20261114142624",
+  "./src/arena.js": "./src/arena.js?v=20261114142624",
+  "./src/fighter.js": "./src/fighter.js?v=20261114142624",
+  "./src/slice.js": "./src/slice.js?v=20261114142624",
+  "./src/audio.js": "./src/audio.js?v=20261114142624",
+  "./src/net.js": "./src/net.js?v=20261114142624"
 } }
 </script>
 </head>
@@ -207,6 +209,7 @@ window.severVersion.check();
       <label>Map <select id="lobbyMap"><option value="spire">Sky Spires</option><option value="plateaus">Sky Plateaus</option><option value="canopy">Great Canopy</option><option value="pagoda">Pagoda Falls</option><option value="isles">Moonlit Isles</option><option value="colosseum">Colosseum</option><option value="dojo">Paper Dojo District</option><option value="city">Glass Skyline</option></select></label>
       <label>Bots <select id="lobbyBots"><option>0</option><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option></select></label>
       <label>Difficulty <select id="lobbyDiff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option><option value="3">Brutal</option><option value="4">Nightmare</option><option value="5">Shogun</option><option value="6">Demon</option><option value="7">Kami</option></select></label>
+      <label style="flex-direction:row;align-items:center;gap:8px" title="Permanent shop upgrades (small stat boosts) count in this room"><input type="checkbox" id="lobbyUp" checked> Upgrades on</label>
     </div>
     <div class="row"><button class="primary" id="startBtn">Start match</button><button id="leaveBtn">Leave</button></div>
     <div class="muted" id="lobbyWait"></div>
@@ -236,7 +239,7 @@ window.severVersion.check();
 <div id="shop" class="screen hidden">
   <div class="panel shopPanel">
     <div class="shopHead"><h2>Shop</h2><div class="wallet"><span class="coin"></span><b id="shopCoins">0</b></div></div>
-    <p class="muted" style="margin:-6px 0 12px">Looks only: nothing here changes how you fight. Earn coins by playing: 10 a match, 5 a kill, 30 for a win, plus points and waves.</p>
+    <p class="muted" style="margin:-6px 0 12px">Looks change nothing about how you fight; Upgrades are small permanent boosts (the host can switch them off online). Earn coins by playing: 10 a match, 5 a kill, 30 for a win, plus points and waves.</p>
     <div class="shopBody">
       <div class="shopPreview"><canvas id="shopCanvas" width="300" height="380"></canvas><div id="shopItemName"></div><button class="primary" id="shopAction">Equip</button></div>
       <div class="shopRight"><div class="tabs" id="shopTabs"></div><div class="grid" id="shopGrid"></div></div>
@@ -274,6 +277,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261114131920"></script>
+<script type="module" src="src/main.js?v=20261114142624"></script>
 </body>
 </html>

@@ -117,7 +117,8 @@ A colosseum bowl in the sky, built entirely of **round platforms**:
 - Tall **stone columns** between the rings, from the clouds to the sky, to grapple and swing on.
 
 ## Shop
-Cosmetics only: nothing in the shop changes reach, speed or damage. Open it from the home screen.
+Open it from the home screen. Looks are cosmetic only; the **Upgrades** tab sells small permanent stat boosts.
+- **Upgrades**: 12 boosts, 5 levels each, costing 300, 700, 1,500, 3,000 then 6,000 coins per level. Per level: Long Blade +2% sword length, Swift Feet +1.5% run speed, Quick Dash −5% dash cooldown, Spring Step +2% jump height, Air Control +3% air steering, Endurance +5% stamina refill, Strong Reel +3% grapple pull, Long Rope +3% grapple range, Quick Hands +3% swing speed, Steady Stance −5% stun after a clash, Second Wind −6% respawn wait, Bounty +5% coins. Bots never get them. Online, the host can switch upgrades off for the room ("Upgrades on" in the lobby); they always count in solo play.
 - **Coins**: 10 for playing a match through (40 s or more), 5 per kill, 30 for a win, plus points (King of the Platform, Juggernaut, Headhunter) or waves (Horde). Any match with bots, solo or online, pays by the bot difficulty: 0.75x on Easy, 1.3x on Hard, and more on the harder levels (up to 4x on Kami). Playing online with friends adds +10% per friend (up to +30%). The end screen lists the bonuses you got. You start with 150. Coins and items are saved in your browser.
 - **Masks**: Shinobi Wrap, Iron Menpo, Tengu, Oni, Kitsune, Skull, Hannya, Void Mask.
 - **Headwear**: Hachimaki, Long Ponytail, Shinobi Hood, Demon Horns, Straw Kasa, Kabuto Helmet, Ember Crown.

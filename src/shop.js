@@ -1,10 +1,10 @@
 // The shop screen: browse by category, try things on a turning, swinging preview fighter, buy and equip.
 import * as THREE from 'three';
-import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114131920';
-import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261114131920';
-import { makeKillFx } from './killfx.js?v=20261114131920';
-import { makeGrapple } from './grapple.js?v=20261114131920';
-import { CATEGORIES, CATALOG, item, profile, owns, buy, equip } from './cosmetics.js?v=20261114131920';
+import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114142624';
+import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261114142624';
+import { makeKillFx } from './killfx.js?v=20261114142624';
+import { makeGrapple } from './grapple.js?v=20261114142624';
+import { CATEGORIES, CATALOG, item, profile, owns, buy, equip, UPGRADES, UP_MAX, UP_PRICES, buyUpgrade, upText } from './cosmetics.js?v=20261114142624';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
@@ -37,7 +37,7 @@ export function initShop({ show, onClose }) {
   const camAt = { pos: new THREE.Vector3(0.9, 1.25, -3.9), look: new THREE.Vector3(0, 1.0, 0) };
 
   // the look being shown: what you wear, with the selected item tried on
-  const tryLook = () => ({ ...profile.equip, [cat]: sel });
+  const tryLook = () => (cat === 'upgrade' ? { ...profile.equip } : { ...profile.equip, [cat]: sel });
   function rebuild() {
     const look = tryLook(), k = JSON.stringify(look);
     if (k === lookKey && f) return;
@@ -54,6 +54,15 @@ export function initShop({ show, onClose }) {
     $('shopTabs').innerHTML = CATEGORIES.map((c) => `<button data-c="${c.id}" class="${c.id === cat ? 'on' : ''}">${c.name}</button>`).join('');
   }
   function renderGrid() {
+    if (cat === 'upgrade') { // permanent stat boosts: five pips each, the bonus you have now, the price of the next level
+      $('shopGrid').innerHTML = UPGRADES.map((x) => {
+        const L = profile.up[x.id] || 0, next = UP_PRICES[L];
+        const pips = Array.from({ length: UP_MAX }, (_, i) => `<i class="${i < L ? 'on' : ''}"></i>`).join('');
+        const st = L >= UP_MAX ? '<span class="pr eq">Maxed</span>' : `<span class="pr ${profile.coins < next ? 'no' : ''}"><span class="coin"></span>${next}</span>`;
+        return `<button class="card up ${x.id === sel ? 'sel' : ''}" data-id="${x.id}"><span class="nm">${x.name}</span><span class="pips">${pips}</span><span class="ds">${L ? upText(x, L) : x.desc}</span>${st}</button>`;
+      }).join('');
+      return;
+    }
     $('shopGrid').innerHTML = CATALOG[cat].map((it) => {
       const own = owns(cat, it.id), eq = profile.equip[cat] === it.id;
       const st = eq ? '<span class="pr eq">Equipped</span>' : own ? '<span class="pr">Owned</span>' : `<span class="pr ${profile.coins < it.price ? 'no' : ''}"><span class="coin"></span>${it.price}</span>`;
@@ -62,6 +71,15 @@ export function initShop({ show, onClose }) {
     }).join('');
   }
   function renderAction() {
+    if (cat === 'upgrade') {
+      const x = UPGRADES.find((u) => u.id === sel) || UPGRADES[0], L = profile.up[x.id] || 0, b = $('shopAction'), next = UP_PRICES[L];
+      $('shopItemName').innerHTML = `${x.name} <small style="display:block;font-weight:500;opacity:.75">${x.desc}${L ? ' · now ' + upText(x, L) : ''}</small>`;
+      $('shopCoins').textContent = profile.coins;
+      if (L >= UP_MAX) { b.textContent = 'Maxed out'; b.disabled = true; }
+      else if (profile.coins >= next) { b.textContent = `Level ${L + 1} for ${next} (${upText(x, L + 1)})`; b.disabled = false; }
+      else { b.textContent = `Need ${next - profile.coins} more coins`; b.disabled = true; }
+      return;
+    }
     const it = item(cat, sel), own = owns(cat, sel), eq = profile.equip[cat] === sel, b = $('shopAction');
     $('shopItemName').textContent = it.name;
     $('shopCoins').textContent = profile.coins;
@@ -72,9 +90,10 @@ export function initShop({ show, onClose }) {
   }
   const refresh = () => { renderTabs(); renderGrid(); renderAction(); rebuild(); };
 
-  $('shopTabs').addEventListener('click', (e) => { const c = e.target.closest('button')?.dataset.c; if (c) { cat = c; sel = profile.equip[c]; refresh(); } });
+  $('shopTabs').addEventListener('click', (e) => { const c = e.target.closest('button')?.dataset.c; if (c) { cat = c; sel = c === 'upgrade' ? UPGRADES[0].id : profile.equip[c]; refresh(); } });
   $('shopGrid').addEventListener('click', (e) => { const id = e.target.closest('.card')?.dataset.id; if (id) { sel = id; refresh(); } });
   $('shopAction').addEventListener('click', () => {
+    if (cat === 'upgrade') { if (buyUpgrade(sel)) refresh(); return; }
     if (!owns(cat, sel) && !buy(cat, sel)) return;
     equip(cat, sel); refresh();
   });

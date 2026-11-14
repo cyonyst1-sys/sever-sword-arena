@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114131920';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114131920';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114131920';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114131920';
-import * as net from './net.js?v=20261114131920';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114131920';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114131920';
-import { makeKillFx } from './killfx.js?v=20261114131920';
-import { makeGrapple } from './grapple.js?v=20261114131920';
-import { initShop } from './shop.js?v=20261114131920';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114131920';
-import { portal } from './portal.js?v=20261114131920';
+import { Arena, MAPS } from './arena.js?v=20261114142624';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114142624';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114142624';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114142624';
+import * as net from './net.js?v=20261114142624';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114142624';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114142624';
+import { makeKillFx } from './killfx.js?v=20261114142624';
+import { makeGrapple } from './grapple.js?v=20261114142624';
+import { initShop } from './shop.js?v=20261114142624';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114142624';
+import { portal } from './portal.js?v=20261114142624';
 
 // ---------- settings ----------
 const store = {
@@ -95,6 +95,9 @@ const S = {
 const fighters = new Map();
 let me = null;
 const rosterGet = (id) => S.roster.find((r) => r.id === id);
+// permanent shop upgrades: a fighter's level in one (0 for bots, and for everyone when the host has switched them off)
+const upLv = (f, id) => { if (!f || f.isBot || S.noUp) return 0; const u = f === me ? profile.up : rosterGet(f.id)?.up; return Math.max(0, Math.min(5, (u && u[id]) | 0)); };
+const upm = (f, id) => upMul(id, upLv(f, id));
 const isEnemy = (a, b) => a.team !== b.team;
 const now = () => performance.now() / 1000;
 
@@ -156,7 +159,7 @@ window.addEventListener('mousemove', (e) => {
   if (swingHeld() && me.alive) {
     if (me.anim && me.anim.phase !== 'strike') me.anim = null; // taking manual control
     // swinging: the sword takes most of the motion, the body twists less, the camera turns least
-    const ks = 0.0042 * settings.blade;
+    const ks = 0.0042 * settings.blade * upm(me, 'hands');
     me.s.x += dx * ks; me.s.y -= dy * ks;
     const r = Math.hypot(me.s.x, me.s.y); if (r > 1.05) { me.s.x *= 1.05 / r; me.s.y *= 1.05 / r; }
     mouse.drag += Math.hypot(dx, dy) * ks;
@@ -211,7 +214,7 @@ function tryDash(f, dir) {
   const d = dir.clone(); d.y = Math.max(-0.35, Math.min(0.55, d.y)); d.normalize();
   f.preDash = f.vel.length(); // a dash out of a fast swing keeps that speed afterwards
   f.dashGround = f.onGround || !!branchUnder(f); f.dashFree = false;
-  f.dashDir.copy(d); f.dashT = DASH_T; f.dashCd = 0.9; f.stam -= 22; f.stamDelay = 0.6;
+  f.dashDir.copy(d); f.dashT = DASH_T; f.dashCd = 0.9 * upm(f, 'dash'); f.stam -= 22; f.stamDelay = 0.6;
   if (f.hook) releaseHook(f, false);
   f.dashVictims = new Set();
   sfx.dash(f.pos);
@@ -221,12 +224,12 @@ function tryDash(f, dir) {
 function fireHook(f, origin, dir) {
   if (!f.alive || (f.hookCd || 0) > 0) return false;
   if (!origin) { origin = camera.position.clone(); dir = new THREE.Vector3(); camera.getWorldDirection(dir); origin.addScaledVector(dir, camDist); }
-  arena.rayThin = !!f.isBot && !f.hookGlass; const h = arena.grappleTarget(origin, dir, HOOK_MAX); arena.rayThin = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
+  arena.rayThin = !!f.isBot && !f.hookGlass; const h = arena.grappleTarget(origin, dir, HOOK_MAX * upm(f, 'rope')); arena.rayThin = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
   f.hookCd = 0.25;
   if (!h) { sfx.hookFire(f.pos); return false; }
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const L = h.point.distanceTo(chest);
-  if (L > HOOK_MAX || L < 1.4) return false;
+  if (L > HOOK_MAX * upm(f, 'rope') || L < 1.4) return false;
   f.hook = { p: h.point, len: L };
   f.dashT = 0; f.onGround = false;
   sfx.hookFire(f.pos); sfx.hookHit(h.point);
@@ -240,8 +243,8 @@ function releaseHook(f, boost) {
 function applyHook(f, dt) {
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const d = _t2.subVectors(f.hook.p, chest); const L = d.length(); d.divideScalar(L || 1);
-  f.vel.addScaledVector(d, PULL * dt);
-  f.hook.len = Math.max(1.2, Math.min(f.hook.len, L) - REEL * dt);
+  f.vel.addScaledVector(d, PULL * upm(f, 'reel') * dt);
+  f.hook.len = Math.max(1.2, Math.min(f.hook.len, L) - REEL * upm(f, 'reel') * dt);
   const vr = f.vel.dot(d); if (L > f.hook.len && vr < 0) f.vel.addScaledVector(d, -vr);
   const sp = f.vel.length(); if (sp > 36) f.vel.multiplyScalar(36 / sp);
   if (L < 1.7) { // reeled all the way in: pop up, and if it's a platform's edge, onto its top
@@ -273,13 +276,13 @@ function stepFighter(f, dt, wish, sprint, jump) {
     if (f.dashT <= 0) f.vel.copy(f.dashDir).multiplyScalar(Math.max(DASH_V * 0.45, Math.min(f.preDash || 0, 36)));
   } else {
     if (f.onGround && !f.hook) {
-      const spd = WALK;
+      const spd = WALK * upm(f, 'speed');
       const k = Math.min(1, 16 * dt);
       f.vel.x += (wish.x * spd - f.vel.x) * k; f.vel.z += (wish.z * spd - f.vel.z) * k;
     } else { // air: keep momentum, steer a little
       const hs = Math.hypot(f.vel.x, f.vel.z);
-      f.vel.x += wish.x * 32 * dt; f.vel.z += wish.z * 32 * dt; // strong air steering to line up landings
-      const ns = Math.hypot(f.vel.x, f.vel.z), cap = Math.max(hs, WALK);
+      const air = 32 * upm(f, 'air'); f.vel.x += wish.x * air * dt; f.vel.z += wish.z * air * dt; // strong air steering to line up landings
+      const ns = Math.hypot(f.vel.x, f.vel.z), cap = Math.max(hs, WALK * upm(f, 'speed'));
       if (ns > cap) { f.vel.x *= cap / ns; f.vel.z *= cap / ns; }
       if (!f.padFlight) { f.vel.x *= 1 - 0.12 * dt; f.vel.z *= 1 - 0.12 * dt; } // pad jumps fly their exact arc
     }
@@ -288,7 +291,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
     if (jump && f.onGround) {
       const p = f.padCd <= 0 && arena.padAt(f.pos);
       if (p) { f.vel.copy(p.v); f.padCd = 0.8; f.hook = null; f.padFlight = true; sfx.pad(f.pos); } // jump on a pad to launch
-      else { f.vel.y = JUMP_V; sfx.jump(f.pos); }
+      else { f.vel.y = JUMP_V * Math.sqrt(upm(f, 'jump')); sfx.jump(f.pos); }
       f.onGround = false;
     }
     if (f.hook) applyHook(f, dt);
@@ -309,7 +312,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
   }
   if (f.onGround && !was && fallV < -6) sfx.land(f.pos);
   if (f.onGround || f.hook || f.dashT > 0) f.padFlight = false;
-  f.stamDelay -= dt; if (f.stamDelay <= 0) f.stam = Math.min(100, f.stam + 30 * dt);
+  f.stamDelay -= dt; if (f.stamDelay <= 0) f.stam = Math.min(100, f.stam + 30 * upm(f, 'stamina') * dt);
   f.stam = Math.max(0, f.stam);
 }
 function pushApart() {
@@ -334,7 +337,7 @@ function quickSwing(f, gx = 0, gy = 0) {
   const gl = Math.hypot(gx, gy);
   if (gl > 12) { const ux = gx / gl, uy = -gy / gl; pat = [{ x: -ux, y: -uy * 0.8 + 0.1 }, { x: ux, y: uy * 0.8 - 0.05 }]; quickDir = ux > 0 ? 1 : -1; } // slash the way the mouse was moving
   f.s.x = pat[0].x; f.s.y = pat[0].y; f.noCut = true;
-  f.anim = { phase: 'strike', t: 0, from: pat[0], to: pat[1], dur: 0.14 };
+  f.anim = { phase: 'strike', t: 0, from: pat[0], to: pat[1], dur: 0.14 / upm(f, 'hands') };
 }
 function updateSword(f, dt) {
   const a = f.anim;
@@ -570,8 +573,8 @@ function clash(f, g, at) {
   sfx.clang(at);
   for (let i = 0; i < 26; i++) sparks.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 9, Math.random() * 6, (Math.random() - 0.5) * 9, 0.4);
   const d = _t.subVectors(f.pos, g.pos); d.y = 0; d.normalize();
-  if (isLocal(f)) { f.vel.addScaledVector(d, 4); f.vel.y += 1.5; f.stagger = 0.35; f.noCut = true; f.anim = null; if (f.isBot) f.atkCd = 0.5; }
-  if (isLocal(g)) { g.vel.addScaledVector(d, -3); g.stagger = 0.2; g.noCut = true; }
+  if (isLocal(f)) { f.vel.addScaledVector(d, 4); f.vel.y += 1.5; f.stagger = 0.35 * upm(f, 'steady'); f.noCut = true; f.anim = null; if (f.isBot) f.atkCd = 0.5; }
+  if (isLocal(g)) { g.vel.addScaledVector(d, -3); g.stagger = 0.2 * upm(g, 'steady'); g.noCut = true; }
   if (f === me || g === me) shake = Math.max(shake, 0.2);
 }
 
@@ -615,7 +618,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     if (kr && kId !== vId) { kr.k++; kr.streak = (kr.streak || 0) + 1; } // streak: kills since your last death (sets blade length)
     if (vr) { vr.d++; vr.streak = 0; } // dying puts your blade back to its starting length
     // respawn in 3 s, except Horde (next wave) and Last Blade Standing (no respawns at all)
-    v.respawnAt = S.mode === 'horde' || S.mode === 'lbs' ? Infinity : now() + 3;
+    v.respawnAt = S.mode === 'horde' || S.mode === 'lbs' ? Infinity : now() + 3 * upm(v, 'respawn');
     modeOnKill(v, vId, kId);
     if (v.isBot && S.mode === 'horde') setTimeout(() => { S.roster = S.roster.filter((r) => r.id !== vId); syncFighters(); sendRoster(); }, 4000);
     sendRoster();
@@ -648,7 +651,7 @@ function spawnPoint(f) {
 }
 function spawn(f, p, yaw) {
   f.pos.copy(p); f.vel.set(0, 0, 0); f.yaw = yaw; f.pitch = 0; f.alive = true; f.prot = 1.5; f.hook = null; f.dashT = 0;
-  f.bladeLen = bladeFor(rosterGet(f.id)?.streak); // come back with the blade your streak earns (the starting one after a death)
+  f.bladeLen = bladeFor(rosterGet(f.id)?.streak) * upm(f, 'blade'); // come back with the blade your streak earns (the starting one after a death)
   f.stam = 100; f.s.x = GUARD.x; f.s.y = GUARD.y; f.noCut = true; f.anim = null; f.respawnAt = Infinity; f.onGround = true; f.stagger = 0;
   f.group.visible = true; f.trail.length = 0;
   if (f === me) { view.yaw = yaw; view.pitch = 0; twist.yaw = 0; twist.pitch = 0; }
@@ -1053,10 +1056,10 @@ function botThink(b, dt) {
 
 // ---------- host: match flow ----------
 const coop = () => S.mode === 'horde';
-function newRosterEntry(id, name, human, look) {
+function newRosterEntry(id, name, human, look, up) {
   const used = new Set(S.roster.map((r) => r.col));
   let col = 0; while (used.has(col) && col < 20) col++;
-  return { id, name, human, col, team: coop() ? (human ? 'H' : 'R') : id, k: 0, d: 0, streak: 0, pts: 0, carry: 0, horde: !human && coop(), look: cleanLook(look || (human ? null : randomLook())) };
+  return { id, name, human, col, team: coop() ? (human ? 'H' : 'R') : id, k: 0, d: 0, streak: 0, pts: 0, carry: 0, horde: !human && coop(), look: cleanLook(look || (human ? null : randomLook())), up: human ? cleanUp(up) : {} };
 }
 function fillBots() {
   if (coop()) return; // horde bots come and go with the waves
@@ -1067,7 +1070,7 @@ function fillBots() {
   const names = BOT_NAMES.filter((n) => !S.roster.some((r) => r.name === n));
   while (bots.length < want) { const e = newRosterEntry('b' + (++S.seq), names.shift() || 'Bot', false); S.roster.push(e); bots.push(e); }
 }
-function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
+function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
   useMap(S.map);
   clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
@@ -1077,7 +1080,7 @@ function startMatch() {
   S.timeLeft = FFA_TIME; S.wave = 0; S.waveT = 3; S.waveActive = false; S.queue = 0; S.ended = false; S.lbsLive = false;
   initObjective();
   syncFighters();
-  net.broadcast({ t: 'start', mode: S.mode, map: S.map, diff: S.diff, list: S.roster });
+  net.broadcast({ t: 'start', mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, list: S.roster });
   enterGame();
   for (const f of fighters.values()) if (!coop() || !f.isBot) hostSpawn(f);
   if (S.mode === 'jugg') { const all = [...fighters.values()]; setJugg(all[(Math.random() * all.length) | 0].id); }
@@ -1342,7 +1345,7 @@ function hostMsg(from, d) {
   if (d.t === 'hello') {
     if (S.roster.filter((r) => r.human).length >= MAX_PLAYERS || (S.mode === 'horde' && S.roster.filter((r) => r.human).length >= 4)) { net.sendTo(from, { t: 'full' }); net.kick(from); return; }
     const name = String(d.name || 'Player').replace(/[^\p{L}\p{N} _.-]/gu, '').slice(0, 14) || 'Player';
-    const e = newRosterEntry(from, name, true, d.look); S.roster.push(e);
+    const e = newRosterEntry(from, name, true, d.look, d.up); S.roster.push(e);
     if (S.phase === 'game') fillBots();
     syncFighters();
     net.sendTo(from, { t: 'welcome', id: from, list: S.roster, mode: S.mode, map: S.map, phase: S.phase === 'game' ? 'game' : 'lobby', obj: S.phase === 'game' ? objForSend() : null, bamboo: S.bambooCuts || [], brk: S.brkCuts || [] });
@@ -1366,8 +1369,8 @@ function hostMsg(from, d) {
 function clientMsg(d) {
   if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = []; if (d.obj) applyObj(d.obj); for (const [s, y] of d.bamboo || []) cutBamboo(s, y); for (const c of d.brk || []) smashChunk(c[0], c[1], c[2]); syncFighters(); enterGame(); } else showLobby(); }
   else if (d.t === 'full') { toast('That room is full.'); toMenu(); }
-  else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
-  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; S.bambooCuts = []; S.brkCuts = []; syncFighters(); enterGame(); }
+  else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.noUp = !!d.noUp; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
+  else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.noUp = !!d.noUp; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; S.bambooCuts = []; S.brkCuts = []; syncFighters(); enterGame(); }
   else if (d.t === 's') {
     S.timeLeft = d.tl; S.wave = d.wv;
     for (const s of d.f) { const f = fighters.get(s[0]); if (f && f !== me) applyState(f, s.slice(1)); }
@@ -1452,6 +1455,7 @@ $('copyLink').onclick = () => {
   (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast('Invite link copied'), () => toast(link));
 };
 for (const id of ['lobbyModeSel', 'lobbyMap', 'lobbyBots', 'lobbyDiff']) $(id).onchange = () => { if (!S.host) return; S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; for (const r of S.roster) r.team = coop() ? 'H' : r.id; sendRoster(); if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); } };
+$('lobbyUp').onchange = () => { if (!S.host) return; S.noUp = !$('lobbyUp').checked; sendRoster(); }; // the host decides whether shop upgrades count in this room
 
 function renderRooms(rooms) {
   const el = $('rooms');
@@ -1472,6 +1476,7 @@ function renderLobby() {
   $('lobbyHostOpts').classList.toggle('hidden', !S.host);
   $('startBtn').classList.toggle('hidden', !S.host);
   $('lobbyWait').textContent = S.host ? (coop() ? 'Press Start when everyone is in.' : 'Bots fill the empty slots. Press Start when everyone is in.') : 'Waiting for the host to start…';
+  if (!S.host) $('lobbyWait').textContent += S.noUp ? ' Shop upgrades are off in this room.' : ' Shop upgrades are on.';
   $('lobbyMapName').textContent = (MAPS[S.map] || MAPS.spire).name + ': ' + (MAPS[S.map] || MAPS.spire).blurb;
   $('lobbyThumb').src = thumb(S.map);
   if (S.host) { $('lobbyModeSel').value = S.mode; $('lobbyMap').value = S.map; $('lobbyBots').value = S.bots; $('lobbyDiff').value = S.diff; }
@@ -1484,8 +1489,8 @@ async function hostRoom() {
   $('hostBtn').disabled = true;
   try {
     await net.host();
-    S.online = true; S.host = true; S.myId = 'host'; S.mode = $('hostMode').value; S.map = $('map').value; S.pub = $('pub').checked; S.bots = 4; S.diff = 1;
-    S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip)];
+    S.online = true; S.host = true; S.myId = 'host'; S.mode = $('hostMode').value; S.map = $('map').value; S.pub = $('pub').checked; S.bots = 4; S.diff = 1; S.noUp = false; $('lobbyUp').checked = true;
+    S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip, profile.up)];
     showLobby();
     net.dirStart(() => {}); net.dirSetRoom(roomInfo());
     portalRoom(); // (tells CrazyGames we're in a joinable room: its Invite friends button works)
@@ -1501,7 +1506,7 @@ async function joinRoom(code) {
   try {
     await net.join(code);
     S.online = true; S.host = false; S.roomCode = code; net.dirStop(); portal.room(code, true);
-    net.send({ t: 'hello', name: settings.name || 'Ronin', look: profile.equip });
+    net.send({ t: 'hello', name: settings.name || 'Ronin', look: profile.equip, up: profile.up });
   } catch (e) { toast(e.message || "Couldn't join that room."); }
 }
 function leaveRoom() {
@@ -1509,10 +1514,11 @@ function leaveRoom() {
   S.online = false; S.host = true; S.myId = 'host';
 }
 function startSolo(mode) {
+  S.noUp = false; // (your upgrades always count against bots)
   ensureAudio();
   leaveRoom();
   S.mode = mode; S.map = $('map').value; S.bots = +$('bots').value; S.diff = +$('diff').value;
-  S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip)];
+  S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip, profile.up)];
   startMatch();
 }
 function enterGame() {
@@ -1554,7 +1560,8 @@ function showEnd(res) {
     // bonuses: the bot difficulty (whenever there were bots, solo or online), and +10% per friend in the match (up to +30%)
     const bots = res.mode === 'horde' || res.list.some((r) => !r.human), friends = Math.min(3, res.list.filter((r) => r.human).length - 1);
     const dm = bots ? [0.75, 1, 1.3, 1.6, 2, 2.5, 3, 4][S.diff ?? 1] : 1, fm = 1 + 0.1 * Math.max(0, friends);
-    coins = Math.round(coins * dm * fm);
+    const bm = upm(me, 'bounty'); coins = Math.round(coins * dm * fm * bm);
+    if (bm > 1) bonus.push(`Bounty +${Math.round((bm - 1) * 100)}%`);
     if (dm !== 1) bonus.push(`${['Easy', 'Normal', 'Hard', 'Brutal', 'Nightmare', 'Shogun', 'Demon', 'Kami'][S.diff ?? 1]} x${dm}`);
     if (friends > 0) bonus.push(`${friends} friend${friends > 1 ? 's' : ''} +${friends * 10}%`);
     addCoins(coins);
@@ -1713,7 +1720,7 @@ function tick(rdt, tt) {
     for (const f of fighters.values()) {
       if (!f.alive) { f.updateTrail(tt); continue; }
       const isJugg = S.mode === 'jugg' && S.obj && S.obj.jugg === f.id;
-      const want = isJugg ? BLADE_MAX : bladeFor(rosterGet(f.id)?.streak); // the juggernaut always carries the longest blade
+      const want = isJugg ? BLADE_MAX : bladeFor(rosterGet(f.id)?.streak) * upm(f, 'blade'); // the juggernaut always carries the longest blade
       f.crown.visible = isJugg;
       f.bladeLen += (want - f.bladeLen) * Math.min(1, rdt * 4);
       if (f.onGround) { const p = platUnder(f.pos); if (p) f.plat = p.i; } // which platform they're on

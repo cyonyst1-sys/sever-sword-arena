@@ -19,7 +19,31 @@ export const CATEGORIES = [
   { id: 'trail', name: 'Trails' },
   { id: 'kill', name: 'Kill Effects' },
   { id: 'grapple', name: 'Grapples' },
+  { id: 'upgrade', name: 'Upgrades' },
 ];
+
+// ---------- permanent upgrades: very small stat boosts, 5 levels each, bought with coins (bots never get them) ----------
+// per: the change per level (a fraction); less: true when the number goes down (cooldowns, waits)
+export const UPGRADES = [
+  { id: 'blade', name: 'Long Blade', desc: 'Your sword starts longer', per: 0.02, what: 'length' },
+  { id: 'speed', name: 'Swift Feet', desc: 'Faster running', per: 0.015, what: 'speed' },
+  { id: 'dash', name: 'Quick Dash', desc: 'Dash recharges sooner', per: 0.05, what: 'cooldown', less: true },
+  { id: 'jump', name: 'Spring Step', desc: 'Higher jumps', per: 0.02, what: 'height' },
+  { id: 'air', name: 'Air Control', desc: 'Better steering in the air', per: 0.03, what: 'steering' },
+  { id: 'stamina', name: 'Endurance', desc: 'Stamina refills faster (more dashes)', per: 0.05, what: 'refill' },
+  { id: 'reel', name: 'Strong Reel', desc: 'Your grapple pulls you in faster', per: 0.03, what: 'pull' },
+  { id: 'rope', name: 'Long Rope', desc: 'Your grapple reaches farther', per: 0.03, what: 'range' },
+  { id: 'hands', name: 'Quick Hands', desc: 'Faster sword swings', per: 0.03, what: 'swing speed' },
+  { id: 'steady', name: 'Steady Stance', desc: 'Recover sooner after a clash', per: 0.05, what: 'stun time', less: true },
+  { id: 'respawn', name: 'Second Wind', desc: 'Respawn sooner after dying', per: 0.06, what: 'wait', less: true },
+  { id: 'bounty', name: 'Bounty', desc: 'More coins from every match', per: 0.05, what: 'coins' },
+];
+export const UP_MAX = 5, UP_PRICES = [300, 700, 1500, 3000, 6000];
+/** Keep only real upgrade levels, 0..5 (used on levels arriving over the network too). */
+export function cleanUp(u) { const o = {}; for (const x of UPGRADES) o[x.id] = Math.max(0, Math.min(UP_MAX, Math.floor(+(u && u[x.id]) || 0))); return o; }
+/** The multiplier an upgrade at level L gives: 1 + per*L, or 1 - per*L for cooldowns and waits. */
+export const upMul = (id, L) => { const x = UPGRADES.find((u) => u.id === id); return !x || !L ? 1 : x.less ? 1 - x.per * L : 1 + x.per * L; };
+export const upText = (x, L) => `${x.less ? '−' : '+'}${Math.round(x.per * L * 1000) / 10}% ${x.what}`;
 
 export const CATALOG = {
   mask: [
@@ -185,8 +209,15 @@ export const profile = (() => {
   p.coins = Math.max(0, Math.floor(+p.coins || (p.coins === 0 ? 0 : START_COINS)));
   p.owned = Array.isArray(p.owned) ? p.owned : [];
   p.equip = cleanLook(p.equip);
+  p.up = cleanUp(p.up);
   return p;
 })();
+/** Buy the next level of an upgrade. */
+export function buyUpgrade(id) {
+  const L = profile.up[id] || 0; if (L >= UP_MAX) return false;
+  const c = UP_PRICES[L]; if (profile.coins < c) return false;
+  profile.coins -= c; profile.up[id] = L + 1; saveProfile(); return true;
+}
 export function saveProfile() { try { localStorage.setItem(KEY, JSON.stringify(profile)); } catch (e) { /* private mode */ } }
 export const owns = (cat, id) => item(cat, id).price === 0 || profile.owned.includes(cat + ':' + id);
 export function buy(cat, id) {
