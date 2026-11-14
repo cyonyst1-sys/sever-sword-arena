@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113210308';
-import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113210308';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113210308';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113210308';
-import * as net from './net.js?v=20261113210308';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113210308';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113210308';
-import { makeKillFx } from './killfx.js?v=20261113210308';
-import { makeGrapple } from './grapple.js?v=20261113210308';
-import { initShop } from './shop.js?v=20261113210308';
+import { Arena, MAPS } from './arena.js?v=20261113213015';
+import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113213015';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113213015';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113213015';
+import * as net from './net.js?v=20261113213015';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113213015';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113213015';
+import { makeKillFx } from './killfx.js?v=20261113213015';
+import { makeGrapple } from './grapple.js?v=20261113213015';
+import { initShop } from './shop.js?v=20261113213015';
 
 // ---------- settings ----------
 const store = {
@@ -1050,7 +1050,7 @@ function modeTick(dt) {
     const j = o.jugg ? fighters.get(o.jugg) : null;
     if (!j) { const alive = [...fighters.values()].filter((f) => f.alive); if (alive.length) setJugg(alive[(Math.random() * alive.length) | 0].id); }
     else if (j.alive) {
-      scoreT += dt;
+      if (j.onGround && !j.hook) scoreT += dt; // the juggernaut only scores while standing on something, never while flying, swinging or dashing
       if (scoreT >= 1) { scoreT -= 1; const r = rosterGet(j.id); if (r) { r.pts = (r.pts || 0) + 1; sendRoster(); checkEnd(); } }
     }
   } else if (S.mode === 'hunt') {
@@ -1395,7 +1395,7 @@ function updateHud(dt) {
   } else if (S.mode === 'jugg') {
     const j = o.jugg && rosterGet(o.jugg);
     $('topbar').innerHTML = `Juggernaut · ${clock(S.timeLeft)} · Juggernaut: ${j ? `<span style="color:${colorOf(j)}">${esc(j.name)}</span>` : '-'} · ${lead}/${MODE_GOAL.jugg}`;
-    if (me && me.alive) status = o.jugg === S.myId ? 'YOU ARE THE JUGGERNAUT · survive to score' : 'Hunt the crowned juggernaut';
+    if (me && me.alive) { const jf = o.jugg && fighters.get(o.jugg), grounded = jf && jf.onGround && !jf.hook; status = o.jugg === S.myId ? (grounded ? 'YOU ARE THE JUGGERNAUT · on the ground: scoring' : 'YOU ARE THE JUGGERNAUT · in the air: not scoring, land to score') : 'Hunt the crowned juggernaut' + (jf && !grounded ? ' · they2019re in the air and not scoring' : ''); }
   } else if (S.mode === 'lbs') {
     const alive = [...fighters.values()].filter((f) => f.alive).length;
     const falls = o.warn >= 0 ? '<span style="color:var(--red)">A platform is falling!</span>' : `Next platform falls in ${Math.ceil(Math.max(0, until.crumble - now()))} s`;
