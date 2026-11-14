@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114172040';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114172040';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114172040';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114172040';
-import * as net from './net.js?v=20261114172040';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114172040';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114172040';
-import { makeKillFx } from './killfx.js?v=20261114172040';
-import { makeGrapple } from './grapple.js?v=20261114172040';
-import { initShop } from './shop.js?v=20261114172040';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114172040';
-import { portal } from './portal.js?v=20261114172040';
+import { Arena, MAPS } from './arena.js?v=20261114173822';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114173822';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114173822';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114173822';
+import * as net from './net.js?v=20261114173822';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114173822';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114173822';
+import { makeKillFx } from './killfx.js?v=20261114173822';
+import { makeGrapple } from './grapple.js?v=20261114173822';
+import { initShop } from './shop.js?v=20261114173822';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114173822';
+import { portal } from './portal.js?v=20261114173822';
 
 // ---------- settings ----------
 const store = {
@@ -1082,6 +1082,8 @@ function botThink(b, dt) {
     if (b.hopsStuck >= 2 && b.dashCd <= 0 && b.stam >= 22 && (wish.x || wish.z)) { const wl = Math.hypot(wish.x, wish.z) || 1; b.jumpDash = { at: now() + 0.2, d: new THREE.Vector3(wish.x / wl, 0.5, wish.z / wl).normalize() }; b.hopsStuck = 0; }
   } else if (Math.hypot(b.vel.x, b.vel.z) > 3) b.hopsStuck = 0;
   if (b.backoff && now() < b.backoff.until && b.onGround) { wish.x = b.backoff.x; wish.z = b.backoff.z; } // taking a run-up
+  // Tipping Point: the deck is leaning hard? head for the high side (still fighting if someone's right there)
+  if (arena.tiltSlope && b.onGround) { const sl = arena.tiltSlope(b.pos); if (sl && sl.steep > 0.1) { const k = Math.min(1, (sl.steep - 0.1) / 0.2) * (close ? 0.6 : 1.4); wish.x += sl.x * k; wish.z += sl.z * k; const wl = Math.hypot(wish.x, wish.z) || 1; wish.x /= wl; wish.z /= wl; sprint = true; if (sl.steep > 0.3 && b.dashCd <= 0 && b.stam >= 40 && Math.random() < dt * 2) tryDash(b, new THREE.Vector3(sl.x, 0.25, sl.z)); } }
   // Saw Foundry: a blade coming? get out of its way (dash if it's right on us)
   if (arena.hazardNear && b.alive) { const hn = arena.hazardNear(b.pos, 5); if (hn) { const ax = b.pos.x - hn.c.x, az = b.pos.z - hn.c.z, al = Math.hypot(ax, az) || 1; wish.x = ax / al; wish.z = az / al; sprint = true; if (hn.dist < 2.8 && b.dashCd <= 0 && b.stam >= 22 && b.onGround && floorAhead(b, wish.x, wish.z, 6)) tryDash(b, new THREE.Vector3(wish.x, 0.1, wish.z)); } }
   // don't walk off the platform: if there's no floor ahead, try sideways, else stop
@@ -1763,7 +1765,8 @@ function tick(rdt, tt) {
   if (S.phase === 'game' && !S.paused) {
     if (S.host) hostTick(rdt);
     if (arena.tickPads) arena.tickPads(fighters.values(), now()); // (Bamboo Fort: spawn pads fall away once left)
-    if (arena.tickHazards) arena.tickHazards([...fighters.values()].filter(isLocal)); // (Saw Foundry: ride the moving platforms)
+    if (arena.tickHazards) arena.tickHazards([...fighters.values()].filter(isLocal));
+    if (arena.tickTilt) arena.tickTilt([...fighters.values()], isLocal, rdt); // (Tipping Point: lean toward the weight, slide downhill) // (Saw Foundry: ride the moving platforms)
     for (const f of fighters.values()) {
       if (!f.alive) continue;
       if (f === me) {
