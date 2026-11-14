@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114163054';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114163054';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114163054';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114163054';
-import * as net from './net.js?v=20261114163054';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114163054';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114163054';
-import { makeKillFx } from './killfx.js?v=20261114163054';
-import { makeGrapple } from './grapple.js?v=20261114163054';
-import { initShop } from './shop.js?v=20261114163054';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114163054';
-import { portal } from './portal.js?v=20261114163054';
+import { Arena, MAPS } from './arena.js?v=20261114172040';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114172040';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114172040';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114172040';
+import * as net from './net.js?v=20261114172040';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114172040';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114172040';
+import { makeKillFx } from './killfx.js?v=20261114172040';
+import { makeGrapple } from './grapple.js?v=20261114172040';
+import { initShop } from './shop.js?v=20261114172040';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114172040';
+import { portal } from './portal.js?v=20261114172040';
 
 // ---------- settings ----------
 const store = {
@@ -600,6 +600,12 @@ function claimKill(att, vic, n, pt, imp) {
     if (applyKill(vic.id, att.id, n, pt, imp)) net.send({ t: 'cut', v: vic.id, n: arr(n), p: arr(pt), i: arr(imp) });
   }
 }
+// cut down by a saw blade (Saw Foundry): sliced along the blade's plane, nobody gets the kill
+function sawKill(f, n, pt) {
+  const imp = new THREE.Vector3(n.x * 3, 2, n.z * 3);
+  if (S.host) { if (applyKill(f.id, null, n, pt, imp)) net.broadcast({ t: 'kill', v: f.id, k: null, n: arr(n), p: arr(pt), i: arr(imp) }); }
+  else if (f === me) { if (applyKill(f.id, null, n, pt, imp)) net.send({ t: 'sawn', n: arr(n), p: arr(pt) }); }
+}
 function selfFell(f) {
   if (S.host) { if (applyKill(f.id, null, null, null, null, true)) net.broadcast({ t: 'kill', v: f.id, k: null, fell: 1 }); }
   else if (f === me) { if (applyKill(f.id, null, null, null, null, true)) net.send({ t: 'fell' }); }
@@ -1076,6 +1082,8 @@ function botThink(b, dt) {
     if (b.hopsStuck >= 2 && b.dashCd <= 0 && b.stam >= 22 && (wish.x || wish.z)) { const wl = Math.hypot(wish.x, wish.z) || 1; b.jumpDash = { at: now() + 0.2, d: new THREE.Vector3(wish.x / wl, 0.5, wish.z / wl).normalize() }; b.hopsStuck = 0; }
   } else if (Math.hypot(b.vel.x, b.vel.z) > 3) b.hopsStuck = 0;
   if (b.backoff && now() < b.backoff.until && b.onGround) { wish.x = b.backoff.x; wish.z = b.backoff.z; } // taking a run-up
+  // Saw Foundry: a blade coming? get out of its way (dash if it's right on us)
+  if (arena.hazardNear && b.alive) { const hn = arena.hazardNear(b.pos, 5); if (hn) { const ax = b.pos.x - hn.c.x, az = b.pos.z - hn.c.z, al = Math.hypot(ax, az) || 1; wish.x = ax / al; wish.z = az / al; sprint = true; if (hn.dist < 2.8 && b.dashCd <= 0 && b.stam >= 22 && b.onGround && floorAhead(b, wish.x, wish.z, 6)) tryDash(b, new THREE.Vector3(wish.x, 0.1, wish.z)); } }
   // don't walk off the platform: if there's no floor ahead, try sideways, else stop
   // (walking onto a jump pad by the edge is fine: the drop just past it is where the pad sends us)
   const padDist = Math.hypot(goal.x - b.pos.x, goal.z - b.pos.z), toPad = padGoal && padDist < 3;
@@ -1415,6 +1423,7 @@ function hostMsg(from, d) {
       if (applyKill(d.v, from, n, vec(d.p), vec(d.i || [0, 0, 0]))) net.broadcast({ t: 'kill', v: d.v, k: from, n: d.n, p: d.p, i: d.i }, from);
     }
   } else if (d.t === 'fell') { if (applyKill(from, null, null, null, null, true)) net.broadcast({ t: 'kill', v: from, k: null, fell: 1 }, from); }
+  else if (d.t === 'sawn' && Array.isArray(d.n) && Array.isArray(d.p)) { const n = vec(d.n).normalize(), p = vec(d.p), i = new THREE.Vector3(n.x * 3, 2, n.z * 3); if (applyKill(from, null, n, p, i)) net.broadcast({ t: 'kill', v: from, k: null, n: arr(n), p: arr(p), i: arr(i) }, from); }
 }
 function clientMsg(d) {
   if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = []; if (d.obj) applyObj(d.obj); for (const [s, y] of d.bamboo || []) cutBamboo(s, y); for (const c of d.brk || []) smashChunk(c[0], c[1], c[2]); syncFighters(); enterGame(); } else showLobby(); }
@@ -1754,6 +1763,7 @@ function tick(rdt, tt) {
   if (S.phase === 'game' && !S.paused) {
     if (S.host) hostTick(rdt);
     if (arena.tickPads) arena.tickPads(fighters.values(), now()); // (Bamboo Fort: spawn pads fall away once left)
+    if (arena.tickHazards) arena.tickHazards([...fighters.values()].filter(isLocal)); // (Saw Foundry: ride the moving platforms)
     for (const f of fighters.values()) {
       if (!f.alive) continue;
       if (f === me) {
@@ -1785,6 +1795,7 @@ function tick(rdt, tt) {
       if (isLocal(f)) {
         bladeSweep(f, rdt); dashSweep(f);
         if (f.pos.y < arena.killY) selfFell(f);
+        else if (arena.hazardHit && f.alive && f.prot <= 0) { const h = arena.hazardHit(f.pos); if (h) sawKill(f, h.n, h.pt); } // Saw Foundry: walked into a blade
       }
       f.prevHand.copy(f.hand); f.prevTip.copy(f.tip);
       f.updateTrail(tt);

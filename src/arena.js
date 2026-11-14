@@ -3,9 +3,10 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildBamboo } from './bamboo.js?v=20261114163054';
-import { buildCity } from './city.js?v=20261114163054';
-import { buildDojo } from './dojo.js?v=20261114163054';
+import { buildFoundry } from './foundry.js?v=20261114172040';
+import { buildBamboo } from './bamboo.js?v=20261114172040';
+import { buildCity } from './city.js?v=20261114172040';
+import { buildDojo } from './dojo.js?v=20261114172040';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -90,6 +91,7 @@ export const MAPS = {
   dojo: { name: 'Paper Dojo District', blurb: 'a town you can cut apart: slice through paper walls, posts, straw barns, fences and hay; climb the four-tier dojo tower, rooftops and watchtowers' },
   city: { name: 'Glass Skyline', blurb: 'skyscrapers above the clouds: swing between them and smash through their glass, or climb the steel frames of half-built towers' },
   bamboo: { name: 'Bamboo Fort', blurb: 'a platform built all of bamboo, floor included: slice through anything (even the ground), smash in through the walls, swing from the pillars outside' },
+  foundry: { name: 'Saw Foundry', blurb: 'a foundry in the sky full of blades: rail saws, swinging pendulums, saws dropping from above, spinning saw columns, lifts and sliding platforms' },
 };
 
 export class Arena {
@@ -459,6 +461,7 @@ export class Arena {
     if (this.mapId === 'dojo') return buildDojo(this, TEX);
     if (this.mapId === 'city') return buildCity(this, TEX);
     if (this.mapId === 'bamboo') return buildBamboo(this, TEX);
+    if (this.mapId === 'foundry') return buildFoundry(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     this.realScene.background = new THREE.Color(0x9cc4e4);
@@ -825,6 +828,7 @@ export class Arena {
       if (this.rayThin) brk = brk.filter((b) => !b.soft && !b.hard);
     }
     for (const list of [this.boxes, this.rayBoxes, brk]) for (const b of list) {
+      if (this.rayThin && b.danger) continue; // (bots won't hook the saw columns and gantries)
       let t0 = 0, t1 = best;
       for (const [oa, da, lo, hi] of [[o.x, d.x, b.x0, b.x1], [o.y, d.y, b.y0, b.y1], [o.z, d.z, b.z0, b.z1]]) {
         if (Math.abs(da) < 1e-9) { if (oa < lo || oa > hi) { t0 = Infinity; break; } continue; }

@@ -98,6 +98,18 @@ A misty-morning town you can **cut apart**. Shoji walls, wooden posts, a straw b
 - Floors, roofs, decks and the corner posts of buildings stay put, so there is always somewhere to stand. Bamboo and lantern poles line the town's edges to swing from (and cut).
 - Bots shoulder their way through whatever is in their way. The town is rebuilt fresh every match.
 
+### Saw Foundry
+
+An industrial foundry floating in a smoky dusk sky, full of things that cut you in half. A blade that catches you slices you along its own plane, and nobody gets the kill.
+
+- **Rail saws** run back and forth along tracks across the main floor and two outer platforms.
+- **Pendulums**: giant blades on 9 m arms swing across both walkways. Time your crossing.
+- **Falling saws**: every 5 seconds a pulsing red ring marks a spot on a random platform, then a blade drops out of the sky onto it and rolls off the edge.
+- **Saw columns** stand in the gaps with blades spinning around them in mid-air. You can grapple the poles, at your own risk.
+- **Lifts** rise and fall between levels, and **sliders** shuttle across gaps carrying whoever stands on them.
+- Six plain **steel pylons** are safe anchors to swing from.
+- All the blades move by the real-world clock, so they're in the same place on every player's screen. Bots dodge blades that come near and stay off the saw columns and pendulum frames.
+
 ### Bamboo Fort
 
 A 60 x 60 m platform built entirely of bamboo, floating in jade mist:
@@ -169,6 +181,7 @@ Every fighter is built from simple convex shapes (boxes, spheres, cylinders). Wh
 - `src/dojo.js`: the Paper Dojo District map and its breakable chunks (walls, stacks, fences, stalls) and how they collapse
 - `src/city.js`: the Glass Skyline map (glass towers, steel-frame buildings, the crane)
 - `src/bamboo.js`: the Bamboo Fort map (bamboo floor tiles, huts, gazebo, edge wall, pillars, falling spawn pads)
+- `src/foundry.js`: the Saw Foundry map (rail saws, pendulums, falling saws, saw columns, lifts and sliders) and its blade hit test
 - `src/killfx.js` and `src/grapple.js`: the kill effects and grapple styles
 - `src/arena.js`: all three maps (Sky Spires, Sky Plateaus, Great Canopy), collision, grapple targeting and the bots' navigation graph
 - `src/fighter.js`: the procedural samurai (human proportions: tapered torso, neck, face, jointed limbs), a long-striding run cycle, IK arms and legs, sword and trail
