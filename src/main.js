@@ -564,6 +564,8 @@ function botFireHook(b, aim, maxT, why, isPoint) {
 }
 // the same "place" for bots: a platform, or (on the canopy) a whole limb of connected branches
 const grp = (i) => (i == null || !arena.plats[i] ? i : arena.plats[i].group ?? i);
+// canopy: a target on a branch or leaf joined to ours by walkable surface, not far off, is reached on foot, not by swinging
+const samePlace = (b, t) => b.plat != null && t.plat != null && (grp(b.plat) === grp(t.plat) || (!!arena.comp && arena.comp[b.plat] === arena.comp[t.plat] && b.pos.distanceTo(t.pos) < 30));
 function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   b.hookCd2 = (b.hookCd2 ?? 1 + Math.random() * 2) - dt;
   b.padOk = (b.padOk || 0) - dt; // > 0 while pads are allowed (after a swing couldn't be set up)
@@ -631,7 +633,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
   }
   if (b.hookCd2 > 0 || !b.onGround || b.dashT > 0 || (b.anim && b.anim.phase !== 'rec')) return null;
   // enemy on another platform: swing over and land on it (pads are the fallback)
-  if (t.plat != null && b.plat != null && grp(t.plat) !== grp(b.plat) && !(b.stayUntil > now()) && Math.random() < dt * D.cross * 4) {
+  if (t.plat != null && b.plat != null && !samePlace(b, t) && !(b.stayUntil > now()) && Math.random() < dt * D.cross * 4) {
     const ok = (p) => p && p.i !== b.plat && p.y - b.pos.y < 18 && p.y - b.pos.y > -16 && Math.hypot(p.x - b.pos.x, p.z - b.pos.z) < 48;
     let tp = arena.plats[t.plat];
     if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && grp(+q.name.slice(1)) !== grp(b.plat)); tp = n ? arena.plats[+n.name.slice(1)] : null; }
@@ -639,7 +641,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     b.padOk = 2.5;
   }
   // long way off on about the same level: a free swing for show
-  if (dh > 16 && Math.abs(dy) < 3 && Math.random() < dt * D.roam) {
+  if (dh > 16 && Math.abs(dy) < 3 && !samePlace(b, t) && Math.random() < dt * D.roam) {
     const aim = new THREE.Vector3(dx, 0, dz).normalize(); aim.y = 0.45;
     if (botFireHook(b, aim, 1.6, 'roam')) { b.dest = null; return { wish: { x: 0, z: 0 }, jump: true, sprint: false }; }
   }
@@ -726,7 +728,7 @@ function botThink(b, dt) {
   if (g) return g;
   // two bots on different platforms hunting each other: one holds its ground and lets the other come
   // (also: a bot that just arrived on a platform holds it for a few seconds instead of leaving straight away)
-  if (b.onGround && b.plat != null && t.plat != null && grp(b.plat) !== grp(t.plat) && !t.flee && ((t.isBot && t.target === b && b.id < t.id) || b.stayUntil > now())) {
+  if (b.onGround && b.plat != null && t.plat != null && !samePlace(b, t) && !t.flee && ((t.isBot && t.target === b && b.id < t.id) || b.stayUntil > now())) {
     const p = arena.plats[b.plat], cx = p.x - b.pos.x, cz = p.z - b.pos.z, cl = Math.hypot(cx, cz);
     if (cl > 2) { wish.x = cx / cl * 0.5; wish.z = cz / cl * 0.5; }
     return { wish, jump, sprint };

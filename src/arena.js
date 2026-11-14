@@ -337,6 +337,7 @@ export class Arena {
     // bots' sense of distance between surfaces: walking connected, or roughly how many swings apart
     const comp = plats.map(() => -1);
     for (const p of plats) if (comp[p.i] < 0) { const q = [p.i]; comp[p.i] = p.i; while (q.length) { const u = q.shift(); for (const e of this.nodeMap.get('P' + u).edges) { const v = e.to.plat; if (v !== undefined && comp[v] < 0) { comp[v] = p.i; q.push(v); } } } }
+    this.comp = comp; // which walkable surface (branches + leaves joined together) each piece belongs to
     this.hops = plats.map((p) => plats.map((q) => Math.round(Math.hypot(p.x - q.x, p.z - q.z) / 25) + (comp[p.i] === comp[q.i] ? 0 : 1)));
     // swing routes for bots: each surface to its 3 nearest surfaces on other limbs within grapple reach
     for (const a of plats) {
@@ -359,7 +360,7 @@ export class Arena {
   }
 
   build() {
-    if (this.mapId === 'canopy') return this.buildCanopy();
+    this.comp = null; if (this.mapId === 'canopy') return this.buildCanopy();
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     this.realScene.background = new THREE.Color(0x9cc4e4);
