@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114182507';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114182507';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114182507';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114182507';
-import * as net from './net.js?v=20261114182507';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114182507';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114182507';
-import { makeKillFx } from './killfx.js?v=20261114182507';
-import { makeGrapple } from './grapple.js?v=20261114182507';
-import { initShop } from './shop.js?v=20261114182507';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114182507';
-import { portal } from './portal.js?v=20261114182507';
+import { Arena, MAPS } from './arena.js?v=20261114183950';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114183950';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114183950';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114183950';
+import * as net from './net.js?v=20261114183950';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114183950';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114183950';
+import { makeKillFx } from './killfx.js?v=20261114183950';
+import { makeGrapple } from './grapple.js?v=20261114183950';
+import { initShop } from './shop.js?v=20261114183950';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114183950';
+import { portal } from './portal.js?v=20261114183950';
 
 // ---------- settings ----------
 const store = {
@@ -1200,9 +1200,13 @@ function checkEnd() {
 }
 function endMatch(winner) {
   S.ended = true;
-  const res = { mode: S.mode, list: S.roster, wave: S.wave, winner: winner || null };
+  const res = { mode: S.mode, list: S.roster, wave: S.wave, winner: winner || null, q: !!(S.quick && S.online) };
   net.broadcast({ t: 'end', res });
   setTimeout(() => showEnd(res), 1500);
+  if (res.q) { // quick match: a new random mode and map rolls in on its own
+    const code = net.net.code;
+    setTimeout(() => { if (S.quick && S.host && S.online && net.net.code === code && S.phase === 'end') { quickRoll(); startMatch(); } }, QUICK_GAP * 1000);
+  }
 }
 function hostTick(dt) {
   const t = now();
@@ -1492,7 +1496,7 @@ function netTick(dt) {
 }
 // CrazyGames room data: our room, joinable while the host still has space (a guest can always invite)
 function portalRoom() { if (!S.online) return; const n = S.roster.filter((r) => r.human).length, max = S.mode === 'horde' ? 4 : MAX_PLAYERS; portal.room(S.host ? net.net.code : S.roomCode, S.host ? n < max : true); }
-function roomInfo() { return S.pub ? { code: net.net.code, name: settings.name || 'Ronin', game: S.mode, map: S.map, n: S.roster.filter((r) => r.human).length, max: S.mode === 'horde' ? 4 : MAX_PLAYERS, st: S.phase === 'game' ? 'playing' : 'lobby' } : null; }
+function roomInfo() { return S.pub ? { code: net.net.code, name: settings.name || 'Ronin', game: S.mode, map: S.map, n: S.roster.filter((r) => r.human).length, max: S.mode === 'horde' ? 4 : MAX_PLAYERS, st: S.phase === 'game' ? 'playing' : 'lobby', q: !!S.quick } : null; }
 
 // ---------- UI ----------
 const screens = ['home', 'mp', 'lobby', 'settings', 'pause', 'end', 'shop'];
@@ -1522,7 +1526,9 @@ const showBlurb = () => { $('modeBlurb').textContent = MODES[$('mode').value].bl
 $('mode').onchange = () => { settings.mode = $('mode').value; saveSettings(); $('hostMode').value = $('mode').value; showBlurb(); };
 $('hostMode').value = $('mode').value; showBlurb();
 $('playSolo').onclick = () => startSolo($('mode').value);
-$('toMp').onclick = () => { ensureAudio(); show('mp'); net.dirStart(renderRooms); };
+$('toMp').onclick = () => { ensureAudio(); show('mp'); net.dirStart(onRooms); };
+$('quickBtn').onclick = quickMatch;
+if (net.available()) net.dirStart(onRooms); // the live-games count on the menu
 $('mpBack').onclick = () => { if (!S.online) net.dirStop(); show('home'); };
 let settingsBack = 'home';
 $('toSettings').onclick = () => { settingsBack = 'home'; openSettings(); };
@@ -1540,6 +1546,7 @@ $('quitBtn').onclick = () => { leaveRoom(); toMenu(); };
 $('menuBtn').onclick = () => { leaveRoom(); toMenu(); };
 $('againBtn').onclick = () => {
   if (!S.online) { startSolo(S.mode); return; }
+  if (S.quick) { if (S.host && S.phase === 'end') { quickRoll(); startMatch(); } return; } // (quick match rolls on by itself)
   if (S.host) { S.phase = 'lobby'; clearWorld(); net.broadcast({ t: 'lobby' }); showLobby(); }
 };
 $('joinBtn').onclick = () => joinRoom($('joinCode').value);
@@ -1554,13 +1561,51 @@ $('copyLink').onclick = () => {
 for (const id of ['lobbyModeSel', 'lobbyMap', 'lobbyBots', 'lobbyDiff']) $(id).onchange = () => { if (!S.host) return; S.mode = $('lobbyModeSel').value; S.map = $('lobbyMap').value; S.bots = +$('lobbyBots').value; S.diff = +$('lobbyDiff').value; for (const r of S.roster) r.team = coop() ? 'H' : r.id; sendRoster(); if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); } };
 $('lobbyUp').onchange = () => { if (!S.host) return; S.noUp = !$('lobbyUp').checked; sendRoster(); }; // the host decides whether shop upgrades count in this room
 
+// ---------- quick match: join the busiest open quick room, or start one (random mode and map, bots fill it) ----------
+const QUICK_MODES = ['ffa', 'team', 'koth', 'jugg', 'hunt'], QUICK_GAP = 10;
+let liveRooms = [], roomsAt = 0, quickBusy = false;
+function onRooms(rooms) { liveRooms = rooms; roomsAt = Date.now(); renderRooms(rooms); renderLive(); }
+function renderLive() {
+  const el = $('liveCount'); if (!el) return;
+  const n = liveRooms.reduce((s, r) => s + r.n, 0), g = liveRooms.length;
+  el.textContent = !roomsAt ? 'Looking for live games…' : g ? `${g} live game${g > 1 ? 's' : ''} · ${n} player${n > 1 ? 's' : ''} online` : 'No live games right now. Quick Match starts one for others to join.';
+}
+function quickRoll() {
+  const pick = (a) => a[(Math.random() * a.length) | 0], maps = Object.keys(MAPS);
+  let m, mp, n = 0; do { m = pick(QUICK_MODES); mp = pick(maps); } while (m === S.mode && mp === S.map && ++n < 10);
+  S.mode = m; S.map = mp;
+}
+async function quickMatch() {
+  if (quickBusy) return;
+  ensureAudio();
+  if (!net.available()) { toast("Multiplayer couldn't load. Check your connection."); return; }
+  quickBusy = true; $('quickBtn').disabled = true; $('quickBtn').textContent = 'Finding a match…';
+  try {
+    net.dirStart(onRooms);
+    for (const t0 = Date.now(); !roomsAt && Date.now() - t0 < 8000;) await new Promise((r) => setTimeout(r, 150)); // the first room list
+    const open = liveRooms.filter((r) => r.q && r.n < r.max).sort((a, b) => b.n - a.n);
+    let joined = false;
+    for (const r of open.slice(0, 3)) if ((joined = await joinRoom(r.code))) break;
+    if (!joined) {
+      await net.host();
+      S.online = true; S.host = true; S.myId = 'host'; S.pub = true; S.quick = true; S.bots = 5; S.diff = 1; S.noUp = false;
+      quickRoll();
+      S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip, profile.up)];
+      net.dirStart(onRooms);
+      startMatch(); // (lists the room; anyone pressing Quick Match lands here and takes a bot's place)
+      toast(`Quick match: ${MODES[S.mode].name} on ${MAPS[S.map].name}`);
+    }
+  } catch (e) { toast(e.message || "Couldn't start a quick match."); }
+  quickBusy = false; $('quickBtn').disabled = false; $('quickBtn').textContent = 'Quick Match';
+}
+
 function renderRooms(rooms) {
   const el = $('rooms');
   if (!rooms.length) { el.innerHTML = '<div class="empty">No open rooms right now. Host one!</div>'; return; }
   el.innerHTML = '';
   for (const r of rooms) {
     const d = document.createElement('div'); d.className = 'item';
-    d.innerHTML = `<span class="grow"><b>${esc(r.name)}</b> · ${esc(MODES[r.game]?.name || 'Free-for-all')} · ${esc(MAPS[r.map]?.name || 'Sky Spires')} · ${r.n}/${r.max}${r.st === 'playing' ? ' · in a match' : ''}</span>`;
+    d.innerHTML = `<span class="grow"><b>${esc(r.name)}</b> · ${esc(MODES[r.game]?.name || 'Free-for-all')} · ${esc(MAPS[r.map]?.name || 'Sky Spires')} · ${r.n}/${r.max}${r.st === 'playing' ? ' · in a match' : ''}${r.q ? ' · quick match' : ''}</span>`;
     const b = document.createElement('button'); b.textContent = 'Join'; b.onclick = () => joinRoom(r.code); d.appendChild(b);
     el.appendChild(d);
   }
@@ -1586,10 +1631,10 @@ async function hostRoom() {
   $('hostBtn').disabled = true;
   try {
     await net.host();
-    S.online = true; S.host = true; S.myId = 'host'; S.mode = $('hostMode').value; S.map = $('map').value; S.pub = $('pub').checked; S.bots = 4; S.diff = 1; S.noUp = false; $('lobbyUp').checked = true;
+    S.online = true; S.host = true; S.quick = false; S.myId = 'host'; S.mode = $('hostMode').value; S.map = $('map').value; S.pub = $('pub').checked; S.bots = 4; S.diff = 1; S.noUp = false; $('lobbyUp').checked = true;
     S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip, profile.up)];
     showLobby();
-    net.dirStart(() => {}); net.dirSetRoom(roomInfo());
+    net.dirStart(onRooms); net.dirSetRoom(roomInfo());
     portalRoom(); // (tells CrazyGames we're in a joinable room: its Invite friends button works)
   } catch (e) { toast(e.message || 'Could not create a room.'); }
   $('hostBtn').disabled = false;
@@ -1602,18 +1647,18 @@ async function joinRoom(code) {
   toast('Joining ' + code + '…');
   try {
     await net.join(code);
-    S.online = true; S.host = false; S.roomCode = code; net.dirStop(); portal.room(code, true);
-    net.send({ t: 'hello', name: settings.name || 'Ronin', look: profile.equip, up: profile.up });
-  } catch (e) { toast(e.message || "Couldn't join that room."); }
+    S.online = true; S.host = false; S.quick = false; S.roomCode = code; net.dirStop(); portal.room(code, true);
+    net.send({ t: 'hello', name: settings.name || 'Ronin', look: profile.equip, up: profile.up }); return true;
+  } catch (e) { toast(e.message || "Couldn't join that room."); return false; }
 }
 function leaveRoom() {
   if (S.online) { net.dirSetRoom(null); net.leave(); net.dirStop(); portal.leftRoom(); }
-  S.online = false; S.host = true; S.myId = 'host';
+  S.online = false; S.host = true; S.quick = false; S.myId = 'host';
 }
 function startSolo(mode) {
   S.noUp = false; // (your upgrades always count against bots)
   ensureAudio();
-  leaveRoom();
+  leaveRoom(); net.dirStop(); // (a solo game doesn't need the live-games list)
   S.mode = mode; S.map = $('map').value; S.bots = +$('bots').value; S.diff = +$('diff').value;
   S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip, profile.up)];
   startMatch();
@@ -1631,7 +1676,7 @@ function toMenu() {
   portal.gameplayStop(); S.phase = 'menu'; S.ended = false; clearWorld(); S.roster = [];
   $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
-  show('home');
+  show('home'); if (!S.online && net.available()) net.dirStart(onRooms); // (keeps the live-games count on the menu fresh)
 }
 const ranked = (list, mode) => [...list].sort((a, b) => POINT_MODES.has(mode) ? (b.pts || 0) - (a.pts || 0) || b.k - a.k : b.k - a.k || a.d - b.d);
 function showEnd(res) {
@@ -1650,7 +1695,7 @@ function showEnd(res) {
     const w = res.mode === 'lbs' ? (res.winner ? rosterGet(res.winner) || res.list.find((r) => r.id === res.winner) : null) : list[0];
     $('endTitle').textContent = w && w.id === S.myId ? 'Victory' : res.mode === 'lbs' && !w ? 'Nobody survived' : `${w ? w.name : 'Nobody'} wins`;
   }
-  $('endSub').textContent = name;
+  $('endSub').textContent = name + (res.q ? ` · next round (random mode and map) in ${QUICK_GAP - 2} s` : '');
   const rows = list.filter((r) => res.mode !== 'horde' || r.human);
   $('endTable').innerHTML = `<tr><th></th><th>Name</th>${pts ? `<th>${res.mode === 'hunt' ? 'Heads' : 'Points'}</th>` : ''}<th>Kills</th><th>Deaths</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}</td>${pts ? `<td>${r.pts || 0}</td>` : ''}<td>${r.k}</td><td>${r.d}</td></tr>`).join('');
   // coins: for playing a real match (not quitting straight out), kills, points or waves, and winning
@@ -1678,7 +1723,7 @@ function showEnd(res) {
 portal.inviteRoom().then(async (code) => {
   const room = net.cleanCode(code);
   if (room.length === 5 && S.phase === 'menu') {
-    show('mp'); $('joinCode').value = room; net.dirStart(renderRooms);
+    show('mp'); $('joinCode').value = room; net.dirStart(onRooms);
     if (portal.active) joinRoom(room); // on CrazyGames an invite link drops you straight into the room
     else toast('Enter your name on the home screen if you like, then press Join.');
     return;

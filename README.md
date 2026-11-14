@@ -45,6 +45,8 @@ Solo games are you plus bots (0 to 7, Easy / Normal / Hard).
 Bots get around mainly by grappling: they hook a sky pillar beside the platform their enemy is on (or the next one on the way), swing toward it, and let go at the moment their arc will drop them onto the top, steering in the air to land near the middle. When they are well above a platform they hook its top and are pulled straight down onto it. If they fall, they swing back onto a platform the same way. Sometimes they dash out of a swing toward the platform, and they always do when a swing or fall would leave them short. They only take the jump pads when there is no clean swing. Harder bots grapple more often.
 
 ## Multiplayer
+**Quick Match** (main menu): one click into an online game. It joins the busiest open quick-match room, or, if there is none, starts one with a random mode (Free-for-all, Team Battle, King of the Platform, Juggernaut or Headhunter) and a random map, filled with bots so you can play straight away. Anyone else pressing Quick Match lands in your game. After each round a new random mode and map roll in 10 seconds later. The menu shows how many live games and players are online.
+
 
 Click **Multiplayer** on the home screen.
 

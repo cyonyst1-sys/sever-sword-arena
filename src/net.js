@@ -81,7 +81,7 @@ export function leave() {
 const DIR_ID = PREFIX + 'rooms';
 const dir = { on: false, peer: null, conn: null, isDir: false, rooms: [], listeners: new Map(), entries: new Map(),
   myRoom: null, retryT: null, regT: null, sweepT: null, onRooms() {} };
-const GAMES = ['ffa', 'horde', 'koth', 'jugg', 'lbs', 'hunt'];
+const GAMES = ['ffa', 'team', 'horde', 'koth', 'jugg', 'lbs', 'hunt'];
 const cleanText = (s, n) => String(s ?? '').replace(/[^\p{L}\p{N} _.-]/gu, '').trim().slice(0, n);
 const int = (x, lo, hi) => (Number.isInteger(x) && x >= lo && x <= hi ? x : null);
 /** Validate a room listing (they come from other browsers). */
@@ -90,7 +90,7 @@ export function cleanRoom(r) {
   const code = cleanCode(r.code), n = int(r.n, 0, 12), max = int(r.max, 1, 12);
   if (code.length !== 5 || n === null || max === null || !GAMES.includes(r.game)) return null;
   return { code, name: cleanText(r.name, 14) || 'Player', game: r.game, map: cleanText(r.map, 20).toLowerCase(),
-    mode: r.mode === 'coop' ? 'coop' : 'teams', n, max, st: r.st === 'playing' ? 'playing' : 'lobby' };
+    mode: r.mode === 'coop' ? 'coop' : 'teams', n, max, st: r.st === 'playing' ? 'playing' : 'lobby', q: r.q === true };
 }
 /** Start following the room list. onRooms(rooms) is called whenever it changes. */
 export function dirStart(onRooms) {

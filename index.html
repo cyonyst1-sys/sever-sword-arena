@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261114182507">
+<meta name="build" content="20261114183950">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -129,12 +129,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261114182507",
-  "./src/arena.js": "./src/arena.js?v=20261114182507",
-  "./src/fighter.js": "./src/fighter.js?v=20261114182507",
-  "./src/slice.js": "./src/slice.js?v=20261114182507",
-  "./src/audio.js": "./src/audio.js?v=20261114182507",
-  "./src/net.js": "./src/net.js?v=20261114182507"
+  "./src/main.js": "./src/main.js?v=20261114183950",
+  "./src/arena.js": "./src/arena.js?v=20261114183950",
+  "./src/fighter.js": "./src/fighter.js?v=20261114183950",
+  "./src/slice.js": "./src/slice.js?v=20261114183950",
+  "./src/audio.js": "./src/audio.js?v=20261114183950",
+  "./src/net.js": "./src/net.js?v=20261114183950"
 } }
 </script>
 </head>
@@ -161,6 +161,8 @@ window.severVersion.check();
       <button class="primary" id="playSolo" style="align-self:flex-end">Play solo</button>
     </div>
     <div class="muted" id="modeBlurb" style="margin:-4px 0 6px"></div>
+    <div class="row"><button class="primary" id="quickBtn" title="Jump into an online match: random mode and map, bots fill the empty spots">Quick Match</button></div>
+    <div class="muted" id="liveCount" style="margin:-4px 0 6px">Looking for live games…</div>
     <div class="row"><button id="toMp">Multiplayer</button><button id="toShop" class="shopBtn">Shop <span class="coin"></span><span id="coinBadge">0</span></button><button id="toSettings">Settings</button></div>
     <div class="controls">
       <b>WASD</b><span>Move</span>
@@ -277,6 +279,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261114182507"></script>
+<script type="module" src="src/main.js?v=20261114183950"></script>
 </body>
 </html>
