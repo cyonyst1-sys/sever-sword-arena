@@ -75,7 +75,20 @@ Same size as the other maps: a giant forest canopy high above a misty floor.
 
 ### Sky Spires
 
-A coliseum bowl in the sky, built entirely of **round platforms**:
+A sky arena made of 23 floating platforms at different heights:
+
+- A large **hub** in the middle, a ring of platforms around it, and an outer ring further out, each at its own height.
+- **High perches** floating above the others and **low platforms** hanging below them.
+- Low walls and stone blocks on each platform for cover.
+- **Jump pads** (the glowing discs near platform edges) link every platform into one network. Stand on one and press **Space** to launch onto the next platform.
+- About 90 **sky pillars** all over the arena, rising far above and below the platforms (marked with glowing rings), to grapple and swing between. Grapple the edge of a platform and the hook pulls you up and over onto it.
+
+
+Fights happen platform by platform: whoever lands on a platform fights whoever's there, then swings or pads on to the next one. Bots go for enemies on their own platform or the next one over first, climb up to higher platforms by grappling their edge, and use the pads to get around.
+
+### Colosseum
+
+A colosseum bowl in the sky, built entirely of **round platforms**:
 
 - A big round **arena floor** in the middle, the lowest point of the map.
 - Three rings of round platforms around it, stepping up and out like the seats of a coliseum: 8 at 10 m up, 10 at about 21 m, and 12 on the **high rim** at about 33 m.

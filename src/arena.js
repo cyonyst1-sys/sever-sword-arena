@@ -77,7 +77,8 @@ export const TEX = { rng, canvasTex, stoneTex, woodTex, bambooTex, worldUV, spec
 function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; } return [x, z]; }
 
 export const MAPS = {
-  spire: { name: 'Sky Spires', blurb: 'a coliseum bowl of round platforms: start on the high rim and swing down to fight on the arena floor' },
+  spire: { name: 'Sky Spires', blurb: '23 small platforms at many heights: swing from one fight to the next' },
+  colosseum: { name: 'Colosseum', blurb: 'a bowl of round platforms around a big round arena floor: start on the high rim and swing down to fight' },
   plateaus: { name: 'Sky Plateaus', blurb: '7 huge platforms at slightly different heights: big brawls with room to dash' },
   canopy: { name: 'Great Canopy', blurb: 'giant tree branches to run along, big leaves to land on, and bamboo to swing from (and cut through)' },
   pagoda: { name: 'Pagoda Falls', blurb: 'a three-tier pagoda at sunset, stone islands and rock spires around it, rope bridges, and red lacquer posts to swing from (and cut through)' },
@@ -418,7 +419,7 @@ export class Arena {
 
   build() {
     this.comp = null; if (this.mapId === 'canopy') return this.buildCanopy();
-    if (this.mapId === 'spire') return buildBowl(this, TEX);
+    if (this.mapId === 'colosseum') return buildBowl(this, TEX);
     if (this.mapId === 'pagoda') return buildPagoda(this, TEX);
     if (this.mapId === 'isles') return buildIsles(this, TEX);
     const S = this.scene, M = this.mats;
