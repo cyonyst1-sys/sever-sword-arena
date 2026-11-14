@@ -2,7 +2,7 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { item, cleanLook } from './cosmetics.js?v=20261114041247';
+import { item, cleanLook } from './cosmetics.js?v=20261114131920';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -10,7 +10,7 @@ export const MATS = [];
 export function regMat(m) { if (m.userData.mi === undefined) { m.userData.mi = MATS.length; MATS.push(m); } return m.userData.mi; }
 
 export const CAP = {
-  flesh: new THREE.MeshStandardMaterial({ color: 0xa50f1b, roughness: 0.5, emissive: 0x3a0005, side: THREE.DoubleSide }),
+  flesh: new THREE.MeshStandardMaterial({ color: 0x151317, roughness: 0.45, side: THREE.DoubleSide }), // (the cut face: black, like the blood)
   steel: new THREE.MeshStandardMaterial({ color: 0xeef3f8, roughness: 0.25, metalness: 0.8, side: THREE.DoubleSide }),
   wood: new THREE.MeshStandardMaterial({ color: 0xc9a36b, roughness: 0.8, side: THREE.DoubleSide }),
 };

@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114041247';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114041247';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114041247';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114041247';
-import * as net from './net.js?v=20261114041247';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114041247';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114041247';
-import { makeKillFx } from './killfx.js?v=20261114041247';
-import { makeGrapple } from './grapple.js?v=20261114041247';
-import { initShop } from './shop.js?v=20261114041247';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114041247';
-import { portal } from './portal.js?v=20261114041247';
+import { Arena, MAPS } from './arena.js?v=20261114131920';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114131920';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114131920';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114131920';
+import * as net from './net.js?v=20261114131920';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114131920';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261114131920';
+import { makeKillFx } from './killfx.js?v=20261114131920';
+import { makeGrapple } from './grapple.js?v=20261114131920';
+import { initShop } from './shop.js?v=20261114131920';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114131920';
+import { portal } from './portal.js?v=20261114131920';
 
 // ---------- settings ----------
 const store = {
@@ -40,7 +40,7 @@ let arena = new Arena(scene, settings.quality, 'spire');
 function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id && !arena.dirty) return; // (also rebuild after platforms have crumbled)
   arena.dispose(); arena = new Arena(scene, settings.quality, id); }
 const ground = (x, z, y, m) => arena.groundHeight(x, z, y, m);
-const blood = new Particles(scene, ground, { color: 0x8a0a10, size: 0.07, decals: true, max: 2400 });
+const blood = new Particles(scene, ground, { color: 0x0d0c0e, size: 0.07, decals: true, max: 2400, decalColor: 0x060507 }); // black blood
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
 const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 300 }); // bamboo chips
 const killFx = makeKillFx(scene, ground); // kill effects from the shop

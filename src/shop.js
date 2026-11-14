@@ -1,10 +1,10 @@
 // The shop screen: browse by category, try things on a turning, swinging preview fighter, buy and equip.
 import * as THREE from 'three';
-import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114041247';
-import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261114041247';
-import { makeKillFx } from './killfx.js?v=20261114041247';
-import { makeGrapple } from './grapple.js?v=20261114041247';
-import { CATEGORIES, CATALOG, item, profile, owns, buy, equip } from './cosmetics.js?v=20261114041247';
+import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114131920';
+import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261114131920';
+import { makeKillFx } from './killfx.js?v=20261114131920';
+import { makeGrapple } from './grapple.js?v=20261114131920';
+import { CATEGORIES, CATALOG, item, profile, owns, buy, equip } from './cosmetics.js?v=20261114131920';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
@@ -30,7 +30,7 @@ export function initShop({ show, onClose }) {
   fx.smoke = new Particles(scene, noGround, { color: 0x1a1020, size: 0.14, gravity: -0.5, max: 300 });
   // kill-effect demo: the preview fighter is cut down every few seconds and the pieces land on the floor disc
   const floorAt = (x, z, y) => (y > -0.5 && Math.hypot(x, z) < 3 ? 0 : -Infinity);
-  const blood = new Particles(scene, floorAt, { color: 0x8a0a10, size: 0.035, max: 800, decals: true });
+  const blood = new Particles(scene, floorAt, { color: 0x0d0c0e, size: 0.035, max: 800, decals: true, decalColor: 0x060507 });
   const pieces = new Pieces(scene, floorAt, blood), kfx = makeKillFx(scene, floorAt, { sound: false });
   let grap = null, grapId = '', killT = 0, dead = false;
   const GRAP_AT = new THREE.Vector3(0.8, 2.7, -0.6);
