@@ -11,7 +11,10 @@ for target in web crazygames; do
   out="dist/$target"
   mkdir -p "$out"
   cp -r index.html src thumbs vendor "$out/"
-  # no version.json: the stale-page guard in index.html finds nothing and does nothing on portals
+  # no version.json, and the stale-page guard is switched off: a portal serves exactly the files uploaded, and
+  # portals flag a request for a missing file (CrazyGames: "Missing resource detected")
+  sed -i "s#  check: function () {#  check: function () { return Promise.resolve(false); // (portal build: nothing to check)#" "$out/index.html"
+  grep -q "portal build: nothing to check" "$out/index.html" || { echo "build-portal: couldn't switch off the version check" >&2; exit 1; }
   if [ "$target" = crazygames ]; then
     sed -i 's#<script src="vendor/peerjs.min.js"></script>#<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>\n&#' "$out/index.html"
     grep -q crazygames-sdk-v3 "$out/index.html" || { echo "build-portal: couldn't add the CrazyGames SDK tag" >&2; exit 1; }
