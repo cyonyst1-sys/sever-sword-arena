@@ -4,7 +4,7 @@
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114025722';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114030206';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -37,7 +37,7 @@ export function buildCity(A, T) {
   const stairs = (lo, hi, lx, lz, hx, hz, w) => {
     const dx = hx - lx, dz = hz - lz, L = Math.hypot(dx, dz);
     const p = { kind: 'branch', x: (lx + hx) / 2, z: (lz + hz) / 2, y: (lo.y + hi.y) / 2, ya: lo.y, yb: hi.y, w: L, d: w, ang: Math.atan2(dz, dx), i: A.plats.length, meshes: [], boxes: [], ramps: [], rays: [], parent: lo.i };
-    A.plats.push(p); A.tag = p; A.addRamp(lx, lz, hx, hz, lo.y, hi.y, w, lo.y, concrete, { noWall: true }); A.tag = null;
+    A.plats.push(p); A.tag = p; A.addRamp(lx, lz, hx, hz, lo.y, hi.y, w, lo.y, concrete, { noWall: true, thick: 0.4 }); A.tag = null;
     A.node('P' + p.i, lx + dx * 0.15, lo.y + (hi.y - lo.y) * 0.15, lz + dz * 0.15).plat = p.i; // (its waypoint near the foot, so a bot at the bottom heads up rather than back)
     A.link('P' + lo.i, 'P' + p.i); A.link('P' + p.i, 'P' + hi.i);
     return p;

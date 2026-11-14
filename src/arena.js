@@ -3,8 +3,8 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildCity } from './city.js?v=20261114025722';
-import { buildDojo } from './dojo.js?v=20261114025722';
+import { buildCity } from './city.js?v=20261114030206';
+import { buildDojo } from './dojo.js?v=20261114030206';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -153,7 +153,8 @@ export class Arena {
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = p.getZ(i);
       const t = Math.min(1, Math.max(0, ((x - lx) * ux + (z - lz) * uz) / len));
-      p.setY(i, p.getY(i) > 0.5 ? hL + (hH - hL) * t : base);
+      const top = hL + (hH - hL) * t;
+      p.setY(i, p.getY(i) > 0.5 ? top : opts.thick ? top - opts.thick : base); // (a board of some thickness, or a solid wedge down to its base)
     }
     geo.computeVertexNormals(); worldUV(geo, 0.5);
     const m = new THREE.Mesh(geo, mat || this.mats.dark); m.castShadow = m.receiveShadow = true; this.scene.add(m);

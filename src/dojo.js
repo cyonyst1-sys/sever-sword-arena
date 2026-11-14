@@ -6,7 +6,7 @@
 // Vertical: a four-tier dojo tower with stairs spiralling up it, two-storey houses, rooftop bridges, watchtowers
 // and floating shrine islands around the town.
 import * as THREE from 'three';
-import { regMat } from './fighter.js?v=20261114025722';
+import { regMat } from './fighter.js?v=20261114030206';
 import { deck, prop, bridge, stalk, drift, farRing } from './maps2.js';
 
 const TAU = Math.PI * 2, CELL = 6;
@@ -238,7 +238,7 @@ export function buildDojo(A, T) {
     const dx = hx - lx, dz = hz - lz, L = Math.hypot(dx, dz);
     const p = { kind: 'branch', x: (lx + hx) / 2, z: (lz + hz) / 2, y: (lo.y + hi.y) / 2, ya: lo.y, yb: hi.y, w: L, d: w, ang: Math.atan2(dz, dx), i: A.plats.length, meshes: [], boxes: [], ramps: [], rays: [], parent: lo.i };
     A.plats.push(p); A.tag = p;
-    A.addRamp(lx, lz, hx, hz, lo.y, hi.y, w, lo.y, W, { noWall: true });
+    A.addRamp(lx, lz, hx, hz, lo.y, hi.y, w, lo.y, W, { noWall: true, thick: 0.4 });
     A.tag = null;
     A.node('P' + p.i, lx + dx * 0.15, lo.y + (hi.y - lo.y) * 0.15, lz + dz * 0.15).plat = p.i; // (its waypoint near the foot, so a bot at the bottom heads up rather than back)
     A.link('P' + lo.i, 'P' + p.i); A.link('P' + p.i, 'P' + hi.i);
