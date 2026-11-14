@@ -103,7 +103,7 @@ A 60 x 60 m platform built entirely of bamboo, floating in jade mist:
 
 - **Even the floor is bamboo.** It's made of tiles your sword slices straight through. Cut one out and there's a hole to fall through.
 - Small bamboo **huts** with flat bamboo roofs, an open **gazebo** in the middle (cut its poles and the roof comes down), bamboo **fences** and piles of cut poles.
-- A **dense bamboo wall** rings the edge. Anyone who swings or dashes into it smashes a window through it, so everyone can see where they came in.
+- A **wall of thin bamboo poles**, 20 m tall, rings the edge. You can see through the gaps, but they are too narrow to slip through: anyone who swings or dashes in cuts through the poles in the way (the tops drop), leaving a window that shows where they came in.
 - Outside there's nothing but tall **bamboo pillars** to swing from (and cut).
 - **Spawn pads**: everyone starts on a small pad floating outside the fort and rushes the middle. Once you leave a pad it falls away into the mist, and it comes back 6 s later for the next fighter.
 

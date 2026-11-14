@@ -5,7 +5,7 @@
 // them (and come back a few seconds later for the next fighter).
 import * as THREE from 'three';
 import { deck, prop, stalk, drift, farRing } from './maps2.js';
-import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114153151';
+import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114153658';
 
 const TAU = Math.PI * 2, HALF = 30, TILE = 1.5;
 
@@ -41,10 +41,15 @@ export function buildBamboo(A, T) {
     for (const [x, z] of [[-18, -18], [18, -18], [-18, 18], [18, 18], [0, 0]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 0.6, 60, 10), poleMat); prop(A, main, m, x, -31, z); }
   }
 
-  // ---- the dense wall round the edge: swing through it and you leave a window in it
-  const H = 5, WI = HALF - 0.3;
-  const edge = (ax, az, bx, bz) => wall(A, ax, az, bx, bz, 0, H, { kind: 'bamboo', posts: false, t: 0.5 });
-  edge(-WI, -WI, WI, -WI); edge(-WI, WI, WI, WI); edge(-WI, -WI + 0.25, -WI, WI - 0.25); edge(WI, -WI + 0.25, WI, WI - 0.25);
+  // ---- the wall round the edge: a close-set row of thin bamboo poles, 20 m tall. You can see through the gaps,
+  // but they're too narrow to slip through: anyone swinging or dashing in cuts through the poles in the way, and
+  // whatever is above each cut drops. Every pole is a stack of segments (each rests on the one below).
+  const WH = 20, SEG = 4, SP = 0.36, PW = 0.14, WI = HALF - 0.3;
+  const pole = (x, z) => {
+    const g = group(), h = WH - 1.5 + r() * 3, nseg = Math.round(h / SEG); let below = null;
+    for (let j = 0; j < nseg; j++) { const b = chunk(A, g, 'bamboo', x - PW / 2, x + PW / 2, j * h / nseg, (j + 1) * h / nseg, z - PW / 2, z + PW / 2, j === 0); join(b, below); below = b; }
+  };
+  for (let u = -WI; u <= WI + 1e-6; u += SP) { pole(u, -WI); pole(u, WI); if (u > -WI + 1e-6 && u < WI - 1e-6) { pole(-WI, u); pole(WI, u); } }
 
   // ---- small bamboo huts with flat bamboo roofs, a gazebo in the middle, fences and log piles
   const hut = (cx, cz, w, d, doorSide) => {
@@ -95,7 +100,7 @@ export function buildBamboo(A, T) {
   const pads = [];
   for (let k = 0; k < 8; k++) {
     const a = k / 8 * TAU + TAU / 16, x = Math.cos(a) * 47, z = Math.sin(a) * 47;
-    const p = deck(A, { x, z, y: 4, w: 4.5, d: 4.5, mat: poleMat, kind: 'pad', thick: 0.6 });
+    const p = deck(A, { x, z, y: 8, w: 4.5, d: 4.5, mat: poleMat, kind: 'pad', thick: 0.6 });
     p.base = p.meshes.map((m) => m.position.y); pads.push(p);
   }
   A.curPlat = undefined;
