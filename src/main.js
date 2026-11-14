@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261113213015';
-import { Fighter, PALETTE, GUARD } from './fighter.js?v=20261113213015';
-import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113213015';
-import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113213015';
-import * as net from './net.js?v=20261113213015';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113213015';
-import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113213015';
-import { makeKillFx } from './killfx.js?v=20261113213015';
-import { makeGrapple } from './grapple.js?v=20261113213015';
-import { initShop } from './shop.js?v=20261113213015';
+import { Arena, MAPS } from './arena.js?v=20261113214326';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113214326';
+import { bakeMeshes, Pieces, Particles } from './slice.js?v=20261113214326';
+import { sfx, ensureAudio, setListener, setVolume } from './audio.js?v=20261113214326';
+import * as net from './net.js?v=20261113214326';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261113214326';
+import { profile, addCoins, randomLook, cleanLook, item } from './cosmetics.js?v=20261113214326';
+import { makeKillFx } from './killfx.js?v=20261113214326';
+import { makeGrapple } from './grapple.js?v=20261113214326';
+import { initShop } from './shop.js?v=20261113214326';
 
 // ---------- settings ----------
 const store = {
@@ -27,6 +27,7 @@ renderer.shadowMap.enabled = settings.quality !== 'low';
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const gameEnv = metalEnvFor(renderer); setMetalEnv(gameEnv); // a soft sky for metal (swords, gold, armour) to reflect
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 900);
 function resize() { renderer.setSize(window.innerWidth, window.innerHeight, false); camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); }
@@ -1207,7 +1208,7 @@ function roomInfo() { return S.pub ? { code: net.net.code, name: settings.name |
 
 // ---------- UI ----------
 const screens = ['home', 'mp', 'lobby', 'settings', 'pause', 'end', 'shop'];
-const shop = initShop({ show, onClose: () => { show('home'); updateCoinBadge(); } });
+const shop = initShop({ show, onClose: () => { setMetalEnv(gameEnv); show('home'); updateCoinBadge(); } });
 function updateCoinBadge() { $('coinBadge').textContent = profile.coins; }
 $('toShop').addEventListener('click', () => shop.open());
 updateCoinBadge();

@@ -1,10 +1,10 @@
 // The shop screen: browse by category, try things on a turning, swinging preview fighter, buy and equip.
 import * as THREE from 'three';
-import { Fighter, PALETTE } from './fighter.js?v=20261113213015';
-import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261113213015';
-import { makeKillFx } from './killfx.js?v=20261113213015';
-import { makeGrapple } from './grapple.js?v=20261113213015';
-import { CATEGORIES, CATALOG, item, profile, owns, buy, equip } from './cosmetics.js?v=20261113213015';
+import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261113214326';
+import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261113214326';
+import { makeKillFx } from './killfx.js?v=20261113214326';
+import { makeGrapple } from './grapple.js?v=20261113214326';
+import { CATEGORIES, CATALOG, item, profile, owns, buy, equip } from './cosmetics.js?v=20261113214326';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
@@ -14,7 +14,7 @@ export function initShop({ show, onClose }) {
 
   // ---- preview scene (its own small renderer, only running while the shop is open)
   const canvas = $('shopCanvas');
-  let renderer = null;
+  let renderer = null, shopEnv = null;
   const scene = new THREE.Scene();
   scene.add(new THREE.HemisphereLight(0xfff1e0, 0x2a2420, 1.4));
   const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(2, 4, 3); scene.add(key);
@@ -123,7 +123,8 @@ export function initShop({ show, onClose }) {
 
   return {
     open() {
-      if (!renderer) { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); renderer.setPixelRatio(devicePixelRatio); renderer.outputColorSpace = THREE.SRGBColorSpace; }
+      if (!renderer) { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); renderer.setPixelRatio(devicePixelRatio); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; shopEnv = metalEnvFor(renderer); }
+      setMetalEnv(shopEnv); // the preview has its own renderer, so its own reflection map (the game's goes back on close)
       show('shop'); open = true; sel = profile.equip[cat]; lookKey = ''; refresh();
       last = 0; t0 = performance.now() / 1000; cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
     },

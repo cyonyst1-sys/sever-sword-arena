@@ -2,7 +2,7 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { item, cleanLook } from './cosmetics.js?v=20261113213015';
+import { item, cleanLook } from './cosmetics.js?v=20261113214326';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -29,6 +29,7 @@ const M = {
   grip: new THREE.MeshStandardMaterial({ color: 0x2a1d14, roughness: 0.9 }),
   eye: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 }),
   oni: new THREE.MeshStandardMaterial({ color: 0x8e1717, roughness: 0.5, emissive: 0x220000 }),
+  saya: new THREE.MeshStandardMaterial({ color: 0x1c1416, roughness: 0.3, metalness: 0.2 }), // lacquered scabbard
 };
 for (const m of Object.values(M)) regMat(m);
 CAP.flesh.userData.flesh = true; M.skin.userData.flesh = true; M.skinShade.userData.flesh = true;
@@ -53,11 +54,25 @@ const GEO = {
   cone: new THREE.ConeGeometry(1, 1, 10, 1),
 };
 
+// metal reflects a soft sky (set once from main via setMetalEnv); only metal gets it, so nothing else changes
+let metalEnv = null;
+const shine = (m) => { if (metalEnv && m.metalness >= 0.4) { m.envMap = metalEnv; m.envMapIntensity = 0.9; m.needsUpdate = true; } return m; };
+export function setMetalEnv(tex) { metalEnv = tex; for (const m of MATS) shine(m); }
+/** A soft sky (warm above, dark below, a bright sun) drawn into a reflection map for this renderer. */
+export function metalEnvFor(renderer) {
+  const env = new THREE.Scene(), geo = new THREE.SphereGeometry(10, 24, 12), col = [], c = new THREE.Color();
+  for (let i = 0, p = geo.attributes.position; i < p.count; i++) { const y = p.getY(i) / 10; c.set(y > 0 ? 0x9fb8d0 : 0x3a332c).lerp(new THREE.Color(y > 0 ? 0xfff4e2 : 0x161210), Math.abs(y) ** 0.7); col.push(c.r, c.g, c.b); }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  env.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ side: THREE.BackSide, vertexColors: true })));
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); sun.position.set(5, 7, 3); env.add(sun);
+  const pm = new THREE.PMREMGenerator(renderer), tex = pm.fromScene(env, 0.02).texture; pm.dispose(); geo.dispose();
+  return tex;
+}
 // materials for cosmetics, made once per look and shared
 const cosMats = new Map();
 export function cosMat(d) {
   const k = JSON.stringify(d);
-  if (!cosMats.has(k)) { const m = new THREE.MeshStandardMaterial({ color: d.c, metalness: d.m || 0, roughness: d.r ?? 0.6, emissive: d.e || 0, emissiveIntensity: d.ei || 0 }); regMat(m); cosMats.set(k, m); }
+  if (!cosMats.has(k)) { const m = new THREE.MeshStandardMaterial({ color: d.c, metalness: d.m || 0, roughness: d.r ?? 0.6, emissive: d.e || 0, emissiveIntensity: d.ei || 0 }); regMat(m); shine(m); cosMats.set(k, m); }
   return cosMats.get(k);
 }
 const UP = new THREE.Vector3(0, 1, 0);
@@ -129,6 +144,10 @@ export class Fighter {
       thL: mk(GEO.taper, pants), knL: mk(GEO.sphLo, pants), shL: mk(GEO.taper, pants), ftL: mk(GEO.box, M.dark),
       thR: mk(GEO.taper, pants), knR: mk(GEO.sphLo, pants), shR: mk(GEO.taper, pants), ftR: mk(GEO.box, M.dark),
       // sword
+      // detail: crossed lapels, the obi knot and its tails at the back, wrist guards, shin wraps, a scabbard
+      lapL: mk(GEO.box, trim), lapR: mk(GEO.box, trim), obiK: mk(GEO.box, trim), tailL: mk(GEO.box, trim), tailR: mk(GEO.box, trim),
+      wrL: mk(GEO.cyl, M.dark), wrR: mk(GEO.cyl, M.dark), kyL: mk(GEO.taper, horde ? M.dark : cloth(0xd2cab8)), kyR: mk(GEO.taper, horde ? M.dark : cloth(0xd2cab8)),
+      saya: mk(GEO.cyl, M.saya, CAP.wood), kojiri: mk(GEO.cyl, M.gold, CAP.steel),
       grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(GEO.box, L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
     };
     // mask and headwear: extra parts worn on the head; some hide what they cover
@@ -203,6 +222,12 @@ export class Fighter {
     seg(P.abdomen, at(0, 0.0, 0), at(0, 0.2, 0), 0.135, 0.74);
     seg(P.obi, at(0, 0.04, 0), at(0, 0.12, 0), 0.148, 0.78);
     seg(P.chest, at(0, 0.17, 0), at(0, 0.47, 0), 0.15, 0.62); P.chest.rotateY(twist);
+    // the gi's crossed lapels, the obi knot and its tails, and the scabbard thrust through the obi on the left
+    seg(P.lapL, at(-0.088, 0.45, -0.088), at(0.03, 0.15, -0.104), 0.05, 0.22); seg(P.lapR, at(0.088, 0.45, -0.09), at(-0.012, 0.22, -0.108), 0.045, 0.22);
+    P.obiK.position.copy(at(0, 0.085, 0.118)); P.obiK.scale.set(0.085, 0.06, 0.04); P.obiK.rotation.set(-lean, 0, 0);
+    const sw = Math.sin(ph * 2) * 0.03 * k; // the tails swing a little as you run
+    seg(P.tailL, at(-0.02, 0.07, 0.125), at(-0.05, -0.15, 0.15 + k * 0.12 + sw), 0.032, 0.3); seg(P.tailR, at(0.025, 0.07, 0.125), at(0.06, -0.11, 0.14 + k * 0.1 - sw), 0.032, 0.3);
+    seg(P.saya, at(-0.17, 0.09, -0.16), at(-0.24, -0.22, 0.62), 0.024, 0.75); seg(P.kojiri, at(-0.239, -0.217, 0.6), at(-0.242, -0.226, 0.64), 0.027, 0.75);
     P.collar.position.copy(at(0, 0.45, -0.07)); P.collar.scale.set(0.12, 0.07, 0.03); P.collar.rotation.set(-lean, twist, 0);
     for (const [n, side] of [['L', -1], ['R', 1]]) {
       const S = sh(side);
@@ -248,6 +273,7 @@ export class Fighter {
       ik(hip, foot, THIGH, SHIN, V(0, 0, -1), knee);
       seg(P['th' + side], hip, knee, 0.088); P['kn' + side].position.copy(knee); P['kn' + side].scale.setScalar(0.06);
       seg(P['sh' + side], knee, foot, 0.064);
+      seg(P['ky' + side], _a.lerpVectors(knee, foot, 0.22), _b.lerpVectors(knee, foot, 0.86), 0.072); // shin wraps
       const ft = P['ft' + side];
       ft.position.set(foot.x, foot.y - 0.035 + Math.max(0, toe) * 0.05, foot.z - 0.06); ft.scale.set(0.095, 0.065, 0.25); ft.rotation.set(toe, 0, 0);
     }
@@ -260,6 +286,7 @@ export class Fighter {
     const el = V();
     ik(shR, hand, UPPER, FORE, V(0.6, -0.7, 0.3), el);
     seg(P.uaR, shR, el, 0.058); P.elR.position.copy(el); P.elR.scale.setScalar(0.046); seg(P.faR, el, hand, 0.046);
+    seg(P.wrR, _a.lerpVectors(el, hand, 0.62), _b.lerpVectors(el, hand, 0.97), 0.05); // wrist guard
     seg(P.hR, hand, _a.copy(hand).addScaledVector(d, 0.06), 0.042, 0.8);
     // ---- off arm: swings opposite the legs with a bent elbow, or reaches for the grapple
     const sL = Math.sin(ph);
@@ -274,6 +301,7 @@ export class Fighter {
     const elL = V();
     ik(shL, handL, UPPER, FORE, V(-0.3, -0.4, 0.6), elL);
     seg(P.uaL, shL, elL, 0.058); P.elL.position.copy(elL); P.elL.scale.setScalar(0.046); seg(P.faL, elL, handL, 0.046);
+    seg(P.wrL, _a.lerpVectors(elL, handL, 0.62), _b.lerpVectors(elL, handL, 0.97), 0.05);
     seg(P.hL, handL, _a.subVectors(handL, elL).normalize().multiplyScalar(0.07).add(handL), 0.042, 0.8);
 
     // ---- sword: the blade edge leads in the direction of motion
