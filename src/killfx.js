@@ -1,8 +1,8 @@
 // Kill effects from the shop: what happens to someone you cut down. The body still splits along your
 // cut; the effect changes what sprays out, what the pieces leak, and what becomes of them.
 import * as THREE from 'three';
-import { Particles } from './slice.js?v=20261115151805';
-import { sfx } from './audio.js?v=20261115151805';
+import { Particles } from './slice.js?v=20261115152819';
+import { sfx } from './audio.js?v=20261115152819';
 
 const R = () => Math.random() - 0.5;
 
@@ -24,6 +24,11 @@ export function makeKillFx(scene, ground, { sound = true } = {}) {
     ice: new THREE.MeshStandardMaterial({ color: 0xbfe8ff, emissive: 0x2a6aa0, emissiveIntensity: 0.6, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.86 }),
   };
   const timed = []; // short-lived visuals: lightning bolts, rifts
+  // one light for every lightning flash, in the scene from the start and dark until used: adding and removing a light
+  // each strike made every material recompile (a stutter)
+  const boltLight = new THREE.PointLight(0xbfe8ff, 0, 30); scene.add(boltLight); let boltT = 0;
+  const boltMat = new THREE.MeshBasicMaterial({ color: 0xdff7ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }); // (one material, compiled at load:)
+  { const warm = new THREE.Mesh(new THREE.BoxGeometry(0.001, 0.001, 0.001), boltMat); warm.frustumCulled = false; scene.add(warm); }
   const s = (fn, p) => { if (sound) fn.call(sfx, p); };
   // spray n particles from c: speed sp, plus some lift
   const spray = (ps, c, n, sp, lift = 1, life = 2, spread = 0.3) => {
@@ -66,16 +71,16 @@ export function makeKillFx(scene, ground, { sound = true } = {}) {
     lightning: { burst: undefined, on(c) {
       const pts = [], top = c.clone().add(new THREE.Vector3(R() * 6, 34, R() * 6));
       for (let i = 0; i <= 12; i++) { const u = i / 12; pts.push(top.clone().lerp(c, u).add(new THREE.Vector3(R() * 2.2 * (1 - u * 0.8), 0, R() * 2.2 * (1 - u * 0.8)))); }
-      const g = new THREE.Group(), mat = new THREE.MeshBasicMaterial({ color: 0xdff7ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+      const g = new THREE.Group(), mat = boltMat;
       for (let i = 0; i < 12; i++) {
         const a = pts[i], b = pts[i + 1], d = b.clone().sub(a), m = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, d.length(), 5, 1), mat);
         m.position.copy(a).add(b).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); g.add(m);
       }
-      const flash = new THREE.PointLight(0xbfe8ff, 60, 30); flash.position.copy(c).add(new THREE.Vector3(0, 2, 0)); g.add(flash);
+      boltLight.position.copy(c).add(new THREE.Vector3(0, 2, 0)); const myBolt = ++boltT;
       scene.add(g); spray(sys.zap, c, 50, 4, 1, 0.5);
       s(sfx.thunder, c);
-      timed.push({ t: 0, life: 0.4, step(t) { mat.opacity = Math.random() < 0.3 ? 0.15 : 1 - t / 0.4; flash.intensity = 60 * (1 - t / 0.4); },
-        end() { scene.remove(g); g.traverse((o) => o.geometry && o.geometry.dispose()); mat.dispose(); } });
+      timed.push({ t: 0, life: 0.4, step(t) { mat.opacity = Math.random() < 0.3 ? 0.15 : 1 - t / 0.4; if (myBolt === boltT) boltLight.intensity = 60 * (1 - t / 0.4); },
+        end() { scene.remove(g); g.traverse((o) => o.geometry && o.geometry.dispose()); if (myBolt === boltT) boltLight.intensity = 0; } });
     } },
     // a purple tear opens along the cut and swallows the pieces
     void: { burst: null, on(c, n, list) {
