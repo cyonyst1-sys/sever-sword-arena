@@ -102,6 +102,7 @@ A misty-morning town you can **cut apart**. Shoji walls, wooden posts, a straw b
 - Floors, roofs, decks and the corner posts of buildings stay put, so there is always somewhere to stand. Bamboo and lantern poles line the town's edges to swing from (and cut).
 - Bots shoulder their way through whatever is in their way. The town is rebuilt fresh every match.
 
+### Comet RunA cluster of cratered asteroids riding a comet toward a planet. Jump and dash across the gaps between the asteroids, and grapple the small rocks drifting round the cluster to swing. The planet ahead looms closer as the match goes on (by the clock, the leading score, or players left), the stars streak past faster and faster, and the leading edge starts to burn in the atmosphere. When the match ends, the comet hits the planet: the surface rushes in, a white flash, and a fireball. Fall off and you drift away into space.
 ### Swinging Decks
 
 Sixteen small wooden decks in a 4 x 4 grid, with short gaps between, each hanging on four chains from an iron frame high overhead:

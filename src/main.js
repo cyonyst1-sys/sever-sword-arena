@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115012236';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115012236';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115012236';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115012236';
-import * as net from './net.js?v=20261115012236';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115012236';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115012236';
-import { makeKillFx } from './killfx.js?v=20261115012236';
-import { makeGrapple } from './grapple.js?v=20261115012236';
-import { initShop } from './shop.js?v=20261115012236';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115012236';
-import { portal } from './portal.js?v=20261115012236';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115012236';
+import { Arena, MAPS } from './arena.js?v=20261115042359';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115042359';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115042359';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115042359';
+import * as net from './net.js?v=20261115042359';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115042359';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115042359';
+import { makeKillFx } from './killfx.js?v=20261115042359';
+import { makeGrapple } from './grapple.js?v=20261115042359';
+import { initShop } from './shop.js?v=20261115042359';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115042359';
+import { portal } from './portal.js?v=20261115042359';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115042359';
 
 // ---------- settings ----------
 const store = {
@@ -1253,6 +1253,18 @@ function startMatch() {
   sendObj();
   if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); }
 }
+// how close the match is to its end, 0..1 (by the clock, the leading score, or players left): Comet Run uses it
+function matchProgress() {
+  if (S.phase !== 'game') return 0;
+  let p = S.mode === 'lbs' || coop() || S.mode === 'boss' ? 0 : 1 - S.timeLeft / FFA_TIME;
+  if (teamMode()) p = Math.max(p, Math.max(teamKills('A'), teamKills('B')) / MODE_GOAL.team);
+  else if (S.mode === 'ffa') p = Math.max(p, Math.max(0, ...S.roster.map((r) => r.k || 0)) / FFA_KILLS);
+  else if (POINT_MODES.has(S.mode)) p = Math.max(p, Math.max(0, ...S.roster.map((r) => r.pts || 0)) / MODE_GOAL[S.mode]);
+  else if (S.mode === 'lbs') { const n = S.roster.length || 1; p = 1 - [...fighters.values()].filter((f) => f.alive).length / n; }
+  else if (coop()) p = Math.min(1, S.wave / 10);
+  else if (S.mode === 'boss') p = Math.min(1, (S.bossIdx || 0) / 8);
+  return Math.max(0, Math.min(1, p));
+}
 function checkEnd() {
   if (S.ended || S.phase !== 'game') return;
   if (teamMode()) {
@@ -1989,6 +2001,7 @@ function frame(t) {
 }
 function tick(rdt, tt) {
   arena.update(tt); fx.update(tt); if (arena.tendrilTick) arena.tendrilTick(rdt, fighters.values()); // (Colosseum: tendrils sway and get dragged by whoever hangs on them)
+  if (arena.cometTick && arena.cometTick(rdt, matchProgress(), S.ended)) { shake = Math.max(shake, 1.4); sfx.thunder(); sfx.thunder(); } // (Comet Run: the planet looms; at the end, impact)
   if (S.phase === 'game' && !S.paused) {
     if (S.host) hostTick(rdt);
     if (arena.tickPads) arena.tickPads(fighters.values(), now()); // (Bamboo Fort: spawn pads fall away once left)
