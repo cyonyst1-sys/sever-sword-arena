@@ -3,7 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY } from './maw.js?v=20261115002351';
+import { buildMaw, mawY } from './maw.js?v=20261115002630';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -133,13 +133,44 @@ export function buildPagoda(A, T) {
   });
   bridge(A, slabs[0], terraces[0], 3, M.wood, rope); bridge(A, slabs[4], terraces[2], 3, M.wood, rope);
 
-  // ---- red lacquer posts everywhere, floor to sky
-  for (let gx = -108; gx <= 108; gx += 8.5) for (let gz = -108; gz <= 108; gz += 8.5) {
-    const x = gx + (r() - 0.5) * 6, z = gz + (r() - 0.5) * 6;
+  // ---- red lacquer posts: a sparse set floor to sky (to swing from, and cut through)...
+  for (let gx = -108; gx <= 108; gx += 17) for (let gz = -108; gz <= 108; gz += 17) {
+    const x = gx + (r() - 0.5) * 10, z = gz + (r() - 0.5) * 10;
     if (Math.hypot(x, z) > 112 || r() < 0.15 || !clear(A, x, z, 2)) continue;
     stalk(A, x, z, 0.26 + r() * 0.12);
   }
   A.plantStalks(-62, 82);
+  { // ...and thick stepping posts rising out of the clouds, their black-capped tops at about the height of the platforms
+    // round them, higher and lower, many leaning at an angle: run and jump across them like stepping stones
+    const plats = A.plats.slice(), posts = [], up = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3();
+    for (let gx = -100; gx <= 100; gx += 9) for (let gz = -100; gz <= 100; gz += 9) {
+      const x = gx + (r() - 0.5) * 6, z = gz + (r() - 0.5) * 6;
+      if (Math.hypot(x, z) > 100 || r() < 0.3 || !clear(A, x, z, 3)) continue;
+      if (A.bamboo.some((s) => Math.hypot(s.x - x, s.z - z) < 2.5) || posts.some((p) => Math.hypot(p.x - x, p.z - z) < 4.2)) continue;
+      let near = null, nd = 1e9; for (const p of plats) { const d = Math.hypot(p.x - x, p.z - z); if (d < nd) { nd = d; near = p; } }
+      const top = Math.max(-14, Math.min(26, (near && nd < 40 ? near.y : 4) + (r() - 0.5) * 12)), rad = 0.85 + r() * 0.45;
+      const lean = r() < 0.45 ? 0.09 + r() * 0.17 : 0, la = r() * TAU; // (radians off vertical, about 5 to 15 degrees, and which way)
+      const len = top + 62, bx = x - Math.sin(lean) * Math.cos(la) * len, bz = z - Math.sin(lean) * Math.sin(la) * len, by = top - Math.cos(lean) * len;
+      posts.push({ x, z, top, rad, bx, by, bz, len });
+      A.discs.push({ x, z, r: rad + 0.1, y0: lean ? top - 1.2 : -62, y1: top }); // stand on the top (a leaning post is only solid near it)
+      for (let t = 0; t <= 1.001; t += lean ? 0.08 : 1) { // hookable all the way down
+        const px = bx + (x - bx) * t, py = by + (top - by) * t, pz = bz + (z - bz) * t, h = lean ? 3 : len / 2;
+        A.rayBoxes.push({ x0: px - rad, x1: px + rad, y0: lean ? py - h : by, y1: lean ? py + h : top, z0: pz - rad, z1: pz + rad });
+        if (!lean) break;
+      }
+      A.pillars.push({ x, z, w: rad * 2 });
+    }
+    const pm = M.bamboo.clone(); pm.map = M.bamboo.map.clone(); pm.map.needsUpdate = true; pm.map.repeat.set(3, 32); // (the gold bands every few metres up the long shafts)
+    const shaft = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1.12, 1, 12, 1, true).translate(0, 0.5, 0), pm, posts.length);
+    const cap = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 14), black, posts.length);
+    const mm = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), s = new THREE.Vector3();
+    posts.forEach((p, i) => {
+      dir.set(p.x - p.bx, p.top - p.by, p.z - p.bz).normalize(); q.setFromUnitVectors(up, dir);
+      mm.compose(v.set(p.bx, p.by, p.bz), q, s.set(p.rad, p.len, p.rad)); shaft.setMatrixAt(i, mm);
+      mm.compose(v.set(p.x, p.top - 0.15, p.z), q.identity(), s.set(p.rad + 0.15, 0.3, p.rad + 0.15)); cap.setMatrixAt(i, mm); // (the cap sits level, so the top is flat to land on)
+    });
+    shaft.castShadow = cap.castShadow = A.quality !== 'low'; shaft.receiveShadow = cap.receiveShadow = true; S.add(shaft, cap);
+  }
   A.finishNav();
 
   // ---- backdrop: sunset mountains with pines, a waterfall, the low sun, a sea of warm cloud, drifting petals
