@@ -40,7 +40,13 @@ export const sfx = {
   tear(p) { const a = att(p); nz(0.16, 5200, 1800, 2, 0.22 * a); nz(0.1, 2600, 900, 3, 0.12 * a); },
   chop(p) { const a = att(p); nz(0.12, 2200, 900, 2.5, 0.3 * a); tn(260, 140, 0.1, 0.18 * a, 'triangle'); nz(0.25, 700, 300, 1, 0.12 * a, 'lowpass'); },
   steel(p) { const a = att(p); [880, 1760, 2640].forEach((f, i) => tn(f, f, 0.25 - i * 0.05, 0.06 * a)); },
-  clang(p) { const a = att(p); [523, 1307, 1931, 2780].forEach((f, i) => tn(f, f * 0.98, 0.55 - i * 0.08, 0.11 * a)); nz(0.06, 4000, 3000, 1, 0.3 * a); },
+  clang(p) { // blade on blade: a bright "ching": a sharp metallic tick, high inharmonic partials ringing out (each a slightly detuned pair, so it shimmers), and a short scraping hiss
+    const a = att(p), b = 2050 + Math.random() * 450;
+    nz(0.03, 7000, 5000, 0.7, 0.32 * a, 'highpass'); // the strike
+    nz(0.2, 9500, 3800, 5, 0.1 * a); // the scrape of edge along edge
+    [[1, 0.95, 0.055], [1.47, 0.75, 0.045], [2.09, 0.55, 0.035], [2.76, 0.4, 0.028], [3.6, 0.28, 0.02]].forEach(([k, d, v]) => { const f = b * k; tn(f, f * 0.997, d, v * a); tn(f * 1.0035, f * 1.0005, d * 0.9, v * 0.7 * a); });
+    tn(1100, 760, 0.05, 0.05 * a, 'triangle'); // a little weight behind it
+  },
   dash(p) { nz(0.24, 350, 2600, 0.8, 0.28 * att(p, NEAR)); },
   jump(p) { nz(0.12, 300, 900, 1, 0.12 * att(p, NEAR)); },
   pad(p) { const a = att(p, NEAR); tn(200, 900, 0.35, 0.2 * a, 'triangle'); nz(0.3, 500, 3000, 1, 0.15 * a); },
