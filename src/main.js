@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115164123';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115164123';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115164123';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115164123';
-import * as net from './net.js?v=20261115164123';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115164123';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115164123';
-import { makeKillFx } from './killfx.js?v=20261115164123';
-import { makeGrapple } from './grapple.js?v=20261115164123';
-import { initShop } from './shop.js?v=20261115164123';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115164123';
-import { portal } from './portal.js?v=20261115164123';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115164123';
-import { makePost } from './post.js?v=20261115164123';
+import { Arena, MAPS } from './arena.js?v=20261115164758';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115164758';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115164758';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115164758';
+import * as net from './net.js?v=20261115164758';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115164758';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115164758';
+import { makeKillFx } from './killfx.js?v=20261115164758';
+import { makeGrapple } from './grapple.js?v=20261115164758';
+import { initShop } from './shop.js?v=20261115164758';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115164758';
+import { portal } from './portal.js?v=20261115164758';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115164758';
+import { makePost } from './post.js?v=20261115164758';
 
 // ---------- settings ----------
 const store = {
@@ -360,6 +360,16 @@ function stepFighter(f, dt, wish, sprint, jump) {
       const ns = Math.hypot(f.vel.x, f.vel.z), cap = Math.max(hs, WALK * upm(f, 'speed'));
       if (ns > cap) { f.vel.x *= cap / ns; f.vel.z *= cap / ns; }
       if (!f.padFlight) { f.vel.x *= 1 - 0.12 * dt; f.vel.z *= 1 - 0.12 * dt; } // pad jumps fly their exact arc
+    }
+    // ledge climb: push toward the edge of a platform, branch or ledge that's within reach above you and you go up and over it
+    f.climbCd = (f.climbCd || 0) - dt;
+    if (wl > 0.5 && !f.hook && !f.mantle && f.dashT <= 0 && f.climbCd <= 0 && f.stagger <= 0) {
+      const dx = wish.x / wl, dz = wish.z / wl, qx = f.pos.x + dx * 0.95, qz = f.pos.z + dz * 0.95;
+      const top = arena.groundHeight(qx, qz, f.pos.y + (f.onGround ? 1.0 : 1.9)), rise = top - f.pos.y;
+      if (rise > 0.6 && top > arena.groundHeight(qx, qz, f.pos.y) + 0.3) {
+        f.vel.y = Math.max(f.vel.y, Math.sqrt(2 * G * (rise + 0.45))); f.onGround = false; f.padFlight = false; f.climbCd = 0.45;
+        f.mantle = { x: dx * 4.5, z: dz * 4.5, t: Math.max(0.3, f.vel.y / G + 0.2) };
+      }
     }
     f.vel.y -= G * dt;
     if (f.mantle) { f.mantle.t -= dt; f.vel.x = f.mantle.x; f.vel.z = f.mantle.z; if (f.mantle.t <= 0 || f.onGround || f.hook) f.mantle = null; }

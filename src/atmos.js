@@ -29,6 +29,9 @@ function sunTexture() {
 
 export function addAtmosphere(A) {
   const S = A.scene, low = A.quality === 'low';
+  // relief: every textured surface also uses its own painting as a height map, so the joints between stones, the grain
+  // in planks and the cracks in rock catch the light instead of looking printed on
+  if (!low) S.traverse((ob) => { const m = ob.material; if (m && m.isMeshStandardMaterial && m.map && !m.bumpMap && !m.normalMap && !m.transparent) { m.bumpMap = m.map; m.bumpScale = 1.6; m.needsUpdate = true; } });
   if (A.sun && A.sunOff && !NO_SUN.includes(A.mapId)) { // the sun: a white-hot disc in a wide soft halo, behind the mountains
     const col = A.sun.color.clone().lerp(new THREE.Color(0xffffff), 0.35);
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunTexture(), color: col, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false }));

@@ -2,7 +2,7 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { item, cleanLook } from './cosmetics.js?v=20261115164123';
+import { item, cleanLook } from './cosmetics.js?v=20261115164758';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -19,11 +19,23 @@ for (const m of Object.values(CAP)) regMat(m);
 export const PALETTE = [0xd63a3a, 0x2f7fe0, 0xf0c419, 0x2fae5f, 0x9b51e0, 0xf07f1f, 0x18b8a8, 0xeeeeee];
 export const HORDE_COLOR = 0x2a2a2e;
 
+// woven cloth and combed hair: small tiling textures used both as a faint pattern and as relief
+function fabricTex(kind) {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = kind === 'hair' ? '#d8d8d8' : '#ececec'; g.fillRect(0, 0, 64, 64);
+  if (kind === 'hair') { for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,255,255'},${0.15 + Math.random() * 0.3})`; g.fillRect(Math.random() * 64, 0, 1, 64); } }
+  else for (let y = 0; y < 64; y += 4) for (let x = 0; x < 64; x += 4) { // over-under weave
+    const o = ((x + y) / 4) % 2 === 0; g.fillStyle = o ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.2)'; g.fillRect(x, y, o ? 4 : 2, o ? 2 : 4);
+    g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x + 3, y + 3, 1, 1);
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(kind === 'hair' ? 3 : 7, kind === 'hair' ? 1 : 5); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const WEAVE = fabricTex('weave'), HAIRT = fabricTex('hair');
 const M = {
   skin: new THREE.MeshStandardMaterial({ color: 0xe0b48c, roughness: 0.7 }),
   skinShade: new THREE.MeshStandardMaterial({ color: 0xc99872, roughness: 0.75 }),
-  dark: new THREE.MeshStandardMaterial({ color: 0x24242a, roughness: 0.85 }),
-  hair: new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x24242a, roughness: 0.85, map: WEAVE, bumpMap: WEAVE, bumpScale: 0.9 }),
+  hair: new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.75, map: HAIRT, bumpMap: HAIRT, bumpScale: 1.2 }),
   blade: new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.18, metalness: 0.9 }),
   gold: new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.35, metalness: 0.8 }),
   grip: new THREE.MeshStandardMaterial({ color: 0x2a1d14, roughness: 0.9 }),
@@ -37,7 +49,7 @@ const clothCache = new Map();
 function cloth(color, k = 1) {
   const key = color + ':' + k;
   if (!clothCache.has(key)) {
-    const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(k), roughness: 0.8 });
+    const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(k * 1.08), roughness: 0.85, map: WEAVE, bumpMap: WEAVE, bumpScale: 0.9 });
     regMat(m); clothCache.set(key, m);
   }
   return clothCache.get(key);

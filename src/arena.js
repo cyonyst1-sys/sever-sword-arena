@@ -3,15 +3,15 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115164123';
-import { buildFoundry } from './foundry.js?v=20261115164123';
-import { buildBamboo } from './bamboo.js?v=20261115164123';
-import { buildCity } from './city.js?v=20261115164123';
-import { buildDojo } from './dojo.js?v=20261115164123';
-import { buildComet } from './comet.js?v=20261115164123';
-import { addScenery } from './scenery.js?v=20261115164123';
-import { addAtmosphere } from './atmos.js?v=20261115164123';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115164123';
+import { buildTilt } from './tilt.js?v=20261115164758';
+import { buildFoundry } from './foundry.js?v=20261115164758';
+import { buildBamboo } from './bamboo.js?v=20261115164758';
+import { buildCity } from './city.js?v=20261115164758';
+import { buildDojo } from './dojo.js?v=20261115164758';
+import { buildComet } from './comet.js?v=20261115164758';
+import { addScenery } from './scenery.js?v=20261115164758';
+import { addAtmosphere } from './atmos.js?v=20261115164758';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115164758';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -27,36 +27,85 @@ function canvasTex(draw, size = 256) {
   return t;
 }
 function speckle(g, S, r, n, a) { for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '255,255,255'},${a * r()})`; g.fillRect(r() * S, r() * S, 1 + r() * 3, 1 + r() * 3); } }
+// soft blotches of one colour (moss, damp, lichen): radial gradients that fade out, wrapped across the tile's edges
+function blotch(g, S, r, n, rgb, a, r0, r1) {
+  for (let i = 0; i < n; i++) {
+    const x = r() * S, y = r() * S, R = r0 + r() * (r1 - r0);
+    for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
+      if (x + ox + R < 0 || x + ox - R > S || y + oy + R < 0 || y + oy - R > S) continue;
+      const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, R); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = gr; g.fillRect(x + ox - R, y + oy - R, R * 2, R * 2);
+    }
+  }
+}
+function crack(g, r, x, y, len, k) { // a wandering hairline crack
+  g.strokeStyle = 'rgba(12,10,8,0.55)'; g.lineWidth = 0.8 * k; g.beginPath(); g.moveTo(x, y);
+  let a = r() * 6.28; for (let i = 0; i < 6; i++) { a += (r() - 0.5) * 1.4; x += Math.cos(a) * len / 6; y += Math.sin(a) * len / 6; g.lineTo(x, y); } g.stroke();
+}
+// hand-laid stone: uneven courses of rounded blocks, each shaded and pitted on its own, some cracked or chipped, with
+// damp streaks and a little moss in the joints
 function stoneTex(base, seed) {
   return canvasTex((g, S) => {
-    const r = rng(seed); g.fillStyle = '#2a2723'; g.fillRect(0, 0, S, S);
-    const rows = 4, h = S / rows;
+    const r = rng(seed), k = S / 256; g.fillStyle = `rgb(${base * 0.22 | 0},${base * 0.2 | 0},${base * 0.18 | 0})`; g.fillRect(0, 0, S, S);
+    const rows = 5, h = S / rows;
     for (let y = 0; y < rows; y++) {
-      let x = -((y % 2) * S / 8);
-      while (x < S) {
-        const w = S / 4 * (0.75 + r() * 0.5), sh = base + (r() * 34 - 17) | 0;
-        g.fillStyle = `rgb(${sh},${sh - 5},${sh - 13})`; g.fillRect(x + 2, y * h + 2, w - 4, h - 4);
+      let x = -((y % 2) * S / 7) - r() * 12 * k; const x00 = x;
+      while (x < S + x00) {
+        const w = Math.min(S / 4 * (0.6 + r() * 0.75), S + x00 - x + 0.01), sh = base + (r() * 44 - 22) | 0, in0 = (1.5 + r() * 2) * k, rad = (4 + r() * 6) * k, y0 = y * h + in0 + r() * 2 * k, bh = h - in0 * 2 - r() * 2 * k;
+        const warm = r() * 10 | 0, chip = r() < 0.3, ck = r() < 0.22, pits = 3 + r() * 5 | 0, seedB = r() * 1e9 | 0;
+        for (const ox of [0, S]) { // (drawn again a tile to the right, so courses wrap)
+          const X = x + ox + in0, W = w - in0 * 2, rb = rng(seedB); if (X > S || X + W < 0 || W < 6 * k) continue;
+          const lg = g.createLinearGradient(0, y0, 0, y0 + bh); lg.addColorStop(0, `rgb(${sh + 16 + warm},${sh + 12 + warm * 0.6 | 0},${sh + 2})`); lg.addColorStop(0.5, `rgb(${sh + warm},${sh - 4 + warm * 0.6 | 0},${sh - 13})`); lg.addColorStop(1, `rgb(${sh - 16},${sh - 20},${sh - 27})`);
+          g.fillStyle = lg; g.beginPath(); g.roundRect(X, y0, W, bh, rad); g.fill();
+          for (let i = 0; i < pits; i++) { g.fillStyle = `rgba(0,0,0,${0.08 + rb() * 0.14})`; g.beginPath(); g.ellipse(X + rb() * W, y0 + rb() * bh, (1 + rb() * 3) * k, (1 + rb() * 2) * k, rb() * 3, 0, 7); g.fill(); }
+          if (ck) crack(g, rb, X + W * (0.2 + rb() * 0.6), y0 + bh * rb(), bh * (0.6 + rb() * 0.6), k);
+          if (chip) { g.fillStyle = `rgb(${base * 0.22 | 0},${base * 0.2 | 0},${base * 0.18 | 0})`; const cx = rb() < 0.5 ? X : X + W, cy = rb() < 0.5 ? y0 : y0 + bh; g.beginPath(); g.ellipse(cx, cy, (5 + rb() * 6) * k, (4 + rb() * 5) * k, rb() * 3, 0, 7); g.fill(); }
+        }
         x += w;
       }
     }
-    speckle(g, S, r, 2500, 0.18);
-  });
+    for (let i = 0; i < 9; i++) { const x = r() * S, w = (3 + r() * 9) * k, lg = g.createLinearGradient(0, 0, 0, S); lg.addColorStop(0, 'rgba(0,0,0,0.16)'); lg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = lg; g.fillRect(x, 0, w, S * (0.4 + r() * 0.6)); } // damp streaks
+    blotch(g, S, r, 12, '70,96,48', 0.2, 10 * k, 34 * k); blotch(g, S, r, 8, '150,150,120', 0.1, 8 * k, 20 * k); // moss, lichen
+    speckle(g, S, r, 5000 * k, 0.16);
+  }, 512);
 }
+// old flagstones: uneven four-cornered slabs that share their corners, moss and grass pushing up through the joints,
+// some slabs missing altogether, cracks and worn patches
 const floorTex = () => canvasTex((g, S) => {
-  const r = rng(3); g.fillStyle = '#4c5a3c'; g.fillRect(0, 0, S, S);
-  const n = 8, c = S / n;
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    if (r() < 0.78) { const sh = 118 + r() * 34 | 0; g.fillStyle = `rgb(${sh},${sh - 4},${sh - 14})`; g.fillRect(x * c + 2, y * c + 2, c - 4, c - 4); }
+  const r = rng(3), k = S / 256; g.fillStyle = '#3a4a2c'; g.fillRect(0, 0, S, S);
+  blotch(g, S, r, 40, '88,128,58', 0.5, 8 * k, 26 * k); blotch(g, S, r, 30, '40,58,30', 0.5, 6 * k, 20 * k);
+  const n = 7, c = S / n, P = []; for (let i = 0; i < n; i++) { P.push([]); for (let j = 0; j < n; j++) P[i].push([(r() - 0.5) * c * 0.42, (r() - 0.5) * c * 0.42]); }
+  const pt = (i, j) => { const q = P[((i % n) + n) % n][((j % n) + n) % n]; return [i * c + q[0], j * c + q[1]]; };
+  for (let i = -1; i < n; i++) for (let j = -1; j < n; j++) {
+    const gone = r() < 0.16, sh = 122 + r() * 40 | 0, warm = r() * 12 | 0, ck = r() < 0.3, sd = r() * 1e9 | 0; if (gone) continue;
+    const q = [pt(i, j), pt(i + 1, j), pt(i + 1, j + 1), pt(i, j + 1)], cx = (q[0][0] + q[1][0] + q[2][0] + q[3][0]) / 4, cy = (q[0][1] + q[1][1] + q[2][1] + q[3][1]) / 4, rb = rng(sd);
+    const in1 = 0.9 - rb() * 0.05, pp = q.map(([x, y]) => [cx + (x - cx) * in1, cy + (y - cy) * in1]);
+    const lg = g.createLinearGradient(cx - c / 2, cy - c / 2, cx + c / 2, cy + c / 2); lg.addColorStop(0, `rgb(${sh + 14 + warm},${sh + 10 + warm / 2 | 0},${sh - 2})`); lg.addColorStop(1, `rgb(${sh - 14 + warm},${sh - 18 + warm / 2 | 0},${sh - 30})`);
+    g.fillStyle = lg; g.beginPath(); // (rounded corners: curve through the middles of the sides)
+    for (let e = 0; e < 4; e++) { const a = pp[e], b = pp[(e + 1) % 4], m0 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; if (!e) g.moveTo((pp[3][0] + a[0]) / 2 * 0.25 + a[0] * 0.75, (pp[3][1] + a[1]) / 2 * 0.25 + a[1] * 0.75); g.arcTo(a[0], a[1], m0[0], m0[1], 5 * k); g.lineTo(m0[0], m0[1]); }
+    g.arcTo(pp[0][0], pp[0][1], (pp[0][0] + pp[1][0]) / 2, (pp[0][1] + pp[1][1]) / 2, 5 * k); g.closePath(); g.fill();
+    g.save(); g.clip();
+    for (let t = 0; t < 4; t++) { g.fillStyle = `rgba(${rb() < 0.5 ? '0,0,0' : '255,250,235'},${0.05 + rb() * 0.07})`; g.beginPath(); g.ellipse(cx + (rb() - 0.5) * c * 0.7, cy + (rb() - 0.5) * c * 0.7, (4 + rb() * 9) * k, (3 + rb() * 6) * k, rb() * 3, 0, 7); g.fill(); } // worn patches
+    if (ck) crack(g, rb, cx + (rb() - 0.5) * c * 0.5, cy + (rb() - 0.5) * c * 0.5, c * (0.5 + rb() * 0.5), k);
+    if (rb() < 0.35) { const gr = g.createRadialGradient(pp[0][0], pp[0][1], 0, pp[0][0], pp[0][1], c * 0.5); gr.addColorStop(0, 'rgba(70,110,50,0.55)'); gr.addColorStop(1, 'rgba(70,110,50,0)'); g.fillStyle = gr; g.fillRect(cx - c, cy - c, c * 2, c * 2); } // moss creeping in from a corner
+    g.restore();
   }
-  for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(${70 + r() * 30 | 0},${110 + r() * 40 | 0},50,${0.35 + r() * 0.4})`; g.beginPath(); g.arc(r() * S, r() * S, 2 + r() * 7, 0, Math.PI * 2); g.fill(); }
-  speckle(g, S, r, 2000, 0.15);
-});
+  for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${90 + r() * 40 | 0},${140 + r() * 50 | 0},60,${0.3 + r() * 0.4})`; g.beginPath(); g.arc(r() * S, r() * S, (0.8 + r() * 2.2) * k, 0, 7); g.fill(); } // tufts
+  speckle(g, S, r, 4000 * k, 0.14);
+}, 512);
+// planks: boards of slightly different shades with wavy grain, a few knots and nail heads
 const woodTex = () => canvasTex((g, S) => {
-  const r = rng(11); g.fillStyle = '#5a3c22'; g.fillRect(0, 0, S, S);
-  for (let y = 0; y < S; y += S / 8) { const sh = 90 + r() * 30 | 0; g.fillStyle = `rgb(${sh},${sh * 0.66 | 0},${sh * 0.4 | 0})`; g.fillRect(0, y + 2, S, S / 8 - 4); }
-  for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(40,24,10,0.25)'; g.fillRect(r() * S, r() * S, 10 + r() * 40, 1); }
-});
-
+  const r = rng(11), k = S / 256, n = 8, bh = S / n; g.fillStyle = '#3a2413'; g.fillRect(0, 0, S, S);
+  for (let b = 0; b < n; b++) {
+    const y = b * bh, sh = 96 + r() * 34 | 0, lg = g.createLinearGradient(0, y, 0, y + bh); lg.addColorStop(0, `rgb(${sh + 10},${sh * 0.68 | 0},${sh * 0.4 | 0})`); lg.addColorStop(1, `rgb(${sh - 12},${sh * 0.58 | 0},${sh * 0.33 | 0})`);
+    g.fillStyle = lg; g.fillRect(0, y + 1.5 * k, S, bh - 3 * k);
+    g.save(); g.beginPath(); g.rect(0, y + 1.5 * k, S, bh - 3 * k); g.clip();
+    for (let i = 0; i < 9; i++) { const yy = y + r() * bh, ph = r() * 6, amp = (1 + r() * 2.5) * k; g.strokeStyle = `rgba(40,22,8,${0.12 + r() * 0.2})`; g.lineWidth = (0.6 + r()) * k; g.beginPath(); for (let x = 0; x <= S; x += 8 * k) g.lineTo(x, yy + Math.sin(x / S * 6.283 * 2 + ph) * amp); g.stroke(); } // grain (2 full waves: tiles)
+    if (r() < 0.5) { const kx = r() * S, ky = y + bh / 2; for (let q = 3; q > 0; q--) { g.strokeStyle = `rgba(30,16,6,${0.5 - q * 0.1})`; g.lineWidth = k; g.beginPath(); g.ellipse(kx, ky, q * 3 * k, q * 1.6 * k, 0, 0, 7); g.stroke(); } } // a knot
+    g.restore();
+    for (const nx of [S * 0.04, S * 0.54]) { g.fillStyle = 'rgba(20,14,10,0.7)'; g.beginPath(); g.arc(nx + b % 2 * S * 0.25, y + bh / 2, 1.3 * k, 0, 7); g.fill(); }
+  }
+}, 512);
 const barkTex = () => canvasTex((g, S) => {
   const r = rng(17); g.fillStyle = '#4a3624'; g.fillRect(0, 0, S, S);
   for (let i = 0; i < 70; i++) { const x = r() * S, w = 2 + r() * 7, sh = 50 + r() * 40 | 0; g.fillStyle = `rgb(${sh + 20},${sh},${sh * 0.6 | 0})`; g.fillRect(x, 0, w, S); }
@@ -84,6 +133,7 @@ function worldUV(geo, sc) {
 // rotate a point a quarter turn k times around the centre
 // texture helpers for the map builders in maps2.js
 export const TEX = { rng, canvasTex, stoneTex, woodTex, bambooTex, worldUV, speckle };
+const PLAIN_MAPS = ['foundry', 'city', 'tilt', 'comet', 'bamboo']; // (steel, glass, planks and bamboo stay straight-edged)
 function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; } return [x, z]; }
 
 export const MAPS = {
@@ -125,9 +175,20 @@ export class Arena {
 
   // ---------- building ----------
   addBox(x0, x1, y0, y1, z0, z1, mat, opts = {}) {
-    const geo = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
+    const w = x1 - x0, h = y1 - y0, d = z1 - z0, rough = this.quality !== 'low' && opts.plain !== true && !PLAIN_MAPS.includes(this.mapId) && Math.min(w, d) > 0.5;
+    const sg = (v, per, max) => (rough ? Math.max(1, Math.min(max, Math.round(v / per))) : 1);
+    const geo = new THREE.BoxGeometry(w, h, d, sg(w, 1.6, 8), sg(h, 2.2, 28), sg(d, 1.6, 8));
     geo.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
     worldUV(geo, 0.5);
+    if (rough) { // hand-built, weathered stone: the sides wander in and out a little (never up or down, so floors stay flat to walk on)
+      const p = geo.attributes.position, a = Math.min(0.055, Math.min(w, d) * 0.05);
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+        p.setX(i, x + (Math.sin(y * 0.83 + z * 1.9 + x * 0.3) + Math.sin(y * 2.1 + z * 0.7 + 1.3) * 0.6) * a);
+        p.setZ(i, z + (Math.sin(y * 0.71 + x * 1.7 + z * 0.3 + 2.1) + Math.sin(y * 1.9 + x * 0.9 + 4.2) * 0.6) * a);
+      }
+      geo.computeVertexNormals();
+    }
     const m = new THREE.Mesh(geo, mat || this.mats.stone);
     m.castShadow = m.receiveShadow = true; this.scene.add(m);
     const box = { x0, x1, y0, y1, z0, z1 };
