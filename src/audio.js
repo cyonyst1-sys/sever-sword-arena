@@ -35,9 +35,9 @@ function tn(f0, f1, dur, vol, type) {
   o.connect(g); g.connect(MG); o.start(t); o.stop(t + dur + 0.05);
 }
 // a short voiced grunt: a buzzy source through two vowel formants ("eh"), its pitch sagging
-function voice(f0, f1, dur, vol, fm = [[560, 6], [1750, 9]], hold = 0.55) {
+function voice(f0, f1, dur, vol, fm = [[560, 6], [1750, 9]], hold = 0.55, delay = 0) {
   if (!AC || vol < 0.003) return;
-  const t = AC.currentTime, o = AC.createOscillator(); o.type = 'sawtooth';
+  const t = AC.currentTime + delay, o = AC.createOscillator(); o.type = 'sawtooth';
   o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
   const vib = AC.createOscillator(), vg = AC.createGain(); vib.frequency.value = 23; vg.gain.value = f0 * 0.04; vib.connect(vg); vg.connect(o.frequency); // a rough, wet wobble
   const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.setValueAtTime(vol, t + dur * hold); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -62,11 +62,13 @@ export const sfx = {
   kill(p) { // a kill: the cut, a wet "bleh" / "blah" / "bluh" / "uhh" / "ahh" / quick "mm" / "HOI" (short or drawn out, as the breath goes out of him), then light gurgling
     const a = att(p); this.slice(p);
     const k = Math.random() * 7 | 0; // bleh, blah, bluh, or just a groan: uhh or ahh, or a quick closed-mouth mm, or a yelped HOI
-    if (k === 6) { // "HOY": a breathy h, a short shouted round "oh" with a quick "y" on the end, pitched up
+    if (k === 6) { // "HO-EE": a breathy h, a short shouted "ho", a tiny break, then "ee"
       const d = 0.35 + Math.random() * 0.2;
       nz(0.08, 1300, 1000, 1.2, 0.22 * a); // h
-      voice(215 + Math.random() * 40, 165, d, 0.85 * a, [[320, 6, 600, d], [2200, 9, 900, d]], 0.55); // a round "aw-oh" held, then a quick slide into the "y"
-      for (let i = 0; i < 5; i++) bubble(d * 0.9 + i * 0.06 + Math.random() * 0.03, 260 + Math.random() * 380, (0.085 - i * 0.01) * a);
+      const p0 = 205 + Math.random() * 35, ho = d * 0.42, ee = d * 0.62;
+      voice(p0, p0 * 0.92, ho, 0.85 * a, [[520, 6], [880, 8]], 0.6); // "HO"
+      voice(p0 * 1.12, p0 * 0.8, ee, 0.85 * a, [[300, 6], [2350, 10]], 0.45, ho + 0.04); // "EE", a beat later, up a little then falling
+      for (let i = 0; i < 5; i++) bubble(d * 1.05 + i * 0.06 + Math.random() * 0.03, 260 + Math.random() * 380, (0.085 - i * 0.01) * a);
       return;
     }
     if (k < 3) nz(0.035, 260, 140, 0.8, 0.5 * a, 'lowpass'); // the "b": lips popping open
