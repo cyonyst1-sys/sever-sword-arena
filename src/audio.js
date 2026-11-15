@@ -55,12 +55,14 @@ function bubble(delay, f, vol) {
 export const sfx = {
   swish(sp, p) { const a = att(p, NEAR); nz(0.18, 600 + Math.min(sp, 40) * 40, 3200, 1.1, a * (0.08 + Math.min(0.2, sp / 150))); },
   slice(p) { const a = att(p); nz(0.25, 3200, 700, 0.8, 0.35 * a); nz(0.3, 420, 110, 0.7, 0.32 * a, 'lowpass'); }, // the cut: a hiss and a soft thud
-  kill(p) { // a kill: the cut, a long wet "bluhhh" as the breath goes out of him, then light gurgling
+  kill(p) { // a kill: the cut, a wet "bleh" / "blah" / "bluh" (short or drawn out, as the breath goes out of him), then light gurgling
     const a = att(p); this.slice(p);
     nz(0.035, 260, 140, 0.8, 0.5 * a, 'lowpass'); // the "b": lips popping open
-    voice(150 + Math.random() * 40, 55, 2.0, 0.75 * a, [[640, 6, 380], [1190, 8, 1000]], 0.3); // "luhhh": an l gliding into a long "uh" // a long "bleeehh", sagging and fading like the breath going out of him
-    nz(2.1, 1900, 600, 1.2, 0.13 * a); // the breath itself, a rasping exhale under it
-    for (let i = 0; i < 9; i++) bubble(1.7 + i * 0.09 + Math.random() * 0.05, 260 + Math.random() * 380, (0.085 - i * 0.006) * a);
+    const vw = [[[560, 6, 380], [1750, 9, 1000]], [[800, 6, 380], [1220, 8, 1000]], [[640, 6, 380], [1190, 8, 1000]]][Math.random() * 3 | 0]; // eh, ah or uh (an l gliding into each)
+    const dur = 0.5 + Math.random() * Math.random() * 1.7; // mostly shortish, now and then long and drawn out
+    voice(150 + Math.random() * 40, dur > 1.2 ? 55 : 75, dur, 0.75 * a, vw, 0.18 + Math.random() * 0.15);
+    nz(dur + 0.1, 1900, 600, 1.2, 0.13 * a); // the breath itself, a rasping exhale under it
+    for (let i = 0; i < 9; i++) bubble(dur * 0.85 + i * 0.09 + Math.random() * 0.05, 260 + Math.random() * 380, (0.085 - i * 0.006) * a);
     nz(0.7, 700, 250, 3, 0.07 * a); // a little wet rasp under the bubbles
   },
   tear(p) { const a = att(p); nz(0.16, 5200, 1800, 2, 0.22 * a); nz(0.1, 2600, 900, 3, 0.12 * a); },
