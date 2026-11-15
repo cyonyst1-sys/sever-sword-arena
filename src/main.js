@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115154028';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115154028';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115154028';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115154028';
-import * as net from './net.js?v=20261115154028';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115154028';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115154028';
-import { makeKillFx } from './killfx.js?v=20261115154028';
-import { makeGrapple } from './grapple.js?v=20261115154028';
-import { initShop } from './shop.js?v=20261115154028';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115154028';
-import { portal } from './portal.js?v=20261115154028';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115154028';
+import { Arena, MAPS } from './arena.js?v=20261115154135';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115154135';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115154135';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115154135';
+import * as net from './net.js?v=20261115154135';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115154135';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115154135';
+import { makeKillFx } from './killfx.js?v=20261115154135';
+import { makeGrapple } from './grapple.js?v=20261115154135';
+import { initShop } from './shop.js?v=20261115154135';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115154135';
+import { portal } from './portal.js?v=20261115154135';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115154135';
 
 // ---------- settings ----------
 const store = {
@@ -2030,14 +2030,17 @@ function updateCamera(dt) {
     return;
   }
   arena.follow(me.alive ? me.pos : deathAt);
-  if (!me.alive) { // dead: a still shot of whatever got you (if something did), then a still view over the arena
+  if (!me.alive) {
+    const longWait = S.mode === 'lbs' || coop() || me.respawnAt === Infinity; // (out until the match or the wave is over)
     const since = now() - (me.diedAt || 0);
-    if (deathEaten && since < 2.2) {
-      const R = deathEaten; camPos.set(deathAt.x + Math.cos(deathA) * R, deathAt.y + 1.5, deathAt.z + Math.sin(deathA) * R);
-      camera.position.lerp(camPos, 1 - Math.exp(-7 * dt)); deathLook.lerp(_t.set(deathAt.x, deathAt.y - 1.5, deathAt.z), 1 - Math.exp(-7 * dt)); camera.lookAt(deathLook);
+    if (longWait && (!deathEaten || since > 2.2)) { // a still view over the arena, to watch the rest of the fight
+      camera.position.lerp(deathOv.pos, 1 - Math.exp(-1.8 * dt)); deathLook.lerp(deathOv.look, 1 - Math.exp(-2.2 * dt)); camera.lookAt(deathLook);
       return;
     }
-    camera.position.lerp(deathOv.pos, 1 - Math.exp(-1.8 * dt)); deathLook.lerp(deathOv.look, 1 - Math.exp(-2.2 * dt)); camera.lookAt(deathLook);
+    // back soon (or something just got you): circle the place you died
+    const a = deathEaten ? deathA + since * 0.25 : now() * 0.25, R = deathEaten || 6;
+    camPos.set(deathAt.x + Math.cos(a) * R, deathAt.y + (deathEaten ? 1.5 : 3.5), deathAt.z + Math.sin(a) * R);
+    camera.position.lerp(camPos, 1 - Math.exp(-(deathEaten ? 7 : 3) * dt)); deathLook.set(deathAt.x, deathAt.y + (deathEaten ? -1.5 : 0.5), deathAt.z); camera.lookAt(deathLook);
     return;
   }
   const look = viewDir(camLook); // the camera follows its own angles, not the twisting body
