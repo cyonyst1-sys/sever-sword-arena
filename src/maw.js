@@ -122,7 +122,7 @@ export function buildTendrils(A, pts) {
     const ph = i * 1.7, dl = Math.hypot(x, z) || 1, inw = dl - 5 - (i % 4) * 2.5, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2); // (curling right in: the tips hang over the centre platform) // a natural curve at rest
     const boxes = []; for (let s = 0.12; s < 1; s += 0.08) { const b = { x0: 0, x1: 0, y0: by + (s - 0.05) * H, y1: by + (s + 0.05) * H, z0: 0, z1: 0, ts: s, tend: i }; A.rayBoxes.push(b); boxes.push(b); }
     list.push({ x, z, by, H, R0, uB, rest, ph, bend: new THREE.Vector2(), vel: new THREE.Vector2(), boxes });
-    A.pillars.push({ x, z, w: 2.8 });
+    { const s = 0.55, k = Math.pow(s, 2.6); A.pillars.push({ x: x + rest.x * k, z: z + rest.y * k, w: 2.8 }); } // (for the bots: aim at the middle of its curve, not its base)
   });
   const tipOff = (t, out) => out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin((A.lastT || 0) * 0.4 + t.ph) * 3, Math.cos((A.lastT || 0) * 0.33 + t.ph * 1.3) * 3));
   const tmp = new THREE.Vector2();

@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115150357';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115150357';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115150357';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115150357';
-import * as net from './net.js?v=20261115150357';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115150357';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115150357';
-import { makeKillFx } from './killfx.js?v=20261115150357';
-import { makeGrapple } from './grapple.js?v=20261115150357';
-import { initShop } from './shop.js?v=20261115150357';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115150357';
-import { portal } from './portal.js?v=20261115150357';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115150357';
+import { Arena, MAPS } from './arena.js?v=20261115151805';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115151805';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115151805';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115151805';
+import * as net from './net.js?v=20261115151805';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115151805';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115151805';
+import { makeKillFx } from './killfx.js?v=20261115151805';
+import { makeGrapple } from './grapple.js?v=20261115151805';
+import { initShop } from './shop.js?v=20261115151805';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115151805';
+import { portal } from './portal.js?v=20261115151805';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115151805';
 
 // ---------- settings ----------
 const store = {
