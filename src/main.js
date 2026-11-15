@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115152819';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115152819';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115152819';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115152819';
-import * as net from './net.js?v=20261115152819';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115152819';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115152819';
-import { makeKillFx } from './killfx.js?v=20261115152819';
-import { makeGrapple } from './grapple.js?v=20261115152819';
-import { initShop } from './shop.js?v=20261115152819';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115152819';
-import { portal } from './portal.js?v=20261115152819';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115152819';
+import { Arena, MAPS } from './arena.js?v=20261115154028';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115154028';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115154028';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115154028';
+import * as net from './net.js?v=20261115154028';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115154028';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115154028';
+import { makeKillFx } from './killfx.js?v=20261115154028';
+import { makeGrapple } from './grapple.js?v=20261115154028';
+import { initShop } from './shop.js?v=20261115154028';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115154028';
+import { portal } from './portal.js?v=20261115154028';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115154028';
 
 // ---------- settings ----------
 const store = {
@@ -764,7 +764,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
   feed(fell ? (sawn ? `${vn} was sawn in half` : lily ? `${vn} was snapped up by a lily pad` : birdy ? `${vn} was snatched by a giant bird` : eaten ? `${vn} was eaten by the piranha` : arena.fallText ? `${vn} ${arena.fallText(v.pos)}` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
-  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; }
+  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; deathA = ca; deathLook.copy(deathAt); overviewFrom(deathAt, deathOv); }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
     const st = rosterGet(S.myId)?.streak || 0; if (bladeFor(st + 1) > bladeFor(st)) showBanner('BLADE GROWS');
@@ -782,7 +782,14 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   }
   return true;
 }
-const deathAt = new THREE.Vector3(); let deathBy = '', deathEaten = false;
+const deathAt = new THREE.Vector3(), deathLook = new THREE.Vector3(), deathOv = { pos: new THREE.Vector3(), look: new THREE.Vector3() }; let deathBy = '', deathEaten = false, deathA = 0;
+// a still view over most of the arena, from the side you died on, looking across it at a decent angle
+function overviewFrom(p, out) {
+  const ps = arena.plats.filter((q) => !q.gone); let cx = 0, cy = 0, cz = 0; for (const q of ps) { cx += q.x; cy += q.y; cz += q.z; } const n = ps.length || 1; cx /= n; cy /= n; cz /= n;
+  let R = 30; for (const q of ps) R = Math.max(R, Math.hypot(q.x - cx, q.z - cz) + Math.max(q.w || 0, q.d || 0) / 2); R = Math.min(R, 130);
+  let dx = p.x - cx, dz = p.z - cz; const dl = Math.hypot(dx, dz); if (dl < 5) { dx = Math.cos(3.9); dz = Math.sin(3.9); } else { dx /= dl; dz /= dl; }
+  out.pos.set(cx + dx * R * 0.95, cy + R * 0.6, cz + dz * R * 0.95); out.look.set(cx, cy - R * 0.08, cz); return out;
+}
 
 // ---------- spawning ----------
 // Pagoda Falls: everyone comes in on the outer ring (rock spires and terraces) and rushes the pagoda
@@ -2023,10 +2030,14 @@ function updateCamera(dt) {
     return;
   }
   arena.follow(me.alive ? me.pos : deathAt);
-  if (!me.alive) { // circle the place you died
-    const a = now() * 0.25;
-    const R = deathEaten || 6; camPos.set(deathAt.x + Math.cos(a) * R, deathAt.y + (deathEaten ? 1.5 : 3.5), deathAt.z + Math.sin(a) * R); // (the piranha: stand back to see all of it)
-    camera.position.lerp(camPos, 1 - Math.exp(-(deathEaten ? 7 : 3) * dt)); camera.lookAt(deathAt.x, deathAt.y + (deathEaten ? -1.5 : 0.5), deathAt.z);
+  if (!me.alive) { // dead: a still shot of whatever got you (if something did), then a still view over the arena
+    const since = now() - (me.diedAt || 0);
+    if (deathEaten && since < 2.2) {
+      const R = deathEaten; camPos.set(deathAt.x + Math.cos(deathA) * R, deathAt.y + 1.5, deathAt.z + Math.sin(deathA) * R);
+      camera.position.lerp(camPos, 1 - Math.exp(-7 * dt)); deathLook.lerp(_t.set(deathAt.x, deathAt.y - 1.5, deathAt.z), 1 - Math.exp(-7 * dt)); camera.lookAt(deathLook);
+      return;
+    }
+    camera.position.lerp(deathOv.pos, 1 - Math.exp(-1.8 * dt)); deathLook.lerp(deathOv.look, 1 - Math.exp(-2.2 * dt)); camera.lookAt(deathLook);
     return;
   }
   const look = viewDir(camLook); // the camera follows its own angles, not the twisting body
