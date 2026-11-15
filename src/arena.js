@@ -3,13 +3,13 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115004337';
-import { buildFoundry } from './foundry.js?v=20261115004337';
-import { buildBamboo } from './bamboo.js?v=20261115004337';
-import { buildCity } from './city.js?v=20261115004337';
-import { buildDojo } from './dojo.js?v=20261115004337';
-import { addScenery } from './scenery.js?v=20261115004337';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115004337';
+import { buildTilt } from './tilt.js?v=20261115004640';
+import { buildFoundry } from './foundry.js?v=20261115004640';
+import { buildBamboo } from './bamboo.js?v=20261115004640';
+import { buildCity } from './city.js?v=20261115004640';
+import { buildDojo } from './dojo.js?v=20261115004640';
+import { addScenery } from './scenery.js?v=20261115004640';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115004640';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -152,7 +152,7 @@ export class Arena {
     const px = -uz * w / 2, pz = ux * w / 2;
     const xs = [lx + px, lx - px, hx + px, hx - px], zs = [lz + pz, lz - pz, hz + pz, hz - pz];
     const r = { lx, lz, ux, uz, len, w, hL, hH, base, x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
-    r.noWall = !!opts.noWall; this.ramps.push(r);
+    r.noWall = !!opts.noWall; r.foldK = opts.foldK || 0; r.foldV = opts.foldV || 0; this.ramps.push(r);
     if (this.tag) (this.tag.ramps ||= []).push(r);
     if (opts.visual === false) return r; // (branches and leaves draw themselves)
     const geo = new THREE.BoxGeometry(r.x1 - r.x0, 1, r.z1 - r.z0);
@@ -285,12 +285,19 @@ export class Arena {
       const p = addPlat({ kind: 'leaf', x: C.x, z: C.z, y, w: len, d: wid, ang, group: grp });
       this.tag = p;
       const ux = Math.cos(ang), uz = Math.sin(ang);
-      this.addRamp(C.x - ux * len * 0.42, C.z - uz * len * 0.42, C.x + ux * len * 0.42, C.z + uz * len * 0.42, y, y, wid * 0.78, y - 0.6, null, { visual: false, noWall: true });
-      const sh = new THREE.Shape();
-      sh.moveTo(-len / 2, 0); sh.quadraticCurveTo(-len * 0.1, wid * 0.75, len / 2, 0); sh.quadraticCurveTo(-len * 0.1, -wid * 0.75, -len / 2, 0);
-      const g = new THREE.ExtrudeGeometry(sh, { depth: 0.4, bevelEnabled: false, curveSegments: 12 }); g.rotateX(-Math.PI / 2); g.translate(0, -0.4, 0); // a thick leaf, visible edge-on
-      const gp = g.attributes.position; // droops a little at the tip and the edges
-      for (let i = 0; i < gp.count; i++) { const x = gp.getX(i), z = gp.getZ(i); gp.setY(i, gp.getY(i) - Math.pow(Math.max(0, x / (len / 2)), 2) * 0.3 - Math.abs(z) / wid * 0.2); }
+      const F = Math.min(0.9, wid * 0.12), kf = F / Math.pow(wid * 0.75, 2), kv = 0.07; // the curl: rising from a creased midrib to the edges, gently enough to run across
+      this.addRamp(C.x - ux * len * 0.42, C.z - uz * len * 0.42, C.x + ux * len * 0.42, C.z + uz * len * 0.42, y, y, wid * 0.78, y - 0.6, null, { visual: false, noWall: true, foldK: kf, foldV: kv });
+      // the leaf: a fine grid in the leaf's outline (widest just behind the middle, pointed at the tip), curling up
+      // from a creased midrib to its edges, the tip arching down; a thin underside a little below gives it an edge
+      const NU = 28, NV = 12, pos = [], idx = [];
+      for (let side = 0; side < 2; side++) for (let i = 0; i <= NU; i++) for (let j = 0; j <= NV; j++) {
+        const u = i / NU * 2 - 1, v = j / NV * 2 - 1, x = u * len / 2, hw = wid * 0.62 * Math.pow(Math.sin(Math.PI * (u + 1) / 2), 0.75) * (1 - 0.18 * u), z = v * hw;
+        const tip = Math.pow(Math.max(0, u), 2), yy = -tip * 0.6 + (kf * z * z + kv * Math.abs(z)) * (1 - tip * 0.5) - side * 0.18 * (1 - Math.abs(v) * 0.8);
+        pos.push(x, yy, z);
+      }
+      const row = NV + 1, off = (NU + 1) * row;
+      for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) { const a = i * row + j, b = a + row; idx.push(a, a + 1, b, a + 1, b + 1, b, off + a, off + b, off + a + 1, off + a + 1, off + b, off + b + 1); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
       g.computeVertexNormals();
       const m = new THREE.Mesh(g, M.leaf); m.rotation.y = -ang; m.position.set(C.x, y + 0.06, C.z); m.castShadow = m.receiveShadow = true; S.add(m); this.own(p, m);
       const rib = new THREE.Mesh(new THREE.BoxGeometry(len * 0.92, 0.08, 0.2), M.vein); rib.rotation.y = -ang; rib.position.set(C.x, y + 0.1, C.z); S.add(rib); this.own(p, rib);
@@ -757,7 +764,7 @@ export class Arena {
     const t = ((x - r.lx) * r.ux + (z - r.lz) * r.uz) / r.len;
     const s = (x - r.lx) * -r.uz + (z - r.lz) * r.ux;
     if (t < -0.02 || t > 1.02 || Math.abs(s) > r.w / 2 + 0.05) return null;
-    return r.hL + (r.hH - r.hL) * Math.min(1, Math.max(0, t));
+    return r.hL + (r.hH - r.hL) * Math.min(1, Math.max(0, t)) + (r.foldK ? r.foldK * s * s + r.foldV * Math.abs(s) : 0); // (fold: a leaf curling up from its midrib)
   }
   /** Highest walkable surface at (x,z) no higher than a step above y. -Infinity over the void. */
   discTop(c, x, z) { return c.hf ? c.hf(x, z) : c.dish ? c.y1 + c.dish * Math.min(1, ((x - c.x) ** 2 + (z - c.z) ** 2) / (c.r * c.r)) : c.y1; } // (flat, a dish, or a mesa's rolling top)
