@@ -55,12 +55,12 @@ function bubble(delay, f, vol) {
 export const sfx = {
   swish(sp, p) { const a = att(p, NEAR); nz(0.18, 600 + Math.min(sp, 40) * 40, 3200, 1.1, a * (0.08 + Math.min(0.2, sp / 150))); },
   slice(p) { const a = att(p); nz(0.25, 3200, 700, 0.8, 0.35 * a); nz(0.3, 420, 110, 0.7, 0.32 * a, 'lowpass'); }, // the cut: a hiss and a soft thud
-  kill(p) { // a kill: the cut, a wet "bleh" / "blah" / "bluh" / "uhh" / "ahh" (short or drawn out, as the breath goes out of him), then light gurgling
+  kill(p) { // a kill: the cut, a wet "bleh" / "blah" / "bluh" / "uhh" / "ahh" / quick "mm" (short or drawn out, as the breath goes out of him), then light gurgling
     const a = att(p); this.slice(p);
-    const k = Math.random() * 5 | 0; // bleh, blah, bluh, or just a groan: uhh or ahh
+    const k = Math.random() * 6 | 0; // bleh, blah, bluh, or just a groan: uhh or ahh, or a quick closed-mouth mm
     if (k < 3) nz(0.035, 260, 140, 0.8, 0.5 * a, 'lowpass'); // the "b": lips popping open
-    const vw = [[[560, 6, 380], [1750, 9, 1000]], [[800, 6, 380], [1220, 8, 1000]], [[640, 6, 380], [1190, 8, 1000]], [[620, 6], [1150, 8]], [[820, 6], [1250, 8]]][k]; // eh, ah or uh (an l gliding into each)
-    const dur = 0.5 + Math.random() * Math.random() * 1.7; // mostly shortish, now and then long and drawn out
+    const vw = [[[560, 6, 380], [1750, 9, 1000]], [[800, 6, 380], [1220, 8, 1000]], [[640, 6, 380], [1190, 8, 1000]], [[620, 6], [1150, 8]], [[820, 6], [1250, 8]], [[270, 3], [2300, 7]]][k]; // eh, ah or uh (an l gliding into each)
+    const dur = k === 5 ? 0.22 + Math.random() * 0.2 : 0.5 + Math.random() * Math.random() * 1.7; // mostly shortish, now and then long and drawn out (mm: always quick)
     voice(150 + Math.random() * 40, dur > 1.2 ? 55 : 75, dur, 0.75 * a, vw, 0.18 + Math.random() * 0.15);
     nz(dur + 0.1, 1900, 600, 1.2, 0.13 * a); // the breath itself, a rasping exhale under it
     for (let i = 0; i < 9; i++) bubble(dur * 0.85 + i * 0.09 + Math.random() * 0.05, 260 + Math.random() * 380, (0.085 - i * 0.006) * a);
