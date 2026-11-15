@@ -3,9 +3,9 @@
 // breakable chunks as the Paper Dojo: every window pane shatters, office partitions and crates break, and the
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
-import { cloudHeaps } from './scenery.js?v=20261115003128';
+import { cloudHeaps } from './scenery.js?v=20261115003242';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261115003128';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261115003242';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -61,11 +61,11 @@ export function buildCity(A, T) {
     for (let k = 0; k < n; k++) {
       const lo = floors[k], hi = floors[k + 1], y = lo.y, s = k % 2, xs = s === 0 ? x0 + 1.6 : x1 - 1.6;
       A.curPlat = lo.i;
-      box4(x0, x1, z0, z1, y, y + H - 0.5);
+      if (k === 0) box4(x0, x1, z0, z1, y, y + H - 0.5); // (bare bones: glass only round the ground floor)
       stairs(lo, hi, xs, z1 - 1.4, xs, z0 + 2.6, 2.5);
       const pz = z + (r() - 0.5) * 3;
-      if (r() < 0.6) wall(A, x0 + 3.3, pz, x1 - 3.3, pz, y, y + H - 0.5, { kind: 'drywall', posts: false, ceil: true, doors: [0.3, 0.75], t: 0.14 });
-      for (let i = 0; i < 2; i++) stack(A, x + (r() - 0.5) * (w - 8), z + (r() - 0.5) * (d - 5), y, 2, 1, 1, 0.8, 0.75, 0.7, 'wood', false); // desks
+      void pz; // (no partitions: open floors)
+      stack(A, x + (r() - 0.5) * (w - 8), z + (r() - 0.5) * (d - 5), y, 2, 1, 1, 0.8, 0.75, 0.7, 'wood', false); // a desk
     }
     const top = floors[n], ty = top.y; A.curPlat = top.i;
     box4(x0, x1, z0, z1, ty, ty + 1.2); // a glass parapet round the roof
@@ -90,10 +90,10 @@ export function buildCity(A, T) {
     A.curPlat = undefined;
     return floors;
   };
-  tower(-13, -30, 16, 18, -4, 7, { water: true });
-  tower(14, -30, 18, 16, 2, 6, { pad: true });
-  tower(-14, 31, 18, 18, 4, 9, { mast: true });
-  tower(13, 30, 16, 16, -6, 5, { water: true });
+  tower(-13, -30, 16, 18, -4, 3, { water: true }); // (few floors: less to search, quicker to find a fight)
+  tower(14, -30, 18, 16, 2, 2, { pad: true });
+  tower(-14, 31, 18, 18, 4, 4, { mast: true });
+  tower(13, 30, 16, 16, -6, 2, { water: true });
 
   // ---------- half-built buildings: a steel frame (columns every ~6 m, beams every 4 m) and a deck every couple of floors ----------
   const frame = (x, z, w, d, yb, top, decks, o = {}) => {
@@ -122,9 +122,9 @@ export function buildCity(A, T) {
     A.curPlat = undefined;
     return ps;
   };
-  const c1 = frame(0, 0, 24, 24, -10, 52, [[-2, 0, 1, 0, 1], [6, 0, 1, 0, 0.5], [14, 0.5, 1, 0, 1], [22, 0, 1, 0, 0.34], [22, 0, 1, 0.66, 1], [30, 0, 1, 0.5, 1], [38, 0, 0.5, 0, 1], [46, 0.5, 1, 0, 0.5]], { glass: [[-2, 5.6]] });
-  frame(31, 0, 18, 18, -4, 40, [[0, 0, 1, 0, 1], [8, 0, 0.5, 0, 1], [16, 0, 1, 0.34, 0.67], [24, 0.5, 1, 0, 1], [32, 0, 1, 0, 0.5]], { glass: [[0, 7.6]] });
-  frame(-31, 0, 18, 18, -8, 28, [[-4, 0, 1, 0, 1], [4, 0.5, 1, 0, 1], [12, 0, 1, 0, 0.5], [20, 0, 0.5, 0.5, 1]]);
+  const c1 = frame(0, 0, 24, 24, -10, 52, [[-2, 0, 1, 0, 1], [14, 0.5, 1, 0, 1], [30, 0, 1, 0.5, 1], [46, 0.5, 1, 0, 0.5]], { glass: [[-2, 5.6]] });
+  frame(31, 0, 18, 18, -4, 40, [[0, 0, 1, 0, 1], [16, 0, 1, 0.34, 0.67], [32, 0, 1, 0, 0.5]], { glass: [[0, 7.6]] });
+  frame(-31, 0, 18, 18, -8, 28, [[-4, 0, 1, 0, 1], [12, 0, 1, 0, 0.5]]);
   { // a tower crane on the big frame: mast, a long jib you can run along, a counterweight, a cab
     const p = c1[c1.length - 1]; A.curPlat = p.i; const g = group();
     chunk(A, g, 'steel', 5.4, 6.6, 46, 80, -6.6, -5.4, true); // (stands on the top deck)
@@ -136,6 +136,23 @@ export function buildCity(A, T) {
     stack(A, 34, -6, 53.4, 2, 2, 2, 1, 1, 1, 'wood', false); // a load of crates hanging off the hook (cut it apart)
     hookBox(p, 33.2, 34.8, 55.9, 57, -6.6, -5.4);
     A.curPlat = undefined;
+  }
+
+  // ---------- two tower cranes out past the edge: a mast up out of the clouds, a jib reaching outward (run along it,
+  // hook it), a counterweight, and a load platform hanging on the cable that you can drop onto ----------
+  for (const [mx, mz, dir, topY, py] of [[-50, -16, -1, 56, 20], [50, 18, 1, 62, 26]]) {
+    const L = 30, tipX = mx + dir * (L - 4), yellowS = std(0xe8b422, { roughness: 0.6, metalness: 0.3 });
+    A.addBox(mx - 1, mx + 1, -90, topY, mz - 1, mz + 1, yellowS); A.pillars.push({ x: mx, z: mz, w: 2 }); // the mast
+    A.addBox(Math.min(mx - dir * 10, mx + dir * L), Math.max(mx - dir * 10, mx + dir * L), topY, topY + 1.2, mz - 0.8, mz + 0.8, yellowS); // the jib (and the counter-jib behind)
+    A.addBox(mx - dir * 10 - 1.6, mx - dir * 10 + 1.6, topY - 3.5, topY, mz - 1.4, mz + 1.4, dark); // counterweight
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.2, 2.4), white); cab.position.set(mx + dir * 1.8, topY - 1.1, mz + 1.6); S.add(cab);
+    for (let k = 0; k < 10; k++) { const lat = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 2.6), dark); lat.position.set(mx + dir * (k * 3 + 1), topY + 0.6, mz); lat.rotation.y = 0.6; S.add(lat); } // lattice on the jib
+    const p = deck(A, { x: tipX, z: mz, y: py, w: 7, d: 7, mat: std(0x8a6a4a, { roughness: 0.9 }), kind: 'lift', thick: 0.5 }); // the load platform
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, topY - py - 3, 5), dark); prop(A, p, cable, tipX, (topY + py + 3) / 2, mz);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { // four slings from the hook down to its corners
+      const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 4.6, 4), dark); sl.position.set(tipX + sx * 1.6, py + 1.5, mz + sz * 1.6); sl.rotation.set(sz * 0.62, 0, -sx * 0.62); S.add(sl); p.meshes.push(sl); }
+    prop(A, p, new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 1.2), red), tipX, py + 3.5, mz); // the hook block
+    A.curPlat = p.i; stack(A, tipX + 1.8, mz - 1.8, py, 1, 2, 1, 1, 1, 1, 'wood'); A.curPlat = undefined; // a couple of crates on it (cover)
   }
 
   A.plantStalks(-70, 160); // the frames' corner columns, from the clouds up into the sky

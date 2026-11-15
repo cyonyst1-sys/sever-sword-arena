@@ -4,7 +4,7 @@
 // Running or dashing across a deck pushes it the other way. Whoever stands on a deck rides along with it.
 import * as THREE from 'three';
 import { deck, drift, farRing } from './maps2.js';
-import { cloudHeaps } from './scenery.js?v=20261115003128';
+import { cloudHeaps } from './scenery.js?v=20261115003242';
 
 const TAU = Math.PI * 2, N = 4, SIZE = 7, GAP = 2, L = 24, MAXOFF = 4; // grid, deck size, gap, chain length, furthest swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
