@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115154135';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115154135';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115154135';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115154135';
-import * as net from './net.js?v=20261115154135';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115154135';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115154135';
-import { makeKillFx } from './killfx.js?v=20261115154135';
-import { makeGrapple } from './grapple.js?v=20261115154135';
-import { initShop } from './shop.js?v=20261115154135';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115154135';
-import { portal } from './portal.js?v=20261115154135';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115154135';
+import { Arena, MAPS } from './arena.js?v=20261115154454';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115154454';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115154454';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115154454';
+import * as net from './net.js?v=20261115154454';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115154454';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115154454';
+import { makeKillFx } from './killfx.js?v=20261115154454';
+import { makeGrapple } from './grapple.js?v=20261115154454';
+import { initShop } from './shop.js?v=20261115154454';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115154454';
+import { portal } from './portal.js?v=20261115154454';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115154454';
 
 // ---------- settings ----------
 const store = {
@@ -784,6 +784,15 @@ function applyKill(vId, kId, n, pt, imp, fell) {
 }
 const deathAt = new THREE.Vector3(), deathLook = new THREE.Vector3(), deathOv = { pos: new THREE.Vector3(), look: new THREE.Vector3() }; let deathBy = '', deathEaten = false, deathA = 0;
 // a still view over most of the arena, from the side you died on, looking across it at a decent angle
+// team modes: while you're dead, the camera follows a living teammate (a player if there is one, else an ally bot)
+let specId = null;
+function spectateTarget() {
+  const cur = specId && fighters.get(specId);
+  if (cur && cur.alive && cur !== me && !isEnemy(me, cur)) return cur;
+  let best = null, bs = -1e9;
+  for (const g of fighters.values()) { if (g === me || !g.alive || isEnemy(me, g)) continue; const sc = (g.isBot ? 0 : 1000) - g.pos.distanceTo(deathAt); if (sc > bs) { bs = sc; best = g; } }
+  specId = best ? best.id : null; return best;
+}
 function overviewFrom(p, out) {
   const ps = arena.plats.filter((q) => !q.gone); let cx = 0, cy = 0, cz = 0; for (const q of ps) { cx += q.x; cy += q.y; cz += q.z; } const n = ps.length || 1; cx /= n; cy /= n; cz /= n;
   let R = 30; for (const q of ps) R = Math.max(R, Math.hypot(q.x - cx, q.z - cz) + Math.max(q.w || 0, q.d || 0) / 2); R = Math.min(R, 130);
@@ -2008,6 +2017,7 @@ function updateHud(dt) {
       if (S.mode === 'horde') c = `${esc(deathBy)}<small>You'll be back for the next wave</small>`;
       else if (S.mode === 'lbs') c = `${esc(deathBy)}<small>You're out. Watching the rest fight it out…</small>`;
       else { const w = Math.max(0, Math.ceil((me.respawnAt === Infinity ? 3 - (now() - (me.diedAt || 0)) : me.respawnAt - now()))); c = `${esc(deathBy)}<small>Back in ${w}…</small>`; }
+      { const g = (coop() || teamMode()) && spectateTarget(); if (g) c += `<small>Watching ${esc(rosterGet(g.id)?.name || 'your teammate')}</small>`; } // (team modes: we follow a teammate)
     } else if (status) c = `<small style="font-size:16px;color:var(--gold)">${status}</small>`;
     $('center').innerHTML = c;
     $('bladeHint').classList.toggle('hidden', !(swingHeld() && me.alive));
@@ -2033,6 +2043,11 @@ function updateCamera(dt) {
   if (!me.alive) {
     const longWait = S.mode === 'lbs' || coop() || me.respawnAt === Infinity; // (out until the match or the wave is over)
     const since = now() - (me.diedAt || 0);
+    if ((coop() || teamMode()) && (!deathEaten || since > 2.2)) { const g = spectateTarget(); if (g) { // follow a teammate, from behind and a little above
+      camPos.set(g.pos.x + Math.sin(g.yaw) * 7, g.pos.y + 3.4, g.pos.z + Math.cos(g.yaw) * 7);
+      camera.position.lerp(camPos, 1 - Math.exp(-4 * dt)); deathLook.lerp(_t.set(g.pos.x, g.pos.y + 1.4, g.pos.z), 1 - Math.exp(-6 * dt)); camera.lookAt(deathLook);
+      return;
+    } }
     if (longWait && (!deathEaten || since > 2.2)) { // a still view over the arena, to watch the rest of the fight
       camera.position.lerp(deathOv.pos, 1 - Math.exp(-1.8 * dt)); deathLook.lerp(deathOv.look, 1 - Math.exp(-2.2 * dt)); camera.lookAt(deathLook);
       return;
