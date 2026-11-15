@@ -62,10 +62,10 @@ export const sfx = {
   kill(p) { // a kill: the cut, a wet "bleh" / "blah" / "bluh" / "uhh" / "ahh" / quick "mm" / "HOI" (short or drawn out, as the breath goes out of him), then light gurgling
     const a = att(p); this.slice(p);
     const k = Math.random() * 7 | 0; // bleh, blah, bluh, or just a groan: uhh or ahh, or a quick closed-mouth mm, or a yelped HOI
-    if (k === 6) { // "HOI": a breathy h, then a short shouted "o" sliding into "i", pitched up
+    if (k === 6) { // "HOY": a breathy h, a short shouted round "oh" with a quick "y" on the end, pitched up
       const d = 0.35 + Math.random() * 0.2;
       nz(0.08, 1300, 1000, 1.2, 0.22 * a); // h
-      voice(215 + Math.random() * 40, 165, d, 0.85 * a, [[300, 6, 520, d * 0.75], [2300, 9, 880, d * 0.75]], 0.5);
+      voice(215 + Math.random() * 40, 165, d, 0.85 * a, [[320, 6, 600, d], [2200, 9, 900, d]], 0.55); // a round "aw-oh" held, then a quick slide into the "y"
       for (let i = 0; i < 5; i++) bubble(d * 0.9 + i * 0.06 + Math.random() * 0.03, 260 + Math.random() * 380, (0.085 - i * 0.01) * a);
       return;
     }
