@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115042359';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115042359';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115042359';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115042359';
-import * as net from './net.js?v=20261115042359';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115042359';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115042359';
-import { makeKillFx } from './killfx.js?v=20261115042359';
-import { makeGrapple } from './grapple.js?v=20261115042359';
-import { initShop } from './shop.js?v=20261115042359';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115042359';
-import { portal } from './portal.js?v=20261115042359';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115042359';
+import { Arena, MAPS } from './arena.js?v=20261115043347';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115043347';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115043347';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115043347';
+import * as net from './net.js?v=20261115043347';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115043347';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115043347';
+import { makeKillFx } from './killfx.js?v=20261115043347';
+import { makeGrapple } from './grapple.js?v=20261115043347';
+import { initShop } from './shop.js?v=20261115043347';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115043347';
+import { portal } from './portal.js?v=20261115043347';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115043347';
 
 // ---------- settings ----------
 const store = {
@@ -1094,6 +1094,26 @@ const platUnder = (q) => { let best = null, bt = -Infinity; for (const p of aren
 const rimDist = (p, q) => arena.rimDist(p, q);
 // the point on a platform's top lip closest to q
 const rimPoint = (p, q) => arena.rimPoint(p, q);
+// a bot trying to get somewhere but going nowhere (caught in a dip, a pocket, against a lip): hop, and dash off at an
+// angle to somewhere else, then carry on
+function botUnstick(b, out, dt) {
+  if (b.hook || b.dashT > 0 || b.padFlight || !b.onGround) { b.stuckT = 0; b.stuckAt = null; }
+  else if (Math.hypot(out.wish.x, out.wish.z) > 0.3) {
+    if (!b.stuckAt) { b.stuckAt = b.pos.clone(); b.stuckT = 0; }
+    b.stuckT += dt;
+    if (b.stuckT > 0.9) {
+      if (Math.hypot(b.pos.x - b.stuckAt.x, b.pos.z - b.stuckAt.z) < 1) { // stuck: pick a new way out, off to one side of where it wanted to go
+        const a = Math.atan2(out.wish.z, out.wish.x) + (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.7);
+        b.unstick = { x: Math.cos(a), z: Math.sin(a), until: now() + 0.7 };
+        b.jumpDash = { at: now() + 0.16, d: new THREE.Vector3(Math.cos(a), 0.25, Math.sin(a)).normalize() };
+        out.jump = true;
+      }
+      b.stuckAt = b.pos.clone(); b.stuckT = 0;
+    }
+  } else { b.stuckT = 0; b.stuckAt = null; }
+  if (b.unstick && now() < b.unstick.until) { out.wish = { x: b.unstick.x, z: b.unstick.z }; out.sprint = true; } // (head that way for a moment)
+  return out;
+}
 function botThink(b, dt) {
   const D = b.bossD || DIFF[S.diff] || DIFF[1];
   b.think = (b.think || 0) - dt; b.atkCd = (b.atkCd ?? 1) - dt; b.repath = (b.repath || 0) - dt;
@@ -2021,7 +2041,7 @@ function tick(rdt, tt) {
         if (f.hook && !mouse.rmb) releaseHook(f, true);
         updateSword(f, rdt);
       } else if (S.host && f.isBot) {
-        const b = botThink(f, rdt);
+        const b = botUnstick(f, botThink(f, rdt), rdt);
         stepFighter(f, rdt, f.padFlight ? { x: 0, z: 0 } : b.wish, b.sprint, b.jump || botAirJump(f));
         updateSword(f, rdt);
       } else remoteUpdate(f, rdt);

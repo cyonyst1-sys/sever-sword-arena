@@ -105,12 +105,13 @@ export function buildComet(A, T) {
   for (const q of small) q.m.userData.base = q.m.position.clone();
 
   // ---- the run: progress 0..1 sets how close the planet is and how fast everything streams past; the end is impact
-  let prog = 0, impactT = -1, boomed = false, clock = 0;
+  let prog = 0, target = 0, impactT = -1, boomed = false, clock = 0;
   const P = new THREE.Vector3(), tmp = new THREE.Vector3();
   A.cometTick = (dt, p, ended) => {
     dt = Math.min(0.1, dt || 0); clock += dt;
     if (ended && impactT < 0) impactT = 0;
-    if (impactT >= 0) { impactT += dt; prog = Math.min(1.02, prog + dt * 0.5); } else prog = Math.max(prog, Math.min(0.97, p)); // (only ever closer)
+    if (impactT >= 0) { impactT += dt; prog = Math.min(1.02, prog + dt * 0.5); }
+    else { target = Math.max(target, Math.min(0.97, p)); prog += (target - prog) * Math.min(1, dt * 0.18) + dt / 2400; prog = Math.min(prog, 0.97); } // (eases toward where the match is, and keeps creeping closer: never in jumps, never backwards)
     const e = prog * prog, L = 700, ang = 0.06 + e * 1.42; // the planet's angular size swells as we close in
     const rad = Math.min(L - 4, L * Math.sin(Math.min(1.45, ang)) + (impactT >= 0 ? impactT * 30 : 0)); // (at impact the surface is right at the cluster)
     P.copy(D).multiplyScalar(L); planet.position.copy(P); planet.scale.setScalar(rad); atmo.position.copy(P); atmo.scale.setScalar(rad);
