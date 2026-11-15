@@ -3,15 +3,16 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115165022';
-import { buildFoundry } from './foundry.js?v=20261115165022';
-import { buildBamboo } from './bamboo.js?v=20261115165022';
-import { buildCity } from './city.js?v=20261115165022';
-import { buildDojo } from './dojo.js?v=20261115165022';
-import { buildComet } from './comet.js?v=20261115165022';
-import { addScenery } from './scenery.js?v=20261115165022';
-import { addAtmosphere } from './atmos.js?v=20261115165022';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115165022';
+import { buildTilt } from './tilt.js?v=20261115180941';
+import { buildFoundry } from './foundry.js?v=20261115180941';
+import { buildBamboo } from './bamboo.js?v=20261115180941';
+import { buildCity } from './city.js?v=20261115180941';
+import { buildDojo } from './dojo.js?v=20261115180941';
+import { buildComet } from './comet.js?v=20261115180941';
+import { buildLava } from './lava.js?v=20261115180941';
+import { addScenery } from './scenery.js?v=20261115180941';
+import { addAtmosphere } from './atmos.js?v=20261115180941';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115180941';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -149,6 +150,7 @@ export const MAPS = {
   foundry: { name: 'Saw Foundry', blurb: 'a foundry in the sky full of blades: rail saws, swinging pendulums, saws dropping from above, spinning saw columns, lifts and sliding platforms' },
   tilt: { name: 'Swinging Decks', blurb: 'four huge round decks, each hanging on one chain: landing shoves them into a swing, and cutting the chain drops the deck (and whoever is on it) into the clouds' },
   comet: { name: 'Comet Crash', blurb: 'a cluster of asteroids riding a comet toward a planet: jump across them, swing from the small rocks floating round, and watch the planet loom closer until the comet hits it' },
+  lava: { name: 'Lava Climb', blurb: 'the inside of a volcano: the lava rises, so climb a course of floating rock to the summit. Hop, dash, grapple up and swing across. Three checkpoint arenas on the way, each under a gate that only opens once you have eliminated enough fighters' },
 };
 
 export class Arena {
@@ -567,6 +569,7 @@ export class Arena {
     if (this.mapId === 'foundry') return buildFoundry(this, TEX);
     if (this.mapId === 'tilt') return buildTilt(this, TEX);
     if (this.mapId === 'comet') return buildComet(this, TEX);
+    if (this.mapId === 'lava') return buildLava(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     this.realScene.background = new THREE.Color(0x9cc4e4);
@@ -989,6 +992,7 @@ export class Arena {
       if (this.rayThin) brk = brk.filter((b) => !b.soft && !b.hard);
     }
     for (const list of [this.boxes, this.rayBoxes, brk]) for (const b of list) {
+      if (b.noHook) continue; // (walls you can't hook, like the crater's)
       if (this.rayThin && b.danger) continue; // (bots won't hook the saw columns and gantries)
       let t0 = 0, t1 = best;
       for (const [oa, da, lo, hi] of [[o.x, d.x, b.x0, b.x1], [o.y, d.y, b.y0, b.y1], [o.z, d.z, b.z0, b.z1]]) {

@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115165022';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115165022';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115165022';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115165022';
-import * as net from './net.js?v=20261115165022';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115165022';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115165022';
-import { makeKillFx } from './killfx.js?v=20261115165022';
-import { makeGrapple } from './grapple.js?v=20261115165022';
-import { initShop } from './shop.js?v=20261115165022';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115165022';
-import { portal } from './portal.js?v=20261115165022';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115165022';
-import { makePost } from './post.js?v=20261115165022';
+import { Arena, MAPS } from './arena.js?v=20261115180941';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115180941';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115180941';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115180941';
+import * as net from './net.js?v=20261115180941';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115180941';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115180941';
+import { makeKillFx } from './killfx.js?v=20261115180941';
+import { makeGrapple } from './grapple.js?v=20261115180941';
+import { initShop } from './shop.js?v=20261115180941';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115180941';
+import { portal } from './portal.js?v=20261115180941';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115180941';
+import { makePost } from './post.js?v=20261115180941';
 
 // ---------- settings ----------
 const store = {
@@ -71,6 +71,7 @@ const fx = new ModeFx(scene); // throne, shrines, heads
 // ---------- constants ----------
 const G = 24, JUMP_V = 8.8, WALK = 12.5, DASH_V = 34, DASH_T = 0.38, CUT_SPD = 7, RAD = 0.38, HGT = 1.8;
 const PULL = 34, REEL = 11, HOOK_MAX = 60;
+const LAVA_GRACE = 15; // Lava Climb: no cutting this long into the match
 const FFA_KILLS = 15, FFA_TIME = 300, MAX_PLAYERS = 8, LBS_MIN = 12; // Last Blade Standing always fills up to at least 12 fighters
 // every kill makes your sword longer (and your reach with it)
 const BLADE_BASE = 1.12, BLADE_PER_KILL = 0.08, BLADE_MAX = 3.0;
@@ -244,6 +245,15 @@ function tryDash(f, dir) {
 }
 // the walkable surface of platform p at (x, z): its floor, a dish's curve or a mesa's rolling top
 function surfY(p, x, z) { const t = arena.platTop(p, { x, z }), g = arena.groundHeight(x, z, t + 4); return g > t - 6 ? g : t; }
+// Lava Climb: the gate over each checkpoint arena stays shut for a fighter until they've eliminated enough (1, 2, then 3
+// in all); with only two left standing every gate opens (it's a race). Returns the gate holding f back, or null.
+function gateFor(f) {
+  if (!arena.gates) return null;
+  const kills = rosterGet(f.id)?.k || 0;
+  if (S.phase === 'game' && [...fighters.values()].filter((g) => g.alive).length <= 2) return null;
+  for (const g of arena.gates) if (f.pos.y < g.y + 0.5 && f.pos.y > g.floor - 6 && kills < g.need) return g;
+  return null;
+}
 // a hook that lands on a platform's side or underside moves up to the lip of its top edge, a little way in, so
 // reeling in pulls you up and over the edge instead of leaving you stuck against the side
 function lipHook(f, pt) {
@@ -297,6 +307,7 @@ function fireHook(f, origin, dir) {
   arena.rayThin = !!f.isBot && !f.hookGlass; const h = arena.grappleTarget(origin, dir, HOOK_MAX * upm(f, 'rope')); arena.rayThin = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
   f.hookCd = 0.25;
   if (!h) { sfx.hookFire(f.pos); return false; }
+  { const g = gateFor(f); if (g && h.point.y > g.y - 0.2) { sfx.hookFire(f.pos); return false; } } // (a shut gate: nothing above it can be hooked)
   const lh = lipHook(f, h.point); if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead)
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const L = h.point.distanceTo(chest);
@@ -407,6 +418,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
     if (arena.brk) crash(f);
     f.onGround = arena.collide(f.pos, f.vel, RAD, HGT, (k ? f.onGround : was) && f.dashT <= 0 && !f.hook, py);
   }
+  { const g = gateFor(f); if (g && f.pos.y + HGT > g.y) { f.pos.y = g.y - HGT; if (f.vel.y > 0) f.vel.y = -1; if (f.hook && f.hook.p.y > g.y - 0.2) f.hook = null; f.mantle = null; } } // (a shut gate: a ceiling)
   if (f.hook && !f.hook.enemy) { // rope can't stretch
     const c = _t.copy(f.pos); c.y += 1.3; const d = _t2.subVectors(f.hook.via || f.hook.p, c); const L = d.length();
     if (L > f.hook.len + 0.05) f.pos.addScaledVector(d.divideScalar(L), L - f.hook.len);
@@ -717,6 +729,7 @@ function clash(f, g, at) {
 const arr = (v) => [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)];
 const vec = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 function claimKill(att, vic, n, pt, imp) {
+  if (S.mode === 'lava' && now() - (S.matchStart || 0) < LAVA_GRACE) return; // (Lava Climb: swords are sheathed for the first few seconds, to spread out)
   if (S.host) {
     if (applyKill(vic.id, att.id, n, pt, imp)) net.broadcast({ t: 'kill', v: vic.id, k: att.id, n: arr(n), p: arr(pt), i: arr(imp) });
   } else if (att === me) {
@@ -787,7 +800,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     if (kr && kId !== vId) { kr.k++; kr.streak = (kr.streak || 0) + 1; } // streak: kills since your last death (sets blade length)
     if (vr) { vr.d++; vr.streak = 0; } // dying puts your blade back to its starting length
     // respawn in 3 s, except Horde (next wave) and Last Blade Standing (no respawns at all)
-    v.respawnAt = S.mode === 'horde' || S.mode === 'lbs' || (S.mode === 'boss' && (v.boss || S.lives <= 1)) ? Infinity : now() + 3 * upm(v, 'respawn');
+    v.respawnAt = S.mode === 'horde' || S.mode === 'lbs' || S.mode === 'lava' || (S.mode === 'boss' && (v.boss || S.lives <= 1)) ? Infinity : now() + 3 * upm(v, 'respawn');
     modeOnKill(v, vId, kId);
     if (v.isBot && S.mode === 'horde') setTimeout(() => { S.roster = S.roster.filter((r) => r.id !== vId); syncFighters(); sendRoster(); }, 4000);
     sendRoster();
@@ -1023,7 +1036,7 @@ function botGrapple(b, t, D, dt, dx, dy, dz, dh) {
     let tp = arena.plats[t.plat];
     if (!ok(tp) && b.path) { const n = b.path.find((q) => q.name[0] === 'P' && grp(+q.name.slice(1)) !== grp(b.plat)); tp = n ? arena.plats[+n.name.slice(1)] : null; }
     // a short gap: dash straight across (when the predicted arc lands on it), mixed in with swinging
-    if (b.dashCd <= 0 && b.stam >= 22 && Math.random() < 0.75) {
+    if (b.dashCd <= 0 && b.stam >= 22 && Math.random() < (S.mode === 'lava' ? 0.15 : 0.75)) { // (Lava Climb: small rocks, so mostly swing)
       // onto their surface if it's close, else hop onto any nearby branch or leaf that brings us closer
       let how = null, onto = null;
       if (ok(tp) && rimDist(tp, b.pos) < 16) { how = dashOnto(b, tp); onto = tp; }
@@ -1192,6 +1205,7 @@ function botThink(b, dt) {
     if (!b.target || !b.target.alive || !nb || targetCost(b, nb) < targetCost(b, b.target) - 15) b.target = nb;
     b.think = 1.5 + Math.random();
   }
+  if (S.mode === 'lava' && b.target && b.target.isBot && !gateFor(b) && b.target.pos.distanceTo(b.pos) > 1.6) b.target = null; // (Lava Climb: on the course, bots ignore each other)
   let t = b.target;
   const obj = botObjective(b); // the mode's objective: throne, heads, shrine, or away from a crumbling platform
   if (obj && (!t || obj.flee || t.pos.distanceTo(b.pos) > obj.engage)) t = obj;
@@ -1316,7 +1330,7 @@ function fillBots() {
   if (coop()) return; // horde bots come and go with the waves
   if (S.mode === 'boss') { S.roster = S.roster.filter((r) => r.human); S.roster.push(bossEntry(S.bossIdx || 0)); return; } // Boss Rush: you and one boss
   const humans = S.roster.filter((r) => r.human).length;
-  const want = S.mode === 'lbs' ? Math.max(LBS_MIN - humans, Math.min(S.bots, MAX_PLAYERS - humans), 0) : Math.max(0, Math.min(S.bots, MAX_PLAYERS - humans));
+  const want = S.mode === 'lbs' || S.mode === 'lava' ? Math.max(LBS_MIN - humans, Math.min(S.bots, MAX_PLAYERS - humans), 0) : Math.max(0, Math.min(S.bots, MAX_PLAYERS - humans));
   let bots = S.roster.filter((r) => !r.human);
   while (bots.length > want) { const b = bots.pop(); S.roster = S.roster.filter((r) => r !== b); }
   const names = BOT_NAMES.filter((n) => !S.roster.some((r) => r.name === n));
@@ -1324,6 +1338,7 @@ function fillBots() {
 }
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
+  if (S.mode === 'lava') S.map = 'lava'; else if (S.map === 'lava') S.mode = 'lava'; // (Lava Climb: the mode and its map go together)
   useMap(S.map);
   clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
   if (coop()) S.roster = S.roster.filter((r) => r.human);
@@ -1365,6 +1380,9 @@ function checkEnd() {
   } else if (POINT_MODES.has(S.mode)) {
     const top = [...S.roster].sort((a, b) => (b.pts || 0) - (a.pts || 0))[0];
     if ((top && (top.pts || 0) >= MODE_GOAL[S.mode]) || S.timeLeft <= 0) endMatch();
+  } else if (S.mode === 'lava') { // Lava Climb: first onto the summit wins, or the last one alive
+    const alive = [...fighters.values()].filter((f) => f.alive), top = alive.find((f) => f.onGround && arena.summitAt && arena.summitAt(f.pos));
+    if (top) endMatch(top.id); else if (S.lbsLive && alive.length <= 1) endMatch(alive[0] ? alive[0].id : null);
   } else if (S.mode === 'lbs') {
     const alive = [...fighters.values()].filter((f) => f.alive);
     if (S.lbsLive && alive.length <= 1) endMatch(alive[0] ? alive[0].id : null);
@@ -1391,6 +1409,7 @@ function hostTick(dt) {
     if (S.mode === 'boss') bossTick(dt);
     else if (S.mode !== 'lbs') { S.timeLeft -= dt; if (S.timeLeft <= 0) checkEnd(); }
     if (!S.ended) modeTick(dt);
+    if (S.mode === 'lava' && !S.ended) checkEnd(); // (the summit)
   } else if (!S.ended) {
     const bots = [...fighters.values()].filter((f) => f.isBot);
     const alive = bots.filter((f) => f.alive).length;
@@ -1607,6 +1626,12 @@ function modeTick(dt) {
 }
 // what a bot should go for besides fighting: the throne, a shrine or loose heads, or away from a crumbling platform
 function botObjective(b) {
+  if (S.mode === 'lava' && arena.summitPos) { // Lava Climb: up to the summit, unless a shut gate is in the way (then: fight)
+    if (gateFor(b)) return null;
+    const sp = arena.plats.find((p) => p.kind === 'summit');
+    const e = b.target, eng = e && e.alive && !e.isBot ? 3 : 0; // (on the course, bots leave each other be: they fight at the gates, and fight you back)
+    return { pos: arena.summitPos, plat: sp ? sp.i : null, engage: eng, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null };
+  }
   const o = S.obj; if (!o) return null;
   const mk = (pos, plat, engage, flee) => ({ pos, plat, engage, flee, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null });
   if (S.mode === 'koth' && o.throne >= 0) {
@@ -1936,14 +1961,14 @@ function showEnd(res) {
     setTimeout(() => { $('endSub').innerHTML = `Team Battle · <span style="color:${TEAMS.A.css}">Red ${sum('A')}</span> – <span style="color:${TEAMS.B.css}">${sum('B')} Blue</span>`; }, 0);
   }
   else {
-    const w = res.mode === 'lbs' ? (res.winner ? rosterGet(res.winner) || res.list.find((r) => r.id === res.winner) : null) : list[0];
-    $('endTitle').textContent = w && w.id === S.myId ? 'Victory' : res.mode === 'lbs' && !w ? 'Nobody survived' : `${w ? w.name : 'Nobody'} wins`;
+    const w = res.mode === 'lbs' || res.mode === 'lava' ? (res.winner ? rosterGet(res.winner) || res.list.find((r) => r.id === res.winner) : null) : list[0];
+    $('endTitle').textContent = w && w.id === S.myId ? 'Victory' : (res.mode === 'lbs' || res.mode === 'lava') && !w ? (res.mode === 'lava' ? 'The lava took everyone' : 'Nobody survived') : `${w ? w.name : 'Nobody'} wins`;
   }
   $('endSub').textContent = name + (res.q ? ` · next round (random mode and map) in ${QUICK_GAP - 2} s` : '');
   const rows = list.filter((r) => res.mode !== 'horde' || r.human);
   $('endTable').innerHTML = `<tr><th></th><th>Name</th>${pts ? `<th>${res.mode === 'hunt' ? 'Heads' : 'Points'}</th>` : ''}<th>Kills</th><th>Deaths</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}</td>${pts ? `<td>${r.pts || 0}</td>` : ''}<td>${r.k}</td><td>${r.d}</td></tr>`).join('');
   // coins: for playing a real match (not quitting straight out), kills, points or waves, and winning
-  const mine = res.list.find((r) => r.id === S.myId), top = res.mode === 'lbs' ? res.winner : list[0] && list[0].id;
+  const mine = res.list.find((r) => r.id === S.myId), top = res.mode === 'lbs' || res.mode === 'lava' ? res.winner : list[0] && list[0].id;
   let coins = 0; const bonus = [];
   if (mine && now() - (S.matchStart || now()) > 40) {
     coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0) + (res.mode === 'boss' ? 25 * (mine.pts || 0) : 0);
@@ -2001,6 +2026,18 @@ function updateHud(dt) {
     const j = o.jugg && rosterGet(o.jugg);
     $('topbar').innerHTML = `Juggernaut · ${clock(S.timeLeft)} · Juggernaut: ${j ? `<span style="color:${colorOf(j)}">${esc(j.name)}</span>` : '-'} · ${lead}/${MODE_GOAL.jugg}`;
     if (me && me.alive) { const jf = o.jugg && fighters.get(o.jugg), grounded = jf && jf.onGround && !jf.hook; status = o.jugg === S.myId ? (grounded ? 'YOU ARE THE JUGGERNAUT · on the ground: scoring' : 'YOU ARE THE JUGGERNAUT · in the air: not scoring, land to score') : 'Hunt the crowned juggernaut' + (jf && !grounded ? ' · they2019re in the air and not scoring' : ''); }
+  } else if (S.mode === 'lava') {
+    const alive = [...fighters.values()].filter((f) => f.alive).length, k = rosterGet(S.myId)?.k || 0;
+    const below = me && me.alive ? me.pos.y - (arena.lavaY ?? -99) : 99;
+    $('topbar').innerHTML = `Lava Climb · ${alive} alive · your kills: ${k} · <span style="color:var(--gold)">reach the summit</span>`;
+    if (me && me.alive) {
+      const g = gateFor(me);
+      if (g && me.pos.y > g.floor - 1) status = `<span style="color:var(--red)">GATE SHUT · eliminate ${g.need - k} more to open it</span>`;
+      else if (now() - (S.matchStart || 0) < LAVA_GRACE) status = `CLIMB! Swords are sheathed for ${Math.ceil(LAVA_GRACE - (now() - S.matchStart))} s`;
+      else if (below < 7) status = '<span style="color:var(--red)">THE LAVA IS RIGHT BELOW YOU · climb!</span>';
+      else if (below < 16) status = 'The lava is rising: keep climbing';
+    }
+    if (arena.gateVis && me) { const next = arena.gates.find((g) => g.y > me.pos.y - 1); arena.gates.forEach((g, i) => { arena.gateVis(i, (rosterGet(S.myId)?.k || 0) >= g.need || alive <= 2); g.show = g === next; }); } // (only the next gate up is drawn)
   } else if (S.mode === 'lbs') {
     const alive = [...fighters.values()].filter((f) => f.alive).length;
     const falls = o.warn >= 0 ? '<span style="color:var(--red)">A platform is falling!</span>' : `Next platform falls in ${Math.ceil(Math.max(0, until.crumble - now()))} s`;
@@ -2029,6 +2066,7 @@ function updateHud(dt) {
     if (!me.alive) {
       if (S.mode === 'horde') c = `${esc(deathBy)}<small>You'll be back for the next wave</small>`;
       else if (S.mode === 'lbs') c = `${esc(deathBy)}<small>You're out. Watching the rest fight it out…</small>`;
+      else if (S.mode === 'lava') c = `${esc(deathBy)}<small>You're out. Watching the climb…</small>`;
       else { const w = Math.max(0, Math.ceil((me.respawnAt === Infinity ? 3 - (now() - (me.diedAt || 0)) : me.respawnAt - now()))); c = `${esc(deathBy)}<small>Back in ${w}…</small>`; }
       { const g = (coop() || teamMode()) && spectateTarget(); if (g) c += `<small>Watching ${esc(rosterGet(g.id)?.name || 'your teammate')}</small>`; } // (team modes: we follow a teammate)
     } else if (status) c = `<small style="font-size:16px;color:var(--gold)">${status}</small>`;
@@ -2105,6 +2143,7 @@ function frame(t) {
 }
 function tick(rdt, tt) {
   arena.update(tt); fx.update(tt); if (arena.tendrilTick) arena.tendrilTick(rdt, fighters.values()); // (Colosseum: tendrils sway and get dragged by whoever hangs on them)
+  if (arena.lavaTick) arena.lavaTick(S.phase === 'game' ? now() - (S.matchStart || now()) : 0, tt); // (Lava Climb: the lava rises)
   if (arena.cometTick && arena.cometTick(rdt, matchProgress(), S.ended)) { shake = Math.max(shake, 1.4); sfx.thunder(); sfx.thunder(); } // (Comet Crash: the planet looms; at the end, impact)
   if (S.phase === 'game' && !S.paused) {
     if (S.host) hostTick(rdt);
