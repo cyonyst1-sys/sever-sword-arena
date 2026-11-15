@@ -39,6 +39,7 @@ Pick a mode on the home screen (the host picks it in a multiplayer room). Bots p
 - **Free-for-all:** everyone against everyone, bots included. One clean cut kills. Respawn after 3 s; first to 15 kills, or the most after 5 minutes.
 - **Team Battle:** red against blue. Players are split evenly and bots fill both sides; every kill scores for your team, and the first team to 30 kills (or the most after 5 minutes) wins. Teammates can't hurt each other; a red or blue marker floats over everyone's head (and a plain outfit takes the team colour). Everyone on the winning side gets the win bonus. Friends who join mid-match go on the smaller team.
 - **Horde:** you (and up to 3 friends) against waves of oni. Anyone cut down comes back at the start of the next wave; the run ends when everyone is down at once.
+- **Boss Rush** (solo only): 1v1 against one boss after another. Each boss takes several cuts (it flashes and staggers on each one) and has its own tricks: Kaito the Wanderer, Swift Hana (fast, dashes constantly), Iron Goro (huge reach, barely flinches), Mika of the Hook (always swinging), The Mirror (dodges almost everything), Shade (teleports behind you), Oni Warlord (heals if left alone) and The Emperor of Blades (everything at once). Bosses start at the difficulty you pick and get harder; after the eighth they come round again, tougher. You have 3 lives, and beating a boss gives one back. Each boss beaten pays 25 coins.
 
 Solo games are you plus bots (0 to 7, Easy / Normal / Hard).
 

@@ -1,16 +1,16 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114185137';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114185137';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114185137';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114185137';
-import * as net from './net.js?v=20261114185137';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114185137';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114185137';
-import { makeKillFx } from './killfx.js?v=20261114185137';
-import { makeGrapple } from './grapple.js?v=20261114185137';
-import { initShop } from './shop.js?v=20261114185137';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114185137';
-import { portal } from './portal.js?v=20261114185137';
+import { Arena, MAPS } from './arena.js?v=20261114194547';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114194547';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114194547';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114194547';
+import * as net from './net.js?v=20261114194547';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114194547';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114194547';
+import { makeKillFx } from './killfx.js?v=20261114194547';
+import { makeGrapple } from './grapple.js?v=20261114194547';
+import { initShop } from './shop.js?v=20261114194547';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114194547';
+import { portal } from './portal.js?v=20261114194547';
 
 // ---------- settings ----------
 const store = {
@@ -98,7 +98,7 @@ let me = null;
 const rosterGet = (id) => S.roster.find((r) => r.id === id);
 // permanent shop upgrades: a fighter's level in one (0 for bots, and for everyone when the host has switched them off)
 const upLv = (f, id) => { if (!f || f.isBot || S.noUp) return 0; const u = f === me ? profile.up : rosterGet(f.id)?.up; return Math.max(0, Math.min(5, (u && u[id]) | 0)); };
-const upm = (f, id) => upMul(id, upLv(f, id));
+const upm = (f, id) => upMul(id, upLv(f, id)) * ((f && f.bossMul && f.bossMul[id]) || 1); // (Boss Rush: each boss has its own strengths)
 const isEnemy = (a, b) => a.team !== b.team;
 // Team Battle: two sides, red (A) and blue (B)
 const TEAMS = { A: { name: 'Red', col: 0xd23b3b, css: '#e0524a' }, B: { name: 'Blue', col: 0x2f7ae0, css: '#4a8fe8' } };
@@ -118,6 +118,11 @@ function makeFighter(info) {
   f.grap = makeGrapple(scene, item('grapple', f.look.grapple), grapFx); // their grappling hook, in their style
   f.crown = makeCrown(); f.crown.visible = false; f.group.add(f.crown); // worn by the juggernaut
   f.teamMark = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.28, 4), new THREE.MeshBasicMaterial({ color: 0xffffff })); f.teamMark.rotation.x = Math.PI; f.teamMark.position.y = 2.45; f.teamMark.visible = false; f.group.add(f.teamMark); // Team Battle: a team-coloured marker over the head
+  if (info.boss != null) { // Boss Rush: hit points, its own strengths and its own fighting style
+    const b = bossDef(info.boss);
+    Object.assign(f, { boss: b, bossHp: b.hp, bossMax: b.hp, bossMul: b.mul || {}, lastHurt: now(), blinkAt: now() + 5,
+      bossD: { ...DIFF[Math.min(7, Math.max(0, S.diff + b.dl))], ...(b.d || {}) } });
+  }
   fighters.set(info.id, f);
   return f;
 }
@@ -639,6 +644,7 @@ function selfFell(f) {
 let shake = 0, hitstop = 0, punch = 0;
 function applyKill(vId, kId, n, pt, imp, fell) {
   const v = fighters.get(vId); if (!v || !v.alive) return false;
+  if (v.boss && v.bossHp > 1 && S.host) { bossHurt(v, pt, imp, fell); return false; } // (Boss Rush: bosses take several cuts)
   v.alive = false; v.hook = null; v.diedAt = now(); v.anim = null;
   if (!fell && n) {
     v.pose(0);
@@ -662,7 +668,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     if (kr && kId !== vId) { kr.k++; kr.streak = (kr.streak || 0) + 1; } // streak: kills since your last death (sets blade length)
     if (vr) { vr.d++; vr.streak = 0; } // dying puts your blade back to its starting length
     // respawn in 3 s, except Horde (next wave) and Last Blade Standing (no respawns at all)
-    v.respawnAt = S.mode === 'horde' || S.mode === 'lbs' ? Infinity : now() + 3 * upm(v, 'respawn');
+    v.respawnAt = S.mode === 'horde' || S.mode === 'lbs' || (S.mode === 'boss' && (v.boss || S.lives <= 1)) ? Infinity : now() + 3 * upm(v, 'respawn');
     modeOnKill(v, vId, kId);
     if (v.isBot && S.mode === 'horde') setTimeout(() => { S.roster = S.roster.filter((r) => r.id !== vId); syncFighters(); sendRoster(); }, 4000);
     sendRoster();
@@ -1023,7 +1029,7 @@ const rimDist = (p, q) => arena.rimDist(p, q);
 // the point on a platform's top lip closest to q
 const rimPoint = (p, q) => arena.rimPoint(p, q);
 function botThink(b, dt) {
-  const D = DIFF[S.diff] || DIFF[1];
+  const D = b.bossD || DIFF[S.diff] || DIFF[1];
   b.think = (b.think || 0) - dt; b.atkCd = (b.atkCd ?? 1) - dt; b.repath = (b.repath || 0) - dt;
   if (!b.target || !b.target.alive || b.think <= 0) {
     // stick with the current fight unless a much closer one turns up
@@ -1153,6 +1159,7 @@ function newRosterEntry(id, name, human, look, up) {
 }
 function fillBots() {
   if (coop()) return; // horde bots come and go with the waves
+  if (S.mode === 'boss') { S.roster = S.roster.filter((r) => r.human); S.roster.push(bossEntry(S.bossIdx || 0)); return; } // Boss Rush: you and one boss
   const humans = S.roster.filter((r) => r.human).length;
   const want = S.mode === 'lbs' ? Math.max(LBS_MIN - humans, Math.min(S.bots, MAX_PLAYERS - humans), 0) : Math.max(0, Math.min(S.bots, MAX_PLAYERS - humans));
   let bots = S.roster.filter((r) => !r.human);
@@ -1165,6 +1172,7 @@ function startMatch() {
   useMap(S.map);
   clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
   if (coop()) S.roster = S.roster.filter((r) => r.human);
+  if (S.mode === 'boss') { S.bossIdx = 0; S.lives = 3; }
   for (const r of S.roster) { r.k = 0; r.d = 0; r.streak = 0; r.pts = 0; r.carry = 0; r.team = coop() ? (r.human ? 'H' : 'R') : r.id; r.horde = !r.human && coop(); }
   fillBots();
   if (teamMode()) assignTeams(); // red and blue, evened out with the bots
@@ -1194,6 +1202,7 @@ function checkEnd() {
     const alive = [...fighters.values()].filter((f) => f.alive);
     if (S.lbsLive && alive.length <= 1) endMatch(alive[0] ? alive[0].id : null);
   } else {
+    if (S.mode === 'boss') { if (S.lives <= 0) endMatch(); return; }
     const humans = [...fighters.values()].filter((f) => !f.isBot);
     if (humans.length && humans.every((f) => !f.alive) && S.waveActive) endMatch();
   }
@@ -1212,7 +1221,8 @@ function hostTick(dt) {
   const t = now();
   for (const f of fighters.values()) if (!f.alive && f.respawnAt <= t) hostSpawn(f);
   if (!coop()) {
-    if (S.mode !== 'lbs') { S.timeLeft -= dt; if (S.timeLeft <= 0) checkEnd(); }
+    if (S.mode === 'boss') bossTick(dt);
+    else if (S.mode !== 'lbs') { S.timeLeft -= dt; if (S.timeLeft <= 0) checkEnd(); }
     if (!S.ended) modeTick(dt);
   } else if (!S.ended) {
     const bots = [...fighters.values()].filter((f) => f.isBot);
@@ -1296,8 +1306,67 @@ function setJugg(id) {
   const n = id && rosterGet(id)?.name;
   if (n) { const s = `${n.toUpperCase()} IS THE JUGGERNAUT`; showBanner(s); net.broadcast({ t: 'banner', s }); }
 }
+// ---------- Boss Rush: 1v1 against one boss after another ----------
+// dl: how many difficulty levels above the one you picked; hp: cuts to bring it down; mul: like shop upgrades
+// (speed, blade length, dash cooldown, stagger time...); d: fighting-style overrides; blink: teleports behind
+// you every so many seconds; regen: heals a cut after this long without being hit.
+const BOSSES = [
+  { name: 'Kaito the Wanderer', dl: 0, hp: 3, title: 'A wandering swordsman. Learn his rhythm.', look: { hat: 'kasa', sword: 'katana', trail: 'classic' } },
+  { name: 'Swift Hana', dl: 0, hp: 3, title: 'Fast feet, faster dashes. Hold your ground and cut as she comes in.', mul: { speed: 1.3, dash: 0.45 }, d: { dash: 1.2 }, look: { outfit: 'sakura', hat: 'ponytail', sword: 'needle', trail: 'sakura' } },
+  { name: 'Iron Goro', dl: 1, hp: 5, title: 'A huge reach and barely flinches. Get inside his swing.', mul: { blade: 1.5, speed: 0.85, steady: 0.4 }, look: { outfit: 'crimson', hat: 'kabuto', mask: 'menpo', sword: 'cleaver' } },
+  { name: 'Mika of the Hook', dl: 1, hp: 4, title: 'Never stays put. Cut her down as she swings in.', mul: { reel: 1.5 }, d: { hookCd: 0.25, cross: 9, roam: 2 }, look: { outfit: 'jade', hat: 'hood', mask: 'kitsune', grapple: 'chain', trail: 'emerald' } },
+  { name: 'The Mirror', dl: 2, hp: 4, title: 'Reads every swing. Feint, then strike.', d: { evade: 0.96 }, look: { outfit: 'snow', mask: 'void', sword: 'frost', trail: 'azure' } },
+  { name: 'Shade', dl: 2, hp: 5, title: 'Steps through shadow and appears behind you. Keep turning.', blink: 6, look: { outfit: 'shadow', hat: 'hood', mask: 'skull', sword: 'obsidian', trail: 'shadow' } },
+  { name: 'Oni Warlord', dl: 3, hp: 6, title: 'Heals if you give him time. Keep the pressure on.', regen: 8, mul: { blade: 1.35, steady: 0.5 }, look: { outfit: 'ember', hat: 'horns', mask: 'oni', sword: 'bone', trail: 'ember' } },
+  { name: 'The Emperor of Blades', dl: 4, hp: 7, title: 'Every trick at once.', blink: 8, regen: 12, mul: { speed: 1.15, blade: 1.2, dash: 0.6, steady: 0.6 }, look: { outfit: 'emperor', hat: 'embercrown', mask: 'hannya', sword: 'gold', trail: 'gold' } },
+];
+// after the last boss they come round again, each round harder and tougher
+function bossDef(i) { const r = Math.floor(i / BOSSES.length), b = BOSSES[i % BOSSES.length]; return { ...b, round: r, hp: b.hp + 2 * r, dl: b.dl + r }; }
+function bossEntry(i) { const b = bossDef(i), e = newRosterEntry('boss' + i, b.name, false, b.look); e.boss = i; return e; }
+function bossHurt(v, pt, imp, fell) {
+  v.bossHp--; v.lastHurt = now(); v.prot = 0.7; v.stagger = 0.6; v.anim = null; v.noCut = true;
+  const at = pt || _t.copy(v.pos).setY(v.pos.y + 1.2);
+  for (let i = 0; i < 30; i++) sparks.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 8, Math.random() * 5, (Math.random() - 0.5) * 8, 0.5);
+  sfx.slice(at); shake = Math.max(shake, 0.3); hitstop = 0.06;
+  if (fell) hostSpawn(v); else if (imp) { v.vel.x += imp.x * 0.3; v.vel.z += imp.z * 0.3; v.vel.y += 3; }
+  feed(`${esc(v.boss.name)} <span style="color:var(--red)">⟋</span> ${v.bossHp} to go`);
+}
+function bossTick() {
+  const b = [...fighters.values()].find((f) => f.boss && f.alive); if (!b) return;
+  const d = b.boss, t = now();
+  if (d.regen && b.bossHp < b.bossMax && t - b.lastHurt > d.regen) { // left alone too long: a cut heals
+    b.bossHp++; b.lastHurt = t; feed(`${esc(d.name)} recovers`);
+    for (let i = 0; i < 20; i++) sparks.emit(b.pos.x, b.pos.y + 1, b.pos.z, (Math.random() - 0.5) * 3, Math.random() * 4, (Math.random() - 0.5) * 3, 0.7);
+  }
+  if (d.blink && t > b.blinkAt && me && me.alive && me.onGround && b.stagger <= 0 && b.pos.distanceTo(me.pos) < 30) { // step through shadow to just behind you
+    b.blinkAt = t + d.blink * (0.8 + Math.random() * 0.4);
+    const x = me.pos.x + Math.sin(me.yaw) * 3, z = me.pos.z + Math.cos(me.yaw) * 3, y = ground(x, z, me.pos.y + 1);
+    if (!isFinite(y) || Math.abs(y - me.pos.y) > 1.5) return; // (no floor there: try again next time)
+    for (let i = 0; i < 24; i++) sparks.emit(b.pos.x, b.pos.y + 1, b.pos.z, (Math.random() - 0.5) * 4, Math.random() * 4, (Math.random() - 0.5) * 4, 0.5);
+    b.pos.set(x, y, z); b.vel.set(0, 0, 0); b.hook = null; b.dashT = 0; b.noCut = true; b.anim = null; b.atkCd = 0.35;
+    b.yaw = Math.atan2(b.pos.x - me.pos.x, b.pos.z - me.pos.z);
+    b.pose(0); b.prevHand.copy(b.hand); b.prevTip.copy(b.tip); b.prevPos.copy(b.pos);
+    sfx.spawn(b.pos);
+  }
+}
+function bossOnKill(v) {
+  if (v.boss) { // beaten: a life back, and the next one steps up
+    const r = S.roster.find((x) => x.human); if (r) r.pts = (r.pts || 0) + 1;
+    S.lives = Math.min(3, S.lives + 1);
+    showBanner(`${v.boss.name.toUpperCase()} DEFEATED`);
+    const idx = S.bossIdx + 1, run = S.matchStart;
+    setTimeout(() => {
+      if (S.mode !== 'boss' || S.phase !== 'game' || S.ended || S.matchStart !== run) return;
+      S.bossIdx = idx; fillBots(); syncFighters();
+      const nb = [...fighters.values()].find((f) => f.boss); if (nb) hostSpawn(nb);
+      const d = bossDef(idx); showBanner(`BOSS ${idx + 1}: ${d.name.toUpperCase()}`); sendRoster();
+    }, 3500);
+  } else if (!v.isBot) { S.lives--; if (S.lives > 0) showBanner(`${S.lives} ${S.lives > 1 ? 'LIVES' : 'LIFE'} LEFT`); }
+}
+
 function modeOnKill(v, vId, kId) {
   const o = S.obj; if (!o) return;
+  if (S.mode === 'boss') { bossOnKill(v); return; }
   if (S.mode === 'jugg' && vId === o.jugg) { // the crown goes to whoever cut the juggernaut down
     const k = kId && kId !== vId ? fighters.get(kId) : null;
     if (k && k.alive) setJugg(kId);
@@ -1334,6 +1403,11 @@ function modeTick(dt) {
       if (j.onGround && !j.hook) scoreT += dt; // the juggernaut only scores while standing on something, never while flying, swinging or dashing
       if (scoreT >= 1) { scoreT -= 1; const r = rosterGet(j.id); if (r) { r.pts = (r.pts || 0) + 1; sendRoster(); checkEnd(); } }
     }
+  } else if (S.mode === 'boss') {
+    const b = [...fighters.values()].find((x) => x.boss), hp = b && b.alive ? b.bossHp : 0;
+    const bar = b ? ` <span style="color:var(--red)">${'▮'.repeat(hp)}</span><span style="opacity:.3">${'▮'.repeat(Math.max(0, b.bossMax - hp))}</span>` : '';
+    $('topbar').innerHTML = `Boss Rush · Boss ${(S.bossIdx || 0) + 1}${b && b.boss.round ? ` (round ${b.boss.round + 1})` : ''}: ${b ? esc(b.boss.name) : '-'}${bar} · <span style="color:var(--red)">${'♥'.repeat(Math.max(0, S.lives || 0))}</span>`;
+    if (me && me.alive && b && b.alive) status = b.boss.title;
   } else if (S.mode === 'hunt') {
     let changed = false;
     for (const f of fighters.values()) {
@@ -1520,7 +1594,7 @@ $('name').addEventListener('input', () => { settings.name = $('name').value.trim
 $('map').value = MAPS[settings.map] ? settings.map : 'spire';
 $('map').onchange = () => { settings.map = $('map').value; saveSettings(); }; // remember the map you picked
 // mode menus (home, host, lobby) all come from the one list of modes
-for (const id of ['mode', 'hostMode', 'lobbyModeSel']) $(id).innerHTML = Object.entries(MODES).map(([k, m]) => `<option value="${k}">${m.name}</option>`).join('');
+for (const id of ['mode', 'hostMode', 'lobbyModeSel']) $(id).innerHTML = Object.entries(MODES).filter(([k]) => id === 'mode' || !MODES[k].solo).map(([k, m]) => `<option value="${k}">${m.name}</option>`).join('');
 $('mode').value = MODES[settings.mode] ? settings.mode : 'ffa';
 const showBlurb = () => { $('modeBlurb').textContent = MODES[$('mode').value].blurb; };
 $('mode').onchange = () => { settings.mode = $('mode').value; saveSettings(); $('hostMode').value = $('mode').value; showBlurb(); };
@@ -1686,6 +1760,7 @@ function showEnd(res) {
   show('end'); $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
   const list = ranked(res.list, res.mode), name = (MODES[res.mode] || MODES.ffa).name, pts = POINT_MODES.has(res.mode);
   if (res.mode === 'horde') { $('endTitle').textContent = `The horde got you on wave ${res.wave}`; }
+  else if (res.mode === 'boss') { const n = res.list.find((r) => r.human)?.pts || 0, b = res.list.find((r) => r.boss != null); $('endTitle').textContent = `You beat ${n} boss${n === 1 ? '' : 'es'}`; setTimeout(() => { $('endSub').textContent = `Boss Rush · stopped by ${b ? b.name : 'a boss'}`; }, 0); }
   else if (res.mode === 'team') { // Team Battle: the winning side, and the score
     const my = res.list.find((r) => r.id === S.myId), sum = (t) => res.list.reduce((s, r) => s + (r.team === t ? r.k : 0), 0);
     $('endTitle').textContent = !res.winner ? 'Draw' : my && my.team === res.winner ? 'Victory' : `${TEAMS[res.winner].name} team wins`;
@@ -1702,7 +1777,7 @@ function showEnd(res) {
   const mine = res.list.find((r) => r.id === S.myId), top = res.mode === 'lbs' ? res.winner : list[0] && list[0].id;
   let coins = 0; const bonus = [];
   if (mine && now() - (S.matchStart || now()) > 40) {
-    coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0);
+    coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0) + (res.mode === 'boss' ? 25 * (mine.pts || 0) : 0);
     if (res.mode === 'team' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) coins += 30; // (Team Battle: everyone on the winning side)
     // bonuses: the bot difficulty (whenever there were bots, solo or online), and +10% per friend in the match (up to +30%)
     const bots = res.mode === 'horde' || res.list.some((r) => !r.human), friends = Math.min(3, res.list.filter((r) => r.human).length - 1);
@@ -1762,6 +1837,11 @@ function updateHud(dt) {
     const falls = o.warn >= 0 ? '<span style="color:var(--red)">A platform is falling!</span>' : `Next platform falls in ${Math.ceil(Math.max(0, until.crumble - now()))} s`;
     $('topbar').innerHTML = `Last Blade Standing · ${alive} alive · ${falls}`;
     if (me && me.alive && o.warn >= 0 && me.plat === o.warn) status = '<span style="color:var(--red)">YOUR PLATFORM IS FALLING · get off!</span>';
+  } else if (S.mode === 'boss') {
+    const b = [...fighters.values()].find((x) => x.boss), hp = b && b.alive ? b.bossHp : 0;
+    const bar = b ? ` <span style="color:var(--red)">${'▮'.repeat(hp)}</span><span style="opacity:.3">${'▮'.repeat(Math.max(0, b.bossMax - hp))}</span>` : '';
+    $('topbar').innerHTML = `Boss Rush · Boss ${(S.bossIdx || 0) + 1}${b && b.boss.round ? ` (round ${b.boss.round + 1})` : ''}: ${b ? esc(b.boss.name) : '-'}${bar} · <span style="color:var(--red)">${'♥'.repeat(Math.max(0, S.lives || 0))}</span>`;
+    if (me && me.alive && b && b.alive) status = b.boss.title;
   } else if (S.mode === 'hunt') {
     $('topbar').innerHTML = `Headhunter · ${clock(S.timeLeft)} · ${lead}/${MODE_GOAL.hunt} banked`;
     if (me && me.alive && mr && mr.carry) status = `CARRYING ${mr.carry} HEAD${mr.carry > 1 ? 'S' : ''} · bank them at a shrine`;
@@ -1872,7 +1952,7 @@ function tick(rdt, tt) {
       if (!f.alive) { f.updateTrail(tt); continue; }
       const isJugg = S.mode === 'jugg' && S.obj && S.obj.jugg === f.id;
       const want = isJugg ? BLADE_MAX : bladeFor(rosterGet(f.id)?.streak) * upm(f, 'blade'); // the juggernaut always carries the longest blade
-      f.crown.visible = isJugg;
+      f.crown.visible = isJugg || !!f.boss;
       f.bladeLen += (want - f.bladeLen) * Math.min(1, rdt * 4);
       if (f.onGround) { const p = platUnder(f.pos); if (p) f.plat = p.i; } // which platform they're on
       f.pose(rdt);

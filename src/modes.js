@@ -9,6 +9,7 @@ export const MODES = {
   lbs: { name: 'Last Blade Standing', blurb: 'No respawns, and always at least 12 fighters (bots fill the rest). Platforms glow red, then crumble into the clouds, from the outside in. Last fighter alive wins.' },
   hunt: { name: 'Headhunter', blurb: 'Every kill drops gold heads. Carry them to an altar floating in open air and swing through its glowing ring to bank them; die and you drop them all. First to 20 banked.' },
   horde: { name: 'Horde', blurb: 'Co-op: everyone together against waves of oni.' },
+  boss: { name: 'Boss Rush', solo: true, blurb: 'Solo, 1v1: fight through one boss after another, each with its own tricks. Bosses take several cuts to bring down. You have 3 lives, and beating a boss gives one back. After the eighth they come round again, harder. How far can you get?' },
 };
 export const POINT_MODES = new Set(['koth', 'jugg', 'hunt']); // won on points rather than kills
 export const MODE_GOAL = { team: 30, ffa: 15, koth: 60, jugg: 60, hunt: 20 };
