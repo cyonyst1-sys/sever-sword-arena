@@ -98,8 +98,8 @@ export function buildComet(A, T) {
   for (let k = 0; k < 4; k++) { const h = 380 + k * 60, c = new THREE.Mesh(new THREE.ConeGeometry(45 + k * 18, h, 24, 1, true), tailM); c.rotation.x = Math.PI / 2; c.position.z = -(75 + k * 12 + h / 2); tail.add(c); } // (starting well behind the cluster) // the gas tail streaming behind, narrow at the comet and widening away
 
   tail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), D.clone().negate());
-  const fireM = new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, side: THREE.DoubleSide });
-  const fire = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16, 0, TAU, 0, Math.PI / 2), fireM); fire.scale.set(95, 55, 95); fire.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), D.clone().negate()); fire.position.copy(D).multiplyScalar(40); S.add(fire); // the shock front, ahead of us
+  const fireM = new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.BackSide }); // (behind everything nearer: a glow in the distance, never over the fight)
+  const fire = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16, 0, TAU, 0, Math.PI / 2), fireM); fire.scale.set(95, 55, 95); fire.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), D.clone().negate()); fire.position.copy(D).multiplyScalar(150); fire.renderOrder = -1; S.add(fire); // the shock front, ahead of us
   const flashM = new THREE.MeshBasicMaterial({ color: 0xffe0a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, side: THREE.DoubleSide }); // (drawn over everything: the planet's surface is right there)
   const flash = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), flashM); flash.visible = false; flash.renderOrder = 10; S.add(flash);
   for (const q of small) q.m.userData.base = q.m.position.clone();
@@ -117,13 +117,14 @@ export function buildComet(A, T) {
     const e = prog * prog, L = 700, ang = 0.06 + e * 1.42; // the planet's angular size swells as we close in
     const rad = Math.min(L - 4, L * Math.sin(Math.min(1.45, ang)) + (impactT >= 0 ? impactT * 30 : 0)); // (at impact the surface is right at the cluster)
     P.copy(D).multiplyScalar(L); planet.position.copy(P); planet.scale.setScalar(rad); atmo.position.copy(P); atmo.scale.setScalar(rad);
+    atmo.material.opacity = 0.25 * Math.max(0, Math.min(1, (L - rad * 1.04 - 20) / 60)); atmo.visible = atmo.material.opacity > 0.01; // (fades out before we'd be inside it: no blue veil over the screen)
     planet.rotation.y += dt * (0.02 + e * 0.2);
     const speed = 30 + e * 520; // the stars stream past faster and faster
     const pos = sg.attributes.position.array, len = 2 + speed * 0.05;
     for (let i = 0; i < NS; i++) { const v = seeds[i]; v.addScaledVector(D, -speed * dt); if (v.dot(D) < -450) v.addScaledVector(D, 900); if (v.length() > 720) v.setLength(260); pos[i * 6] = v.x; pos[i * 6 + 1] = v.y; pos[i * 6 + 2] = v.z; tmp.copy(v).addScaledVector(D, len); pos[i * 6 + 3] = tmp.x; pos[i * 6 + 4] = tmp.y; pos[i * 6 + 5] = tmp.z; }
     sg.attributes.position.needsUpdate = true;
     tailM.opacity = 0.05 + 0.02 * Math.sin(clock * 3) + e * 0.05;
-    fireM.opacity = Math.max(0, prog - 0.55) * 1.1 * (0.85 + 0.15 * Math.sin(clock * 23)); // the leading edge burns in the atmosphere
+    fireM.opacity = Math.max(0, prog - 0.6) * 0.45 * (0.9 + 0.1 * Math.sin(clock * 23)); // the leading edge burns in the atmosphere (a soft glow ahead)
     fire.scale.set(95 + e * 40, 55 + e * 60, 95 + e * 40);
     for (const q of small) { q.m.rotation.x += q.spin.x * dt; q.m.rotation.y += q.spin.y * dt; q.m.rotation.z += q.spin.z * dt; }
     if (impactT >= 0) { // the surface rushes in... and the comet hits: a white flash and a swelling fireball
