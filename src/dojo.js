@@ -6,7 +6,7 @@
 // Vertical: a four-tier dojo tower with stairs spiralling up it, two-storey houses, rooftop bridges, watchtowers
 // and floating shrine islands around the town.
 import * as THREE from 'three';
-import { regMat } from './fighter.js?v=20261115002957';
+import { regMat } from './fighter.js?v=20261115003128';
 import { deck, prop, bridge, stalk, drift, farRing } from './maps2.js';
 
 const TAU = Math.PI * 2, CELL = 6;
@@ -411,6 +411,32 @@ export function buildDojo(A, T) {
   };
   A.finishNav();
 
+  // ---- the town sits on the summit of a sheer rocky peak plunging through the clouds; jagged pinnacles hold up the
+  // shrine islands. (Hitting the rock on the way down kills you, same as falling into the clouds.)
+  {
+    const streets = A.plats.filter((p) => p.kind === 'street'); let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (const p of streets) { x0 = Math.min(x0, p.x - p.w / 2); x1 = Math.max(x1, p.x + p.w / 2); z0 = Math.min(z0, p.z - p.d / 2); z1 = Math.max(z1, p.z + p.d / 2); }
+    const rocks = [], rmat = std(0x6e6874, { roughness: 1, flatShading: true, vertexColors: true });
+    const crag = (cx, cz, rTop, yTop, rBot, yBot, seed) => { // a jagged rock column, widening as it drops
+      const NA = 40, NR = 22, ph = [seed * 1.3, seed * 2.1, seed * 0.7, seed * 3.3], pos = [], col = [], idx = [];
+      const rad = (a, t) => (rTop + (rBot - rTop) * Math.pow(t, 1.5)) * (1 + 0.14 * Math.sin(5 * a + ph[0] + t * 2) + 0.08 * Math.sin(11 * a + ph[1] - t * 5) + 0.05 * Math.sin(23 * a + ph[2] + t * 9));
+      for (let j = 0; j <= NR; j++) { const t = j / NR, y = yTop + (yBot - yTop) * t, ledge = Math.sin(t * 37 + ph[3]) > 0.8 ? 1.06 : 1; // ledges here and there
+        for (let i = 0; i <= NA; i++) { const a = i / NA * Math.PI * 2, r = rad(a, t) * ledge; pos.push(cx + Math.cos(a) * r, y, cz + Math.sin(a) * r);
+          const k = 0.75 + 0.25 * Math.sin(y * 0.5 + a * 3 + seed) * Math.sin(a * 7), d = Math.max(0.45, 1 - t * 0.7); col.push(k * d, k * d * 0.97, k * d * 1.04); } }
+      for (let j = 0; j < NR; j++) for (let i = 0; i < NA; i++) { const a = j * (NA + 1) + i, b = a + NA + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, rmat); m.receiveShadow = true; S.add(m);
+      rocks.push({ cx, cz, yTop, yBot, rTop, rBot, rad });
+    };
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, half = Math.min(x1 - x0, z1 - z0) / 2;
+    crag(cx, cz, half * 0.92, -2.5, half * 2.1, -320, 1); // the peak itself, under the whole town
+    for (const p of A.plats.filter((q) => q.kind === 'island')) crag(p.x, p.z, 7, p.y - 2.5, 16, -320, p.i + 2); // a pinnacle under each shrine island
+    A.killAt = (q) => { // smashed on the rocks: inside any of them, below its top
+      for (const k of rocks) { if (q.y > k.yTop - 1.5 || q.y < k.yBot) continue; const t = (k.yTop - q.y) / (k.yTop - k.yBot), a = Math.atan2(q.z - k.cz, q.x - k.cx);
+        if (Math.hypot(q.x - k.cx, q.z - k.cz) < k.rad(a, t) - 0.3) return Infinity; }
+      return A.killY;
+    };
+  }
   // ---- backdrop: misty blue mountains with snow caps, a great volcano, pines, a sea of cloud, drifting petals
   farRing(A, 14, 400, (x, z, i) => {
     const h = 110 + (i % 4) * 40, rad = 70 + (i % 3) * 22, m = new THREE.Mesh(new THREE.ConeGeometry(rad, h, 7), new THREE.MeshBasicMaterial({ color: i % 2 ? 0x8c9cc0 : 0x9fadcc, fog: false }));
