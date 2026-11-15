@@ -3,14 +3,14 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115160014';
-import { buildFoundry } from './foundry.js?v=20261115160014';
-import { buildBamboo } from './bamboo.js?v=20261115160014';
-import { buildCity } from './city.js?v=20261115160014';
-import { buildDojo } from './dojo.js?v=20261115160014';
-import { buildComet } from './comet.js?v=20261115160014';
-import { addScenery } from './scenery.js?v=20261115160014';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115160014';
+import { buildTilt } from './tilt.js?v=20261115162701';
+import { buildFoundry } from './foundry.js?v=20261115162701';
+import { buildBamboo } from './bamboo.js?v=20261115162701';
+import { buildCity } from './city.js?v=20261115162701';
+import { buildDojo } from './dojo.js?v=20261115162701';
+import { buildComet } from './comet.js?v=20261115162701';
+import { addScenery } from './scenery.js?v=20261115162701';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115162701';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -214,7 +214,7 @@ export class Arena {
     if (this.quality !== 'low') {
       sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
       const c = sun.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 170;
-      sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+      sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.09;
     }
     S.add(sun); S.add(sun.target);
     this.killY = -45;
@@ -484,7 +484,7 @@ export class Arena {
     this.realScene.background = new THREE.Color(o.mid); this.realScene.fog = new THREE.Fog(o.fog, o.near, o.far);
     S.add(new THREE.HemisphereLight(o.hemiSky, o.hemiGround, o.hemi));
     const L = new THREE.DirectionalLight(o.sunColor, o.sun); this.sun = L; this.sunOff = o.sunOff; L.position.copy(o.sunOff);
-    if (this.quality !== 'low') { L.castShadow = true; L.shadow.mapSize.set(2048, 2048); const c = L.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 220; L.shadow.bias = -0.0004; L.shadow.normalBias = 0.03; }
+    if (this.quality !== 'low') { L.castShadow = true; L.shadow.mapSize.set(2048, 2048); const c = L.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 220; L.shadow.bias = -0.0004; L.shadow.normalBias = 0.09; }
     S.add(L); S.add(L.target);
     S.add(new THREE.Mesh(new THREE.SphereGeometry(520, 32, 16), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
@@ -518,7 +518,7 @@ export class Arena {
     if (this.quality !== 'low') {
       sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
       const c = sun.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 170;
-      sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+      sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.09;
     }
     S.add(sun); S.add(sun.target);
     const dome = new THREE.Mesh(new THREE.SphereGeometry(520, 24, 12), new THREE.ShaderMaterial({

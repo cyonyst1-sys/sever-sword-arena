@@ -1,17 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115160014';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115160014';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115160014';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115160014';
-import * as net from './net.js?v=20261115160014';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115160014';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115160014';
-import { makeKillFx } from './killfx.js?v=20261115160014';
-import { makeGrapple } from './grapple.js?v=20261115160014';
-import { initShop } from './shop.js?v=20261115160014';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115160014';
-import { portal } from './portal.js?v=20261115160014';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115160014';
+import { Arena, MAPS } from './arena.js?v=20261115162701';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115162701';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115162701';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115162701';
+import * as net from './net.js?v=20261115162701';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115162701';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115162701';
+import { makeKillFx } from './killfx.js?v=20261115162701';
+import { makeGrapple } from './grapple.js?v=20261115162701';
+import { initShop } from './shop.js?v=20261115162701';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115162701';
+import { portal } from './portal.js?v=20261115162701';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115162701';
+import { makePost } from './post.js?v=20261115162701';
 
 // ---------- settings ----------
 const store = {
@@ -19,6 +20,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } },
 };
 const settings = Object.assign({ name: '', look: 1, blade: 1, quality: 'high', vol: 0.6 }, store.get('sever-settings', {}));
+THREE.Texture.DEFAULT_ANISOTROPY = settings.quality === 'low' ? 2 : 8; // crisp floors and walls at glancing angles, no shimmer
 const saveSettings = () => store.set('sever-settings', settings);
 const $ = (id) => document.getElementById(id);
 
@@ -30,6 +32,7 @@ renderer.shadowMap.enabled = settings.quality !== 'low';
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const post = settings.quality !== 'low' ? makePost(renderer) : null; // bloom, grading and vignette (see post.js)
 const gameEnv = metalEnvFor(renderer); setMetalEnv(gameEnv); // a soft sky for metal (swords, gold, armour) to reflect
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 900);
@@ -2149,7 +2152,7 @@ function tick(rdt, tt) {
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it
   updateHud(rdt);
   $('vignette').style.boxShadow = me && !me.alive ? 'inset 0 0 200px rgba(140,0,0,.55)' : 'inset 0 0 160px rgba(160,0,0,0)';
-  if (!bgTick) renderer.render(scene, camera); // (a hidden host still runs the match, it just doesn't draw)
+  if (!bgTick) { if (post) post.render(scene, camera); else renderer.render(scene, camera); } // (a hidden host still runs the match, it just doesn't draw)
 }
 show('home');
 setVolume(settings.vol);

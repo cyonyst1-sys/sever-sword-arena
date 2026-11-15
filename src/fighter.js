@@ -2,7 +2,7 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { item, cleanLook } from './cosmetics.js?v=20261115160014';
+import { item, cleanLook } from './cosmetics.js?v=20261115162701';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -43,15 +43,28 @@ function cloth(color, k = 1) {
   return clothCache.get(key);
 }
 
+// a profile spun round the y axis (closed at both ends): [radius, y] pairs from the bottom (y = -0.5) to the top (0.5)
+const lathe = (prof, n) => new THREE.LatheGeometry([[0.001, -0.5], ...prof, [0.001, 0.5]].map(([r, y]) => new THREE.Vector2(r, y)), n);
+// a box with its edges and corners rounded off (a superellipsoid): still 1 x 1 x 1 across the middle of each face
+function roundBox() {
+  const g = new THREE.BoxGeometry(1, 1, 1, 3, 3, 3), p = g.attributes.position, nm = g.attributes.normal, N = 4, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i) * 2, y = p.getY(i) * 2, z = p.getZ(i) * 2, k = Math.pow(Math.pow(Math.abs(x), N) + Math.pow(Math.abs(y), N) + Math.pow(Math.abs(z), N), 1 / N) || 1;
+    p.setXYZ(i, x / k / 2, y / k / 2, z / k / 2);
+    v.set(Math.sign(x) * Math.pow(Math.abs(x / k), N - 1), Math.sign(y) * Math.pow(Math.abs(y / k), N - 1), Math.sign(z) * Math.pow(Math.abs(z / k), N - 1)).normalize(); nm.setXYZ(i, v.x, v.y, v.z);
+  }
+  return g;
+}
 const GEO = {
-  cyl: new THREE.CylinderGeometry(1, 1, 1, 10, 1),
-  taper: new THREE.CylinderGeometry(0.72, 1, 1, 9, 1), // narrower at the far end (limbs)
-  chest: new THREE.CylinderGeometry(1, 0.74, 1, 14, 1), // wider at the top (shoulders to waist)
-  sph: new THREE.SphereGeometry(1, 12, 8),
-  sphLo: new THREE.SphereGeometry(1, 7, 5), // small round parts (ears, joints): fewer triangles to cut
+  cyl: new THREE.CylinderGeometry(1, 1, 1, 14, 1),
+  taper: lathe([[0.86, -0.49], [1.0, -0.36], [1.05, -0.1], [0.92, 0.22], [0.76, 0.42], [0.62, 0.49]], 10), // limbs: a rounded, slightly muscled shape, narrower at the far end
+  chest: lathe([[0.7, -0.5], [0.8, -0.25], [0.97, 0.12], [1.0, 0.3], [0.88, 0.43], [0.5, 0.5]], 16), // waist up to rounded shoulders
+  sph: new THREE.SphereGeometry(1, 16, 11),
+  sphLo: new THREE.SphereGeometry(1, 9, 6), // small round parts (ears, joints): fewer triangles to cut
   box: new THREE.BoxGeometry(1, 1, 1),
-  skirt: new THREE.CylinderGeometry(0.17, 0.25, 0.4, 14, 1),
-  cone: new THREE.ConeGeometry(1, 1, 10, 1),
+  round: roundBox(), // hands, feet, shoulder pads, collar, nose...
+  skirt: new THREE.CylinderGeometry(0.17, 0.25, 0.4, 16, 1),
+  cone: new THREE.ConeGeometry(1, 1, 12, 1),
 };
 
 // metal reflects a soft sky (set once from main via setMetalEnv); only metal gets it, so nothing else changes
@@ -131,21 +144,21 @@ export class Fighter {
     this.p = {
       // trunk
       pelvis: mk(GEO.sph, pants), skirt: mk(GEO.skirt, pants), abdomen: mk(GEO.cyl, gi), obi: mk(GEO.cyl, trim), chest: mk(GEO.chest, gi),
-      collar: mk(GEO.box, trim), padL: mk(GEO.box, trim), padR: mk(GEO.box, trim), delL: mk(GEO.sphLo, gi), delR: mk(GEO.sphLo, gi),
+      collar: mk(GEO.round, trim), padL: mk(GEO.round, trim), padR: mk(GEO.round, trim), delL: mk(GEO.sphLo, gi), delR: mk(GEO.sphLo, gi),
       // head
-      neck: mk(GEO.cyl, M.skinShade), head: mk(GEO.sph, M.skin), jaw: mk(GEO.sph, M.skin), nose: mk(GEO.box, M.skinShade),
-      earL: mk(GEO.sphLo, M.skinShade), earR: mk(GEO.sphLo, M.skinShade), eyeL: mk(GEO.box, M.eye), eyeR: mk(GEO.box, M.eye),
+      neck: mk(GEO.cyl, M.skinShade), head: mk(GEO.sph, M.skin), jaw: mk(GEO.sph, M.skin), nose: mk(GEO.round, M.skinShade),
+      earL: mk(GEO.sphLo, M.skinShade), earR: mk(GEO.sphLo, M.skinShade), eyeL: mk(GEO.round, M.eye), eyeR: mk(GEO.round, M.eye),
       browL: mk(GEO.box, M.hair), browR: mk(GEO.box, M.hair),
-      hair: mk(GEO.sph, M.hair), band: mk(GEO.cyl, horde ? M.oni : gi), knot: mk(GEO.sphLo, M.hair), mask: horde ? mk(GEO.box, M.oni) : null,
+      hair: mk(GEO.sph, M.hair), band: mk(GEO.cyl, horde ? M.oni : gi), knot: mk(GEO.sphLo, M.hair), mask: horde ? mk(GEO.round, M.oni) : null,
       // arms
-      uaL: mk(GEO.taper, gi), elL: mk(GEO.sphLo, M.skin), faL: mk(GEO.taper, M.skin), hL: mk(GEO.box, M.skin),
-      uaR: mk(GEO.taper, gi), elR: mk(GEO.sphLo, M.skin), faR: mk(GEO.taper, M.skin), hR: mk(GEO.box, M.skin),
+      uaL: mk(GEO.taper, gi), elL: mk(GEO.sphLo, M.skin), faL: mk(GEO.taper, M.skin), hL: mk(GEO.round, M.skin),
+      uaR: mk(GEO.taper, gi), elR: mk(GEO.sphLo, M.skin), faR: mk(GEO.taper, M.skin), hR: mk(GEO.round, M.skin),
       // legs
-      thL: mk(GEO.taper, pants), knL: mk(GEO.sphLo, pants), shL: mk(GEO.taper, pants), ftL: mk(GEO.box, M.dark),
-      thR: mk(GEO.taper, pants), knR: mk(GEO.sphLo, pants), shR: mk(GEO.taper, pants), ftR: mk(GEO.box, M.dark),
+      thL: mk(GEO.taper, pants), knL: mk(GEO.sphLo, pants), shL: mk(GEO.taper, pants), ftL: mk(GEO.round, M.dark),
+      thR: mk(GEO.taper, pants), knR: mk(GEO.sphLo, pants), shR: mk(GEO.taper, pants), ftR: mk(GEO.round, M.dark),
       // sword
       // detail: crossed lapels, the obi knot and its tails at the back, wrist guards, shin wraps, a scabbard
-      lapL: mk(GEO.box, trim), lapR: mk(GEO.box, trim), obiK: mk(GEO.box, trim), tailL: mk(GEO.box, trim), tailR: mk(GEO.box, trim),
+      lapL: mk(GEO.round, trim), lapR: mk(GEO.round, trim), obiK: mk(GEO.round, trim), tailL: mk(GEO.round, trim), tailR: mk(GEO.round, trim),
       wrL: mk(GEO.cyl, M.dark), wrR: mk(GEO.cyl, M.dark), kyL: mk(GEO.taper, horde ? M.dark : cloth(0xd2cab8)), kyR: mk(GEO.taper, horde ? M.dark : cloth(0xd2cab8)),
       saya: mk(GEO.cyl, M.saya, CAP.wood), kojiri: mk(GEO.cyl, M.gold, CAP.steel),
       grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(GEO.box, L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
