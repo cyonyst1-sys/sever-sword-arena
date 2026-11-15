@@ -105,7 +105,7 @@ export function buildComet(A, T) {
   for (const q of small) q.m.userData.base = q.m.position.clone();
 
   // ---- the run: progress 0..1 sets how close the planet is and how fast everything streams past; the end is impact
-  let prog = 0, target = 0, pv = 0, impactT = -1, boomed = false, clock = 0;
+  let prog = 0, target = 0, pv = 0, impactT = -1, boomed = false, clock = 0; const blast = [];
   const P = new THREE.Vector3(), tmp = new THREE.Vector3();
   A.cometTick = (dt, p, ended) => {
     dt = Math.min(0.1, dt || 0); clock += dt;
@@ -115,7 +115,7 @@ export function buildComet(A, T) {
       target = Math.max(target, Math.min(0.97, p)); pv += ((target - prog) * 0.55 - pv * 1.5) * dt; pv = Math.max(0, pv); prog = Math.min(0.97, prog + pv * dt + dt / 2400);
     }
     const e = prog * prog, L = 700, ang = 0.06 + e * 1.42; // the planet's angular size swells as we close in
-    const rad = Math.min(L - 4, L * Math.sin(Math.min(1.45, ang)) + (impactT >= 0 ? impactT * 30 : 0)); // (at impact the surface is right at the cluster)
+    const rad = Math.min(L - 45, L * Math.sin(Math.min(1.45, ang)) + (impactT >= 0 ? impactT * 30 : 0)); // (at impact the surface is right at the cluster)
     P.copy(D).multiplyScalar(L); planet.position.copy(P); planet.scale.setScalar(rad); atmo.position.copy(P); atmo.scale.setScalar(rad);
     atmo.material.opacity = 0.25 * Math.max(0, Math.min(1, (L - rad * 1.04 - 20) / 60)); atmo.visible = atmo.material.opacity > 0.01; // (fades out before we'd be inside it: no blue veil over the screen)
     planet.rotation.y += dt * (0.02 + e * 0.2);
@@ -129,8 +129,14 @@ export function buildComet(A, T) {
     for (const q of small) { q.m.rotation.x += q.spin.x * dt; q.m.rotation.y += q.spin.y * dt; q.m.rotation.z += q.spin.z * dt; }
     if (impactT >= 0) { // the surface rushes in... and the comet hits: a white flash and a swelling fireball
       const u = impactT - 1.1;
-      if (u >= 0) { flash.visible = true; flash.position.copy(D).multiplyScalar(30); flash.scale.setScalar(20 + u * 420); flashM.opacity = Math.max(0, 1 - u * 0.9); flashM.color.setHSL(0.08 - Math.min(0.08, u * 0.04), 1, 0.75 - Math.min(0.3, u * 0.15)); }
-      if (u >= 0 && !boomed) { boomed = true; flashScreen(); return true; } // (main shakes the camera and plays the boom)
+      if (u >= 0) { flash.visible = true; flash.position.copy(D).multiplyScalar(L - rad); flash.scale.setScalar(20 + u * 420); flashM.opacity = Math.max(0, 1 - u * 0.9); flashM.color.setHSL(0.08 - Math.min(0.08, u * 0.04), 1, 0.75 - Math.min(0.3, u * 0.15)); }
+      if (u >= 0) for (const b of blast) { b.m.position.addScaledVector(b.v, dt); b.v.multiplyScalar(1 - dt * 0.15); if (u > 3) b.m.visible = false; } // the cluster blown apart, flying off into space
+      if (u >= 0) rockM.emissive.setRGB(Math.max(0, 0.9 - u * 0.35), Math.max(0, 0.35 - u * 0.15), 0.05 * Math.max(0, 1 - u)); // (white-hot, cooling)
+      if (u >= 0 && !boomed) { boomed = true; flashScreen();
+        const hit = D.clone().multiplyScalar(L - rad); // everything flies out from where we struck
+        for (const p of roids) for (const m of p.meshes) blast.push({ m, v: new THREE.Vector3(p.x - hit.x, p.y - hit.y + 8, p.z - hit.z).normalize().multiplyScalar(45 + Math.random() * 50) });
+        for (const q of small) blast.push({ m: q.m, v: q.m.position.clone().sub(hit).normalize().multiplyScalar(60 + Math.random() * 60) });
+        return true; } // (main shakes the camera and plays the boom)
     }
     return false;
   };
