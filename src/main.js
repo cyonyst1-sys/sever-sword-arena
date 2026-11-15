@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114220511';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114220511';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114220511';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114220511';
-import * as net from './net.js?v=20261114220511';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114220511';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114220511';
-import { makeKillFx } from './killfx.js?v=20261114220511';
-import { makeGrapple } from './grapple.js?v=20261114220511';
-import { initShop } from './shop.js?v=20261114220511';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114220511';
-import { portal } from './portal.js?v=20261114220511';
-import { Piranhas, GiantSaws } from './piranha.js?v=20261114220511';
+import { Arena, MAPS } from './arena.js?v=20261114221133';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114221133';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114221133';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114221133';
+import * as net from './net.js?v=20261114221133';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114221133';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114221133';
+import { makeKillFx } from './killfx.js?v=20261114221133';
+import { makeGrapple } from './grapple.js?v=20261114221133';
+import { initShop } from './shop.js?v=20261114221133';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114221133';
+import { portal } from './portal.js?v=20261114221133';
+import { Piranhas, GiantSaws } from './piranha.js?v=20261114221133';
 
 // ---------- settings ----------
 const store = {
@@ -657,7 +657,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     if (at) killFx.apply(kfx, at, n, pieces.last);
     sfx.slice(at || v.pos);
   } else if (v === me) sfx.fall();
-  const eaten = fell && arena.water != null; v.grap.hide();
+  const eaten = fell && arena.water != null; v.grap.hide(); if (fell && arena.chomp) { arena.chomp(v.pos); for (let i = 0; i < 80; i++) blood.emit(v.pos.x, v.pos.y + 1, v.pos.z, (Math.random() - 0.5) * 8, 2 + Math.random() * 8, (Math.random() - 0.5) * 8, 1.5); } // (Colosseum: the maw gulps)
   if (!eaten) v.group.visible = false;
   else { v.eatenAt = now() + 0.56; v.group.visible = true; } // stays in view until the jaws (or the saw) get it
   const sawn = eaten && arena.mapId === 'foundry';
@@ -674,8 +674,8 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     sfx.slice(v.pos); if (v === me) shake = Math.max(shake, 0.6);
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
-  feed(fell ? (sawn ? `${vn} was sawn in half` : eaten ? `${vn} was eaten by the piranha` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
-  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : eaten ? 'Eaten by the piranha' : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten; }
+  feed(fell ? (sawn ? `${vn} was sawn in half` : eaten ? `${vn} was eaten by the piranha` : arena.chomp ? `${vn} was swallowed by the maw` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
+  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : eaten ? 'Eaten by the piranha' : arena.chomp ? 'Swallowed by the maw' : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
     const st = rosterGet(S.myId)?.streak || 0; if (bladeFor(st + 1) > bladeFor(st)) showBanner('BLADE GROWS');
@@ -1975,7 +1975,7 @@ function tick(rdt, tt) {
       f.pose(rdt);
       if (isLocal(f)) {
         bladeSweep(f, rdt); dashSweep(f);
-        if (f.pos.y < arena.killY) selfFell(f);
+        if (f.pos.y < (arena.killAt ? arena.killAt(f.pos) : arena.killY)) selfFell(f); // (Colosseum: the maw's flesh kills on touch)
         else if (arena.hazardHit && f.alive && f.prot <= 0) { const h = arena.hazardHit(f.pos); if (h) sawKill(f, h.n, h.pt); } // Saw Foundry: walked into a blade
       }
       f.prevHand.copy(f.hand); f.prevTip.copy(f.tip);

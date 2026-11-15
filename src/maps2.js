@@ -3,6 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
+import { buildMaw, mawY } from './maw.js?v=20261114221133';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -239,8 +240,8 @@ function disc(A, o) {
 export function buildBowl(A, T) {
   const S = A.scene;
   A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -45;
-  A.setSky({ top: 0x3f7fc4, mid: 0xa9cbe6, bot: 0xe7eef3, fog: 0xa9cbe6, near: 90, far: 330, hemiSky: 0xd8ecff, hemiGround: 0x5a4a38, hemi: 0.85, sunColor: 0xfff0d8, sun: 2.0, sunOff: new THREE.Vector3(30, 50, 18) });
-  const clouds = new THREE.Mesh(new THREE.CircleGeometry(600, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf2f5f8, fog: false, transparent: true, opacity: 0.92 })); clouds.position.y = -75; S.add(clouds);
+  A.setSky({ top: 0x5d8fc4, mid: 0xe6d3b3, bot: 0xd9b98a, fog: 0xdcc6a2, near: 110, far: 420, hemiSky: 0xd8ecff, hemiGround: 0x5a4a38, hemi: 0.85, sunColor: 0xfff0d8, sun: 2.0, sunOff: new THREE.Vector3(30, 50, 18) });
+  buildMaw(A, T); // the giant creature's mouth below and the colosseum's stands around it
   // the arena floor (lowest), then three rings, each higher and further out
   const hub = disc(A, { x: 0, z: 0, y: 0, R: 18, kind: 'hub' });
   const ring = (n, rad, y, R, kind, off) => { for (let i = 0; i < n; i++) { const a = (i + off) / n * TAU; disc(A, { x: Math.round(Math.cos(a) * rad), z: Math.round(Math.sin(a) * rad), y: y + (i % 2 ? 1 : -1), R, kind }); } };
@@ -251,7 +252,7 @@ export function buildBowl(A, T) {
   // stone columns between the rings, from the clouds to the sky: the things you swing on
   for (const [n, rad, off] of [[12, 45, 0.5], [14, 68, 0]]) for (let i = 0; i < n; i++) {
     const a = (i + off) / n * TAU, x = Math.cos(a) * rad, z = Math.sin(a) * rad;
-    A.addDisc(x, z, 1.4, -70, 72, A.mats.stone, 14);
+    A.addDisc(x, z, 1.4, mawY(rad) - 3, 72, A.mats.stone, 14); // (rising out of the flesh)
     const cap = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 1.5, 1.6, 14), A.mats.dark); cap.position.set(x, 72.8, z); S.add(cap);
     A.pillars.push({ x, z, w: 2.8 });
   }

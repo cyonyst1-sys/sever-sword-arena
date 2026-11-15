@@ -147,7 +147,7 @@ Skyscrapers above the clouds, made to be swung between and smashed through:
 
 ### Colosseum
 
-A colosseum bowl in the sky, built entirely of **round platforms**:
+A colosseum bowl hanging inside the open mouth of a giant creature, ringed by old sandstone stands and arches. Its red, fleshy maw funnels down below the arena in rows of teeth, and its lips stretch up to the stands: touch the flesh and you are swallowed (the maw gulps), and in the throat you die at the smog. The bowl is built entirely of **round platforms**:
 
 - A big round **arena floor** in the middle, the lowest point of the map.
 - Three rings of round platforms around it, stepping up and out like the seats of a coliseum: 8 at 10 m up, 10 at about 21 m, and 12 on the **high rim** at about 33 m.
