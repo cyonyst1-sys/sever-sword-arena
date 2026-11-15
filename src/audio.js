@@ -58,9 +58,9 @@ export const sfx = {
   kill(p) { // a kill: the cut, a long wet "bluhhh" as the breath goes out of him, then light gurgling
     const a = att(p); this.slice(p);
     nz(0.035, 260, 140, 0.8, 0.5 * a, 'lowpass'); // the "b": lips popping open
-    voice(150 + Math.random() * 40, 58, 1.0, 0.75 * a, [[640, 6, 380], [1190, 8, 1000]], 0.18); // "luhhh": an l gliding into a long "uh" // a long "bleeehh", sagging and fading like the breath going out of him
-    nz(1.1, 1900, 650, 1.2, 0.13 * a); // the breath itself, a rasping exhale under it
-    for (let i = 0; i < 9; i++) bubble(0.85 + i * 0.08 + Math.random() * 0.05, 260 + Math.random() * 380, (0.085 - i * 0.006) * a);
+    voice(150 + Math.random() * 40, 55, 2.0, 0.75 * a, [[640, 6, 380], [1190, 8, 1000]], 0.3); // "luhhh": an l gliding into a long "uh" // a long "bleeehh", sagging and fading like the breath going out of him
+    nz(2.1, 1900, 600, 1.2, 0.13 * a); // the breath itself, a rasping exhale under it
+    for (let i = 0; i < 9; i++) bubble(1.7 + i * 0.09 + Math.random() * 0.05, 260 + Math.random() * 380, (0.085 - i * 0.006) * a);
     nz(0.7, 700, 250, 3, 0.07 * a); // a little wet rasp under the bubbles
   },
   tear(p) { const a = att(p); nz(0.16, 5200, 1800, 2, 0.22 * a); nz(0.1, 2600, 900, 3, 0.12 * a); },
