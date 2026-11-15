@@ -5,7 +5,7 @@
 // them (and come back a few seconds later for the next fighter).
 import * as THREE from 'three';
 import { deck, prop, stalk, drift, farRing } from './maps2.js';
-import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261115003242';
+import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261115003332';
 
 const TAU = Math.PI * 2, HALF = 30, TILE = 1.5;
 
@@ -122,6 +122,17 @@ export function buildBamboo(A, T) {
   for (const [x, z] of [[0, -12], [0, 12], [-12, 0], [12, 0]]) { const m = Math.round(6 / SP); for (let i = 0; i <= m; i++) pole(x - 3 + 6 * i / m, z, 10); } // lower see-through pole walls round the gazebo
   for (const [x, z] of [[0, -12], [0, 12], [-12, 0], [12, 0]]) taken.push([x, z, 3.5]);
   let placed = 0;
+  { // five thick permanent bamboo pillars spread over the fort (they can't be cut), so there's always something to hook
+    const pm = new THREE.MeshStandardMaterial({ map: T.bambooTex(), roughness: 0.55 }); pm.map.repeat.set(2, 22);
+    for (let j = 0; j < 5; j++) {
+      let spot = null;
+      for (const rad of [21, 23, 19, 25, 15]) { for (const da of [0, 0.15, -0.15, 0.3, -0.3]) { const a = j / 5 * TAU + 0.62 + da, x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+        if (!taken.some(([tx, tz, rr]) => Math.hypot(x - tx, z - tz) < rr + 2)) { spot = [x, z]; break; } } if (spot) break; }
+      if (!spot) continue;
+      const [x, z] = spot; A.addDisc(x, z, 0.95, -60, 52, pm, 16); A.pillars.push({ x, z, w: 1.9 }); taken.push([x, z, 6]);
+      for (let y = -2; y < 52; y += 4.2) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.98, 0.09, 6, 18), new THREE.MeshStandardMaterial({ color: 0x4f6f25, roughness: 0.6 })); ring.rotation.x = Math.PI / 2; ring.position.set(x, y, z); S.add(ring); } // node rings
+    }
+  }
   for (let tries = 0; tries < 400 && placed < 18; tries++) { // thick pillars rising 40 m, spread through the fort
     const x = (r() - 0.5) * (HALF * 2 - 6), z = (r() - 0.5) * (HALF * 2 - 6);
     if (taken.some(([tx, tz, rad]) => Math.hypot(x - tx, z - tz) < rad + 1.5)) continue;
