@@ -1,12 +1,12 @@
-// Swinging Decks: nine big round dish decks in a 3 x 3 grid, each hanging on one chain fixed to its middle from an
+// Swinging Decks: four huge round dish decks in a 2 x 2 grid, each hanging on one chain fixed to its middle from an
 // iron frame overhead (cut the chain and the deck drops). Land on one and it gets shoved the way you were going (harder landings, bigger
 // shoves), then swings back and forth like a pendulum, rising a little at each end of its swing, and slowly settles.
 // Running or dashing across a deck pushes it the other way. Whoever stands on a deck rides along with it.
 import * as THREE from 'three';
 import { deck, drift, farRing } from './maps2.js';
-import { cloudHeaps } from './scenery.js?v=20261115005709';
+import { cloudHeaps } from './scenery.js?v=20261115005844';
 
-const TAU = Math.PI * 2, N = 3, R = 7, DISH = 1.2, GAP = 4, L = 24, MAXOFF = 4; // grid, dish radius and depth, gap, chain length, furthest swing
+const TAU = Math.PI * 2, N = 2, R = 12.5, DISH = 1.8, GAP = 5, L = 24, MAXOFF = 4; // grid, dish radius and depth, gap, chain length, furthest swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
 
 export function buildTilt(A, T) {
