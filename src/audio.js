@@ -63,8 +63,8 @@ export const sfx = {
     const dur = k === 5 ? 0.22 + Math.random() * 0.2 : 0.5 + Math.random() * Math.random() * 1.7; // mostly shortish, now and then long and drawn out (mm: always quick)
     voice(150 + Math.random() * 40, dur > 1.2 ? 55 : 75, dur, 0.75 * a, vw, 0.18 + Math.random() * 0.15);
     nz(dur + 0.1, 1900, 600, 1.2, 0.13 * a); // the breath itself, a rasping exhale under it
-    for (let i = 0; i < 9; i++) bubble(dur * 0.85 + i * 0.09 + Math.random() * 0.05, 260 + Math.random() * 380, (0.085 - i * 0.006) * a);
-    nz(0.7, 700, 250, 3, 0.07 * a); // a little wet rasp under the bubbles
+    for (let i = 0; i < 5; i++) bubble(dur * 0.85 + i * 0.06 + Math.random() * 0.03, 260 + Math.random() * 380, (0.085 - i * 0.01) * a); // a short gurgle
+    nz(0.3, 700, 250, 3, 0.07 * a); // a little wet rasp
   },
   tear(p) { const a = att(p); nz(0.16, 5200, 1800, 2, 0.22 * a); nz(0.1, 2600, 900, 3, 0.12 * a); },
   chop(p) { const a = att(p); nz(0.12, 2200, 900, 2.5, 0.3 * a); tn(260, 140, 0.1, 0.18 * a, 'triangle'); nz(0.25, 700, 300, 1, 0.12 * a, 'lowpass'); },
