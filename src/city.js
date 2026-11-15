@@ -4,7 +4,7 @@
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114225751';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114230725';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -155,11 +155,40 @@ export function buildCity(A, T) {
     }
     S.add(im);
   }
-  {
-    const puff = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.92 });
-    const N = 40, im = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), puff, N), mm = new THREE.Matrix4();
-    for (let i = 0; i < N; i++) { const a = r() * TAU, dd = 30 + r() * 170, s = 8 + r() * 14; mm.compose(new THREE.Vector3(Math.cos(a) * dd, -32 - r() * 22, Math.sin(a) * dd), new THREE.Quaternion(), new THREE.Vector3(s * 1.6, s * 0.45, s)); im.setMatrixAt(i, mm); }
-    S.add(im);
+  { // clouds below: each a heap of soft puffs (camera-facing sprites, all in one draw call), bright on top, shadowed underneath
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    for (let k = 0; k < 14; k++) { // a lumpy, soft-edged puff
+      const a = k / 14 * TAU, d = k ? 22 + Math.sin(k * 2.3) * 8 : 0, x = 64 + Math.cos(a) * d, y = 66 + Math.sin(a) * d * 0.8, rad = k ? 22 + Math.sin(k * 1.7) * 6 : 40;
+      const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, uniforms: { map: { value: tex } },
+      vertexShader: `varying vec2 vUv; varying vec3 vCol;
+        void main() { vUv = uv;
+          #ifdef USE_INSTANCING_COLOR
+          vCol = instanceColor;
+          #else
+          vCol = vec3(1.0);
+          #endif
+          vec4 c = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+          float sx = length(instanceMatrix[0].xyz), sy = length(instanceMatrix[1].xyz);
+          vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]), up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+          gl_Position = projectionMatrix * viewMatrix * vec4(c.xyz + right * position.x * sx + up * position.y * sy, 1.0); }`,
+      fragmentShader: `uniform sampler2D map; varying vec2 vUv; varying vec3 vCol;
+        void main() { vec4 t = texture2D(map, vUv); if (t.a < 0.01) discard; vec3 col = vCol * mix(0.78, 1.04, smoothstep(0.15, 0.85, vUv.y)) + vec3(0.0, 0.01, 0.04) * (1.0 - vUv.y); gl_FragColor = vec4(col, t.a); }`,
+    });
+    const puffs = [];
+    for (let i = 0; i < 46; i++) {
+      const a = r() * TAU, dd = 30 + r() * 180, cy = -30 - r() * 24, s = 8 + r() * 14, n = 7 + (r() * 6 | 0), cx = Math.cos(a) * dd, cz = Math.sin(a) * dd;
+      for (let k = 0; k < n; k++) {
+        const u = (r() - 0.5) * 2, v = (r() - 0.5) * 2, edge = 1 - Math.min(1, Math.hypot(u, v * 0.7)); // puffs heap up in the middle, flat underneath
+        puffs.push([cx + u * s * 1.4, cy + edge * s * 0.45 + r() * s * 0.15, cz + v * s, s * (0.55 + edge * 0.6 + r() * 0.25), 0.86 + edge * 0.14]);
+      }
+    }
+    const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2), mat, puffs.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), col = new THREE.Color(), sv = new THREE.Vector3(), pv = new THREE.Vector3();
+    puffs.forEach(([x, y, z, s, b], i) => { mm.compose(pv.set(x, y, z), q, sv.set(s, s * 0.8, s)); im.setMatrixAt(i, mm); im.setColorAt(i, col.setRGB(b, b, b * 1.02)); });
+    im.frustumCulled = false; im.renderOrder = 1; S.add(im);
   }
   const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf2f6fb, transparent: true, opacity: 0.96 })); sea.position.y = -62; S.add(sea);
 }
