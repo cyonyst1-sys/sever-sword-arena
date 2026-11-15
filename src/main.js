@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114215119';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114215119';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114215119';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114215119';
-import * as net from './net.js?v=20261114215119';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114215119';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114215119';
-import { makeKillFx } from './killfx.js?v=20261114215119';
-import { makeGrapple } from './grapple.js?v=20261114215119';
-import { initShop } from './shop.js?v=20261114215119';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114215119';
-import { portal } from './portal.js?v=20261114215119';
-import { Piranhas } from './piranha.js?v=20261114215119';
+import { Arena, MAPS } from './arena.js?v=20261114220511';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114220511';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114220511';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114220511';
+import * as net from './net.js?v=20261114220511';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114220511';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114220511';
+import { makeKillFx } from './killfx.js?v=20261114220511';
+import { makeGrapple } from './grapple.js?v=20261114220511';
+import { initShop } from './shop.js?v=20261114220511';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114220511';
+import { portal } from './portal.js?v=20261114220511';
+import { Piranhas, GiantSaws } from './piranha.js?v=20261114220511';
 
 // ---------- settings ----------
 const store = {
@@ -43,7 +43,7 @@ function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id && !ar
 const ground = (x, z, y, m) => arena.groundHeight(x, z, y, m);
 const blood = new Particles(scene, ground, { color: 0x0d0c0e, size: 0.07, decals: true, max: 2400, decalColor: 0x060507 }); // black blood
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
-const splash = new Particles(scene, ground, { color: 0xcfe6dc, size: 0.32, gravity: 22, max: 500 }), piranhas = new Piranhas(scene, splash); // Great Canopy's swamp
+const splash = new Particles(scene, ground, { color: 0xcfe6dc, size: 0.32, gravity: 22, max: 500 }), piranhas = new Piranhas(scene, splash), saws = new GiantSaws(scene, sparks); // Great Canopy's swamp, Saw Foundry's smog
 const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 900 }); // bamboo chips
 const killFx = makeKillFx(scene, ground); // kill effects from the shop
 // sword-trail effects from the shop
@@ -141,7 +141,7 @@ function syncFighters() {
 }
 function clearWorld() {
   for (const id of [...fighters.keys()]) dropFighter(id);
-  pieces.clear(); piranhas.clear();
+  pieces.clear(); piranhas.clear(); saws.clear();
 }
 
 // ---------- input ----------
@@ -659,16 +659,23 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   } else if (v === me) sfx.fall();
   const eaten = fell && arena.water != null; v.grap.hide();
   if (!eaten) v.group.visible = false;
-  else { v.eatenAt = now() + 0.56; v.group.visible = true; } // stays in view until the jaws close on it
+  else { v.eatenAt = now() + 0.56; v.group.visible = true; } // stays in view until the jaws (or the saw) get it
+  const sawn = eaten && arena.mapId === 'foundry';
   const ca = (now() + 0.5) * 0.25; // (side-on to where the death camera will be circling, or to this viewer's camera)
-  if (eaten) piranhas.bite(v.pos, v === me ? new THREE.Vector3(v.pos.x + Math.cos(ca) * 13, 0, v.pos.z + Math.sin(ca) * 13) : camera.position, arena.water, () => { // the jaws close: the victim is gone, black blood, a crunch
+  const look = v === me ? new THREE.Vector3(v.pos.x + Math.cos(ca) * 13, 0, v.pos.z + Math.sin(ca) * 13) : camera.position;
+  if (sawn) saws.bite(v.pos, look, arena.water, (n) => { // the saw's edge reaches the body: cut in two along the blade
+    v.eatenAt = 0; if (v.alive) return; v.group.visible = false;
+    v.pose(0); const pt = v.pos.clone(); pt.y += 1; pieces.split(bakeMeshes(v.meshes), n, -n.dot(pt), new THREE.Vector3(0, 3, 0), new THREE.Vector3(0, 7, 0), 1);
+    sfx.slice(v.pos); if (v === me) shake = Math.max(shake, 0.6);
+  });
+  else if (eaten) piranhas.bite(v.pos, look, arena.water, () => { // the jaws close: the victim is gone, black blood, a crunch
     v.eatenAt = 0; if (!v.alive) v.group.visible = false;
     for (let i = 0; i < 70; i++) blood.emit(v.pos.x, v.pos.y + 1, v.pos.z, (Math.random() - 0.5) * 9, Math.random() * 7, (Math.random() - 0.5) * 9, 1.5);
     sfx.slice(v.pos); if (v === me) shake = Math.max(shake, 0.6);
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
-  feed(fell ? (eaten ? `${vn} was eaten by the piranha` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
-  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (eaten ? 'Eaten by the piranha' : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten; }
+  feed(fell ? (sawn ? `${vn} was sawn in half` : eaten ? `${vn} was eaten by the piranha` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
+  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : eaten ? 'Eaten by the piranha' : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
     const st = rosterGet(S.myId)?.streak || 0; if (bladeFor(st + 1) > bladeFor(st)) showBanner('BLADE GROWS');
@@ -1982,7 +1989,7 @@ function tick(rdt, tt) {
     netTick(rdt);
   } else if (S.phase === 'game') netTick(rdt);
   const pdt = hitstop > 0 ? rdt * 0.08 : rdt; hitstop -= rdt;
-  pieces.update(pdt); blood.update(pdt); splash.update(pdt); piranhas.update(pdt); sparks.update(pdt); leafBits.update(pdt); debris.paper.update(pdt); debris.wood.update(pdt); debris.straw.update(pdt); debris.glass.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
+  pieces.update(pdt); blood.update(pdt); splash.update(pdt); piranhas.update(pdt); saws.update(pdt); sparks.update(pdt); leafBits.update(pdt); debris.paper.update(pdt); debris.wood.update(pdt); debris.straw.update(pdt); debris.glass.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
   shake *= Math.exp(-9 * rdt); punch *= Math.exp(-6 * rdt);
   updateCamera(rdt);
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it

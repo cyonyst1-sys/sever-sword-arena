@@ -113,7 +113,7 @@ Sixteen small wooden decks in a 4 x 4 grid, with short gaps between, each hangin
 - Grapple the overhead frame, its legs, or the eight pillars around the outside.
 
 ### Saw Foundry
-
+Fall into the smog and a giant saw rises out of it and cuts you in half.
 An industrial foundry floating in a smoky dusk sky, full of things that cut you in half. A blade that catches you slices you along its own plane, and nobody gets the kill.
 
 - **Rail saws** run back and forth along tracks across the main floor and two outer platforms.

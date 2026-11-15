@@ -1,6 +1,7 @@
 // Great Canopy: fall too low and a giant piranha bursts out of the swamp, jaws wide, snaps you up and dives back in.
 // Purely visual (every client plays it locally when it sees a fall death on that map).
 import * as THREE from 'three';
+import { bladeMesh } from './foundry.js?v=20261114220511';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.15, ...o });
@@ -71,6 +72,37 @@ export class Piranhas {
       if (!b.bit && t >= 0.56) { b.bit = true; if (b.onBite) b.onBite(); }
       if (b.out && !b.back && t > 1 && o.position.y < b.water + 1) { b.back = true; this.burst(o.position.x, b.water + 0.2, o.position.z, 70, 11); }
       if (t > 2.6) { this.scene.remove(o); o.traverse((m) => { if (m.geometry) m.geometry.dispose(); }); this.list.splice(i, 1); }
+    }
+  }
+  clear() { for (const b of this.list) this.scene.remove(b.outer); this.list.length = 0; }
+}
+
+// Saw Foundry: the same idea with a giant spinning saw that rises out of the smog, cuts the faller in half and sinks back.
+let sawMats = null;
+export class GiantSaws {
+  constructor(scene, sparks) { this.scene = scene; this.sparks = sparks; this.list = []; }
+  // onBite(n): the moment the blade's edge reaches the body; n is the blade's plane normal (the cut)
+  bite(pos, cam, water, onBite) {
+    sawMats = sawMats || { blade: new THREE.MeshStandardMaterial({ color: 0xc9ced6, metalness: 0.9, roughness: 0.28, emissive: 0x2a1206 }), hub: new THREE.MeshStandardMaterial({ color: 0x2a2a30, metalness: 0.6, roughness: 0.5 }) };
+    const R = 4.6, outer = new THREE.Group(), blade = bladeMesh(R, sawMats); outer.add(blade); this.scene.add(outer);
+    outer.position.set(pos.x, water - R - 2, pos.z);
+    outer.rotation.y = Math.atan2(cam.x - pos.x, cam.z - pos.z) + Math.PI / 4; // three-quarter view: you see the disc and the cut
+    const n = new THREE.Vector3(0, 0, 1).applyQuaternion(outer.quaternion);
+    this.list.push({ outer, blade, R, t: 0, y0: water - R - 2, y1: pos.y + 1.2 - R * 0.35, water, pos: pos.clone(), n, onBite, bit: false, out: false });
+  }
+  burst(x, y, z, n, sp) { if (this.sparks) for (let i = 0; i < n; i++) { const a = Math.random() * TAU, r = Math.random() * sp; this.sparks.emit(x + Math.cos(a), y, z + Math.sin(a), Math.cos(a) * r, 6 + Math.random() * 12, Math.sin(a) * r, 1.2); } }
+  update(dt) {
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const b = this.list[i], o = b.outer, t = (b.t += dt);
+      b.blade.rotation.z -= dt * (t < 1.2 ? 28 : 28 * Math.max(0, 2 - t)); // screaming fast, winding down as it sinks
+      if (t < 0.45) o.position.y = b.y0 + (b.y1 - b.y0) * ease(t / 0.45);
+      else if (t < 0.9) o.position.y = b.y1 + Math.sin(t * 60) * 0.06; // grinding in place
+      else o.position.y -= dt * 14 * Math.min(1, (t - 0.9) * 2); // back down into the smog
+      const top = o.position.y + b.R;
+      if (!b.out && top > b.water) { b.out = true; this.burst(b.pos.x, b.water + 0.2, b.pos.z, 50, 7); }
+      if (!b.bit && top >= b.pos.y + 0.4) { b.bit = true; this.burst(b.pos.x, b.pos.y + 1, b.pos.z, 60, 9); if (b.onBite) b.onBite(b.n); }
+      if (t > 0.45 && t < 0.9 && Math.random() < 0.5) this.burst(b.pos.x, top - 0.3, b.pos.z, 2, 6); // sparks off the edge
+      if (t > 2.4) { this.scene.remove(o); this.list.splice(i, 1); }
     }
   }
   clear() { for (const b of this.list) this.scene.remove(b.outer); this.list.length = 0; }

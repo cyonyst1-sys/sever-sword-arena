@@ -16,7 +16,7 @@ const clock = () => Date.now() / 1000; // shared by everyone (unlike performance
 const hash = (n) => { let x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 
 // a saw blade: a toothed disc lying in the XY plane (its axis is +Z), with a red-hot hub
-function bladeMesh(R, mats) {
+export function bladeMesh(R, mats) {
   const sh = new THREE.Shape(), teeth = Math.max(16, Math.round(R * 18));
   for (let i = 0; i <= teeth * 2; i++) { const a = i / (teeth * 2) * TAU, r = i % 2 ? R : R * 0.88; const x = Math.cos(a) * r, y = Math.sin(a) * r; if (i === 0) sh.moveTo(x, y); else sh.lineTo(x, y); }
   const hole = new THREE.Path(); hole.absarc(0, 0, R * 0.12, 0, TAU, true); sh.holes.push(hole);
@@ -29,7 +29,7 @@ function bladeMesh(R, mats) {
 
 export function buildFoundry(A, T) {
   const S = A.scene, M = A.mats, r = T.rng(6161);
-  A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -45;
+  A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -45; A.water = -55; // (the smog: a giant saw rises out of it to cut up anyone who falls; see piranha.js)
   A.setSky({ top: 0x2a1c3a, mid: 0xd7703a, bot: 0x5a3430, fog: 0xa0583a, near: 90, far: 360, hemiSky: 0xffe0c0, hemiGround: 0x5a4040, hemi: 1.5, sunColor: 0xffc890, sun: 2.8, sunOff: new THREE.Vector3(-50, 40, 30) });
   const plate = std(0xffffff, { map: T.canvasTex((g, s) => {
     g.fillStyle = '#7a7d86'; g.fillRect(0, 0, s, s);
