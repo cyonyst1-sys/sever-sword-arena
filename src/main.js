@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115002751';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115002751';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115002751';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115002751';
-import * as net from './net.js?v=20261115002751';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115002751';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115002751';
-import { makeKillFx } from './killfx.js?v=20261115002751';
-import { makeGrapple } from './grapple.js?v=20261115002751';
-import { initShop } from './shop.js?v=20261115002751';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115002751';
-import { portal } from './portal.js?v=20261115002751';
-import { Piranhas, GiantSaws } from './piranha.js?v=20261115002751';
+import { Arena, MAPS } from './arena.js?v=20261115002957';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115002957';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115002957';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115002957';
+import * as net from './net.js?v=20261115002957';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115002957';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115002957';
+import { makeKillFx } from './killfx.js?v=20261115002957';
+import { makeGrapple } from './grapple.js?v=20261115002957';
+import { initShop } from './shop.js?v=20261115002957';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115002957';
+import { portal } from './portal.js?v=20261115002957';
+import { Piranhas, GiantSaws } from './piranha.js?v=20261115002957';
 
 // ---------- settings ----------
 const store = {
@@ -268,7 +268,7 @@ function fireHook(f, origin, dir) {
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const L = h.point.distanceTo(chest);
   if (L > HOOK_MAX * upm(f, 'rope') || L < 1.4) return false;
-  f.hook = { p: h.point, len: L, via: lh && lh.via };
+  f.hook = { p: h.point, len: L, via: lh && lh.via, tend: arena.tendrilAt ? arena.tendrilAt(h.point) : null }; // (tend: hooked onto a Colosseum tendril)
   if (f.hook.via) f.hook.len = f.hook.via.distanceTo(chest) + 0.5; // (round the edge first)
   f.dashT = 0; f.onGround = false;
   sfx.hookFire(f.pos); sfx.hookHit(h.point);
@@ -1534,7 +1534,7 @@ function remoteUpdate(f, dt) {
   const k = 1 - Math.exp(-30 * dt); f.s.x += (n.sx - f.s.x) * k; f.s.y += (n.sy - f.s.y) * k;
   f.vel.copy(n.v); f.onGround = !!(n.flags & 4); f.dashT = n.flags & 2 ? 0.1 : 0; f.prot = n.flags & 8 ? 0.5 : 0;
   f.anim = n.flags & 16 ? { phase: 'wind' } : null;
-  f.hook = n.hook ? { p: n.hook, len: 1 } : null;
+  f.hook = n.hook ? { p: n.hook, len: 1, tend: arena.tendrilAt ? arena.tendrilAt(n.hook) : null } : null;
 }
 net.onNet({
   message(from, d) {
@@ -1963,7 +1963,7 @@ function frame(t) {
   tick(rdt, t / 1000);
 }
 function tick(rdt, tt) {
-  arena.update(tt); fx.update(tt);
+  arena.update(tt); fx.update(tt); if (arena.tendrilTick) arena.tendrilTick(rdt, fighters.values()); // (Colosseum: tendrils sway and get dragged by whoever hangs on them)
   if (S.phase === 'game' && !S.paused) {
     if (S.host) hostTick(rdt);
     if (arena.tickPads) arena.tickPads(fighters.values(), now()); // (Bamboo Fort: spawn pads fall away once left)

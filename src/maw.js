@@ -99,3 +99,53 @@ export function buildMaw(A, T) {
   // dying: touching the flesh anywhere, or sinking to the smog in the throat
   A.killAt = (p) => Math.max(A.killY, mawY(Math.hypot(p.x, p.z)) + 0.4);
 }
+
+// Tendrils: fleshy arms rising from the maw to swing on. Each sways on a spring; a fighter hooked onto one drags its
+// tip toward them (so it bends as they swing) and it springs back when they let go. Their hookable boxes follow the bend.
+export function buildTendrils(A, pts) {
+  const tex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = '#6e2233'; g.fillRect(0, 0, 128, 128);
+    for (let y = 0; y < 128; y += 8) { g.fillStyle = 'rgba(30,5,12,0.35)'; g.fillRect(0, y, 128, 2); g.fillStyle = 'rgba(200,110,120,0.18)'; g.fillRect(0, y + 3, 128, 2); } // ringed like a worm
+    for (let i = 0; i < 30; i++) { const x = (i * 37) % 128, y = (i * 53) % 128; g.fillStyle = 'rgba(230,160,170,0.55)'; g.beginPath(); g.arc(x, y, 3 + (i % 3), 0, TAU); g.fill(); g.fillStyle = 'rgba(60,10,20,0.7)'; g.beginPath(); g.arc(x, y, 1.5, 0, TAU); g.fill(); } // suckers
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(2, 18); return t; })();
+  const list = A.tendrils = [];
+  pts.forEach(([x, z], i) => {
+    const by = mawY(Math.hypot(x, z)) - 2, top = 62 + ((i * 7) % 5) * 3, H = top - by, R0 = 2.1;
+    const geo = new THREE.CylinderGeometry(0.45, R0, H, 12, 40, true); geo.translate(0, H / 2, 0);
+    const uB = { value: new THREE.Vector2() };
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05, emissive: 0x220308 });
+    mat.onBeforeCompile = (sh) => { sh.uniforms.uB = uB; sh.uniforms.uH = { value: H };
+      sh.vertexShader = 'uniform vec2 uB; uniform float uH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat ts = clamp(position.y / uH, 0.0, 1.0); transformed.xz += uB * ts * ts;'); };
+    mat.customProgramCacheKey = () => 'tendril';
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; A.scene.add(m);
+    const ph = i * 1.7, rest = new THREE.Vector2(Math.cos(ph * 2.3) * 2.5, Math.sin(ph * 1.9) * 2.5); // a natural curve at rest
+    const boxes = []; for (let s = 0.12; s < 1; s += 0.08) { const b = { x0: 0, x1: 0, y0: by + (s - 0.05) * H, y1: by + (s + 0.05) * H, z0: 0, z1: 0, ts: s, tend: i }; A.rayBoxes.push(b); boxes.push(b); }
+    list.push({ x, z, by, H, R0, uB, rest, ph, bend: new THREE.Vector2(), vel: new THREE.Vector2(), boxes });
+    A.pillars.push({ x, z, w: 2.8 });
+  });
+  const tipOff = (t, out) => out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin((A.lastT || 0) * 0.6 + t.ph) * 0.8, Math.cos((A.lastT || 0) * 0.5 + t.ph * 1.3) * 0.8));
+  const tmp = new THREE.Vector2();
+  A.tendrilPoint = (i, s, out) => { const t = list[i]; tipOff(t, tmp); return out.set(t.x + tmp.x * s * s, t.by + s * t.H, t.z + tmp.y * s * s); };
+  A.tendrilAt = (p) => { // which tendril (and how far up it) a hook point is on
+    for (let i = 0; i < list.length; i++) { const t = list[i], s = (p.y - t.by) / t.H; if (s < 0 || s > 1) continue; tipOff(t, tmp);
+      if (Math.hypot(p.x - (t.x + tmp.x * s * s), p.z - (t.z + tmp.y * s * s)) < t.R0 + 1) return { i, s }; }
+    return null;
+  };
+  const pv = new THREE.Vector3();
+  A.tendrilTick = (dt, fighters) => {
+    if (!dt) return;
+    for (const t of list) { t.fx = 0; t.fz = 0; }
+    for (const f of fighters) { const h = f.hook; if (!h || !h.tend) continue; const t = list[h.tend.i]; if (!t) continue; // the rope drags the tip toward whoever hangs on it
+      A.tendrilPoint(h.tend.i, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, k = 26 * h.tend.s;
+      t.fx += dx / l * k; t.fz += dz / l * k; }
+    for (const t of list) {
+      t.vel.x += (-5 * t.bend.x - 1.3 * t.vel.x + t.fx) * dt; t.vel.y += (-5 * t.bend.y - 1.3 * t.vel.y + t.fz) * dt;
+      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 9) t.bend.multiplyScalar(9 / l);
+      tipOff(t, tmp); t.uB.value.copy(tmp);
+      for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * s * s, cz = t.z + tmp.y * s * s, r = t.R0 * (1 - s * 0.75) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; }
+    }
+    for (const f of fighters) { const h = f.hook; if (h && h.tend) A.tendrilPoint(h.tend.i, h.tend.s, h.p); } // ropes stay attached as it moves
+  };
+  A.tendrilTick(1e-4, []); // (place the hookable boxes)
+  return list;
+}

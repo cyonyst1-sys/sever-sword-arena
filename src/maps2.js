@@ -3,7 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY } from './maw.js?v=20261115002751';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261115002957';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -289,13 +289,10 @@ export function buildBowl(A, T) {
   ring(10, 56, 21, 6, 'tier', 0.5);
   ring(12, 80, 33, 6, 'rim', 0.25);
   { const m = new THREE.Mesh(new THREE.TorusGeometry(12, 0.25, 6, 64), new THREE.MeshStandardMaterial({ color: 0xc9a24a, metalness: 0.7, roughness: 0.35 })); m.rotation.x = Math.PI / 2; prop(A, hub, m, 0, 0.03, 0); } // arena ring
-  // stone columns between the rings, from the clouds to the sky: the things you swing on
-  for (const [n, rad, off] of [[12, 45, 0.5], [14, 68, 0]]) for (let i = 0; i < n; i++) {
-    const a = (i + off) / n * TAU, x = Math.cos(a) * rad, z = Math.sin(a) * rad;
-    A.addDisc(x, z, 1.4, mawY(rad) - 3, 72, A.mats.stone, 14); // (rising out of the flesh)
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 1.5, 1.6, 14), A.mats.dark); cap.position.set(x, 72.8, z); S.add(cap);
-    A.pillars.push({ x, z, w: 2.8 });
-  }
+  // fleshy tendrils rising out of the maw between the rings: the things you swing on (they bend as you swing on them)
+  const tpts = [];
+  for (const [n, rad, off] of [[12, 45, 0.5], [14, 68, 0]]) for (let i = 0; i < n; i++) { const a = (i + off) / n * TAU; tpts.push([Math.cos(a) * rad, Math.sin(a) * rad]); }
+  buildTendrils(A, tpts);
   A.finishNav();
 }
 export { deck, prop, bridge, stalk, clear, drift, farRing };
