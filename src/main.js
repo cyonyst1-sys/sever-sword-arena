@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114235859';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114235859';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114235859';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114235859';
-import * as net from './net.js?v=20261114235859';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114235859';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114235859';
-import { makeKillFx } from './killfx.js?v=20261114235859';
-import { makeGrapple } from './grapple.js?v=20261114235859';
-import { initShop } from './shop.js?v=20261114235859';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114235859';
-import { portal } from './portal.js?v=20261114235859';
-import { Piranhas, GiantSaws } from './piranha.js?v=20261114235859';
+import { Arena, MAPS } from './arena.js?v=20261115000710';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115000710';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115000710';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115000710';
+import * as net from './net.js?v=20261115000710';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115000710';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115000710';
+import { makeKillFx } from './killfx.js?v=20261115000710';
+import { makeGrapple } from './grapple.js?v=20261115000710';
+import { initShop } from './shop.js?v=20261115000710';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115000710';
+import { portal } from './portal.js?v=20261115000710';
+import { Piranhas, GiantSaws } from './piranha.js?v=20261115000710';
 
 // ---------- settings ----------
 const store = {
@@ -239,16 +239,37 @@ function tryDash(f, dir) {
   if (f === me) shake = Math.max(shake, 0.15);
   return true;
 }
+// the walkable surface of platform p at (x, z): its floor, a dish's curve or a mesa's rolling top
+function surfY(p, x, z) { const t = arena.platTop(p, { x, z }), g = arena.groundHeight(x, z, t + 4); return g > t - 6 ? g : t; }
+// a hook that lands on a platform's side or underside moves up to the lip of its top edge, a little way in, so
+// reeling in pulls you up and over the edge instead of leaving you stuck against the side
+function lipHook(f, pt) {
+  for (const p of arena.plats) {
+    if (p.gone || p.ghost || !arena.inPlat(p, pt, 1.8)) continue; // (a little outside too: hitboxes run past round rims)
+    const top = surfY(p, pt.x, pt.z); if (pt.y > top - 0.3 || pt.y < top - 80) continue; // on top already, or nowhere near it
+    const r = arena.rimPoint(p, arena.rimDist(p, pt) < 0.8 ? pt : f.pos); // a side: just above where it hit; underneath: the edge nearest you
+    const cx = p.x - r.x, cz = p.z - r.z, cl = Math.hypot(cx, cz) || 1, k = Math.min(0.7, cl * 0.5);
+    const x = r.x + cx / cl * k, z = r.z + cz / cl * k;
+    const lip = new THREE.Vector3(x, surfY(p, x, z) + 0.05, z);
+    // hooked from below the lip (underneath, or low on the side): the rope first wraps round the nearest edge, so you
+    // swing out from under it, then it pulls you up and over (never straight up into the underside)
+    const via = f.pos.y + 1.3 < lip.y - 0.6 ? new THREE.Vector3(r.x - cx / cl * 1.0, lip.y - 1.3, r.z - cz / cl * 1.0) : null;
+    return { p: lip, via };
+  }
+  return null;
+}
 function fireHook(f, origin, dir) {
   if (!f.alive || (f.hookCd || 0) > 0) return false;
   if (!origin) { origin = camera.position.clone(); dir = new THREE.Vector3(); camera.getWorldDirection(dir); origin.addScaledVector(dir, camDist); }
   arena.rayThin = !!f.isBot && !f.hookGlass; const h = arena.grappleTarget(origin, dir, HOOK_MAX * upm(f, 'rope')); arena.rayThin = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
   f.hookCd = 0.25;
   if (!h) { sfx.hookFire(f.pos); return false; }
+  const lh = lipHook(f, h.point); if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead)
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const L = h.point.distanceTo(chest);
   if (L > HOOK_MAX * upm(f, 'rope') || L < 1.4) return false;
-  f.hook = { p: h.point, len: L };
+  f.hook = { p: h.point, len: L, via: lh && lh.via };
+  if (f.hook.via) f.hook.len = f.hook.via.distanceTo(chest) + 0.5; // (round the edge first)
   f.dashT = 0; f.onGround = false;
   sfx.hookFire(f.pos); sfx.hookHit(h.point);
   return true;
@@ -260,18 +281,21 @@ function releaseHook(f, boost) {
 }
 function applyHook(f, dt) {
   const chest = _t.copy(f.pos); chest.y += 1.3;
-  const d = _t2.subVectors(f.hook.p, chest); const L = d.length(); d.divideScalar(L || 1);
+  const via = f.hook.via; // (hooked from underneath: head for the edge first, then up to the lip)
+  if (via && via.distanceTo(chest) < 1.8) { f.hook.via = null; f.hook.len = f.hook.p.distanceTo(chest) + 0.3; }
+  const d = _t2.subVectors(f.hook.via || f.hook.p, chest); const L = d.length(); d.divideScalar(L || 1);
   f.vel.addScaledVector(d, PULL * upm(f, 'reel') * dt);
   f.hook.len = Math.max(1.2, Math.min(f.hook.len, L) - REEL * upm(f, 'reel') * dt);
   const vr = f.vel.dot(d); if (L > f.hook.len && vr < 0) f.vel.addScaledVector(d, -vr);
   const sp = f.vel.length(); if (sp > 36) f.vel.multiplyScalar(36 / sp);
-  if (L < 1.7) { // reeled all the way in: pop up, and if it's a platform's edge, onto its top
+  if (L < 1.7 && !f.hook.via) { // reeled all the way in: pop up, and if it's a platform's edge, onto its top
     const a = f.hook.p; f.hook = null;
-    const lip = arena.plats.find((p) => !p.gone && arena.inPlat(p, a, 0.3) && Math.abs(a.y - arena.platTop(p, a)) < 0.6);
+    const lip = arena.plats.find((p) => !p.gone && arena.inPlat(p, a, 0.3) && Math.abs(a.y - surfY(p, a.x, a.z)) < 0.6);
     if (lip) {
       const cx = lip.x - f.pos.x, cz = lip.z - f.pos.z, cl = Math.hypot(cx, cz) || 1;
-      f.vel.set(cx / cl * 4.5, Math.max(8, f.vel.y * 0.3), cz / cl * 4.5);
-      f.mantle = { x: cx / cl * 4.5, z: cz / cl * 4.5, t: 0.35 }; // keep climbing over the lip
+      const vy = Math.sqrt(2 * G * Math.max(0.6, a.y + 0.9 - f.pos.y)); // high enough to clear the lip, however far below it you are
+      f.vel.set(cx / cl * 4.5, Math.max(8, vy, f.vel.y * 0.3), cz / cl * 4.5);
+      f.mantle = { x: cx / cl * 4.5, z: cz / cl * 4.5, t: Math.max(0.35, vy / G + 0.25) }; // keep climbing over the lip
     } else { f.vel.y = Math.max(f.vel.y, 7); f.vel.x += d.x * 3; f.vel.z += d.z * 3; }
   }
 }
@@ -331,7 +355,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
     f.onGround = arena.collide(f.pos, f.vel, RAD, HGT, (k ? f.onGround : was) && f.dashT <= 0 && !f.hook, py);
   }
   if (f.hook) { // rope can't stretch
-    const c = _t.copy(f.pos); c.y += 1.3; const d = _t2.subVectors(f.hook.p, c); const L = d.length();
+    const c = _t.copy(f.pos); c.y += 1.3; const d = _t2.subVectors(f.hook.via || f.hook.p, c); const L = d.length();
     if (L > f.hook.len + 0.05) f.pos.addScaledVector(d.divideScalar(L), L - f.hook.len);
     if (f.onGround && f.hook.p.y > f.pos.y + 1) f.onGround = false;
   }
@@ -1984,7 +2008,7 @@ function tick(rdt, tt) {
       if (tfx && f.tipSpeed > 9 && f.trail.length > 1) for (let k = 0; k < 2; k++) { const u = Math.random(), p = _t.copy(f.hand).lerp(f.tip, 0.4 + u * 0.6), j = f.trailStyle.fx === 'zap' ? 5 : 1.5; tfx.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.18 : 0.9); }
       f.group.visible = f.alive ? !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0) : f.eatenAt > now(); // (a fighter the piranha is about to eat stays in view)
       // rope
-      if (f.hook) f.grap.show(f.handL, f.hook.p, rdt); else f.grap.hide();
+      if (f.hook) f.grap.show(f.handL, f.hook.via || f.hook.p, rdt); else f.grap.hide();
     }
     netTick(rdt);
   } else if (S.phase === 'game') netTick(rdt);
