@@ -3,6 +3,7 @@ import * as THREE from 'three';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const _d = new THREE.Vector3(), _m = new THREE.Vector3();
+const _w = new THREE.Vector3(), _s = new THREE.Vector3(), _q = new THREE.Quaternion(), _mx = new THREE.Matrix4();
 
 // patterned lines (drawn once, tiled along the rope)
 const texCache = {};
@@ -76,10 +77,12 @@ export function makeGrapple(scene, st, fx = {}) {
   const rope = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, st.tex ? 8 : 5, 1, !glow), mat);
   const head = makeHead(st.head || 'claw');
   let bolt = null;
-  if (st.bolt) { // a jagged electric line around a faint glow
-    const N = 14, geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-    bolt = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xeaffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-    bolt.frustumCulled = false; bolt.N = N; scene.add(bolt);
+  if (st.bolt) { // no solid rope: just flickering jagged bolts (two strands, white-hot and blue), made of thin segments so they have some thickness
+    const N = 14, K = 2;
+    bolt = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 5, 1, true).translate(0, 0.5, 0),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), K * (N - 1));
+    for (let k = 0; k < K; k++) for (let i = 0; i < N - 1; i++) bolt.setColorAt(k * (N - 1) + i, new THREE.Color(k ? 0x5ab8ff : 0xeaffff));
+    bolt.frustumCulled = false; bolt.N = N; bolt.K = K; bolt.pts = Array.from({ length: N }, () => new THREE.Vector3()); scene.add(bolt);
   }
   rope.visible = head.visible = false; if (bolt) bolt.visible = false;
   scene.add(rope); scene.add(head);
@@ -94,9 +97,16 @@ export function makeGrapple(scene, st, fx = {}) {
       if (mat.map) mat.map.repeat.set(1, L / (st.r * 14)); // tiles keep their size however long the rope
       head.position.copy(b); head.quaternion.setFromUnitVectors(UP, _d);
       if (bolt) {
-        bolt.visible = true; const p = bolt.geometry.attributes.position;
-        for (let i = 0; i < bolt.N; i++) { const u = i / (bolt.N - 1), j = i === 0 || i === bolt.N - 1 ? 0 : 0.12; _m.copy(a).lerp(b, u); p.setXYZ(i, _m.x + (Math.random() - 0.5) * j, _m.y + (Math.random() - 0.5) * j, _m.z + (Math.random() - 0.5) * j); }
-        p.needsUpdate = true; bolt.material.opacity = 0.6 + Math.random() * 0.4;
+        rope.visible = false; bolt.visible = true; const P = bolt.pts, N = bolt.N;
+        for (let k = 0; k < bolt.K; k++) {
+          const J = k ? 0.3 : 0.18, w = k ? 0.022 : 0.032; // (the blue strand strays further and is a touch thinner)
+          for (let i = 0; i < N; i++) { const j = i === 0 || i === N - 1 ? 0 : J; P[i].copy(a).lerp(b, i / (N - 1)).add(_w.set((Math.random() - 0.5) * j, (Math.random() - 0.5) * j, (Math.random() - 0.5) * j)); }
+          for (let i = 0; i < N - 1; i++) {
+            _w.subVectors(P[i + 1], P[i]); const sl = _w.length() || 1e-3; _q.setFromUnitVectors(UP, _w.divideScalar(sl));
+            const ww = w * (0.6 + Math.random() * 0.8); _mx.compose(P[i], _q, _s.set(ww, sl, ww)); bolt.setMatrixAt(k * (N - 1) + i, _mx);
+          }
+        }
+        bolt.instanceMatrix.needsUpdate = true; bolt.material.opacity = 0.55 + Math.random() * 0.45;
         if (fx.zap && Math.random() < dt * 25) { fx.zap.emit(b.x, b.y, b.z, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4, 0.2); }
       }
       if (st.smoke && fx.smoke && Math.random() < dt * 40) { _m.copy(a).lerp(b, Math.random()); fx.smoke.emit(_m.x, _m.y, _m.z, (Math.random() - 0.5) * 0.4, 0.3, (Math.random() - 0.5) * 0.4, 0.7); }
