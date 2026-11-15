@@ -19,9 +19,9 @@ export function setMuted(m) { muted = !!m; if (MG) MG.gain.value = muted ? 0 : v
 // dashes) only carry ~15 m; combat sounds (slices, clashes, hooks) carry ~32 m.
 const NEAR = 15, FAR = 32;
 const att = (p, range = FAR) => { if (!p || !listener) return 1; const k = Math.max(0, 1 - p.distanceTo(listener) / range); return k * k; };
-function nz(dur, f0, f1, q, vol, type) {
+function nz(dur, f0, f1, q, vol, type, delay = 0) {
   if (!AC || vol < 0.003) return;
-  const t = AC.currentTime, s = AC.createBufferSource(); s.buffer = NB; s.loop = true; // (loops: long sounds outlast the 1 s noise buffer)
+  const t = AC.currentTime + delay, s = AC.createBufferSource(); s.buffer = NB; s.loop = true; // (loops: long sounds outlast the 1 s noise buffer)
   const f = AC.createBiquadFilter(); f.type = type || 'bandpass'; f.Q.value = q;
   f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
   const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -59,16 +59,21 @@ function bubble(delay, f, vol) {
 export const sfx = {
   swish(sp, p) { const a = att(p, NEAR); nz(0.18, 600 + Math.min(sp, 40) * 40, 3200, 1.1, a * (0.08 + Math.min(0.2, sp / 150))); },
   slice(p) { const a = att(p); nz(0.25, 3200, 700, 0.8, 0.35 * a); nz(0.3, 420, 110, 0.7, 0.32 * a, 'lowpass'); }, // the cut: a hiss and a soft thud
-  kill(p) { // a kill: the cut, a wet "bleh" / "blah" / "bluh" / "uhh" / "ahh" / quick "mm" / "HOI" (short or drawn out, as the breath goes out of him), then light gurgling
+  kill(p) { // a kill: the cut, a wet "bleh" / "blah" / "bluh" / "uhh" / "ahh" / quick "mm" / "OUCH! I'M DEAD... UUUUH" (short or drawn out, as the breath goes out of him), then light gurgling
     const a = att(p); this.slice(p);
-    const k = Math.random() * 7 | 0; // bleh, blah, bluh, or just a groan: uhh or ahh, or a quick closed-mouth mm, or a yelped HOI
-    if (k === 6) { // "HO-EE": a breathy h, a short shouted "ho", a tiny break, then "ee"
-      const d = 0.35 + Math.random() * 0.2;
-      nz(0.08, 1300, 1000, 1.2, 0.22 * a); // h
-      const p0 = 205 + Math.random() * 35, ho = d * 0.42, ee = d * 0.62;
-      voice(p0, p0 * 0.92, ho, 0.85 * a, [[520, 6], [880, 8]], 0.6); // "HO"
-      voice(p0 * 1.12, p0 * 0.8, ee, 0.85 * a, [[300, 6], [2350, 10]], 0.45, ho + 0.04); // "EE", a beat later, up a little then falling
-      for (let i = 0; i < 5; i++) bubble(d * 1.05 + i * 0.06 + Math.random() * 0.03, 260 + Math.random() * 380, (0.085 - i * 0.01) * a);
+    const k = Math.random() * 7 | 0; // bleh, blah, bluh, or just a groan: uhh or ahh, or a quick closed-mouth mm, or the spoken line
+    if (k === 6) { // a little spoken line: "OUCH! I'M DEAD... UUUUH" (each syllable a voiced vowel through moving formants, consonants as noise)
+      const P = 215 + Math.random() * 30;
+      nz(0.05, 900, 800, 1, 0.12 * a); // breath in
+      voice(P, P * 0.85, 0.3, 0.9 * a, [[360, 6, 760, 0.3], [820, 8, 1220, 0.3]], 0.55); // "OU": ah sliding to oo
+      nz(0.12, 4200, 3600, 1.5, 0.34 * a, 'bandpass', 0.29); // "CH"
+      voice(P * 0.95, P * 0.88, 0.22, 0.85 * a, [[320, 6, 760, 0.22], [2250, 9, 1250, 0.22]], 0.6, 0.5); // "I": ah sliding to ee
+      voice(P * 0.88, P * 0.85, 0.11, 0.7 * a, [[270, 3], [2300, 7]], 0.6, 0.71); // "'M"
+      nz(0.025, 500, 300, 1, 0.3 * a, 'lowpass', 0.86); // "D"
+      voice(P * 0.9, P * 0.75, 0.2, 0.85 * a, [[560, 6], [1750, 9]], 0.6, 0.88); // "EA"
+      nz(0.03, 520, 300, 1, 0.26 * a, 'lowpass', 1.12); // the final "D", a short stop
+      voice(P * 0.7, P * 0.32, 1.1, 0.8 * a, [[640, 6, 360, 0.5], [1190, 8, 800, 0.5]], 0.3, 1.32); // "UUUUH": oo opening to uh, sagging and fading out
+      for (let i = 0; i < 5; i++) bubble(2.3 + i * 0.06 + Math.random() * 0.03, 260 + Math.random() * 380, (0.085 - i * 0.01) * a);
       return;
     }
     if (k < 3) nz(0.035, 260, 140, 0.8, 0.5 * a, 'lowpass'); // the "b": lips popping open
