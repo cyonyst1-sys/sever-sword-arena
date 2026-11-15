@@ -41,7 +41,7 @@ function voice(f0, f1, dur, vol, fm = [[560, 6], [1750, 9]], hold = 0.55) {
   o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
   const vib = AC.createOscillator(), vg = AC.createGain(); vib.frequency.value = 23; vg.gain.value = f0 * 0.04; vib.connect(vg); vg.connect(o.frequency); // a rough, wet wobble
   const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.setValueAtTime(vol, t + dur * hold); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  for (const [f, q] of fm) { const b = AC.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = f; b.Q.value = q; o.connect(b); b.connect(g); }
+  for (const [f, q, from] of fm) { const b = AC.createBiquadFilter(); b.type = 'bandpass'; b.Q.value = q; b.frequency.setValueAtTime(from || f, t); if (from) b.frequency.exponentialRampToValueAtTime(f, t + 0.09); o.connect(b); b.connect(g); } // (from: glide in from another sound, e.g. an "l")
   g.connect(MG); o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
 }
 // one small wet bubble pop, after a delay: a quick upward chirp
@@ -55,9 +55,10 @@ function bubble(delay, f, vol) {
 export const sfx = {
   swish(sp, p) { const a = att(p, NEAR); nz(0.18, 600 + Math.min(sp, 40) * 40, 3200, 1.1, a * (0.08 + Math.min(0.2, sp / 150))); },
   slice(p) { const a = att(p); nz(0.25, 3200, 700, 0.8, 0.35 * a); nz(0.3, 420, 110, 0.7, 0.32 * a, 'lowpass'); }, // the cut: a hiss and a soft thud
-  kill(p) { // a kill: the cut, a long wet "bleeehh" as the breath goes out of him, then light gurgling
+  kill(p) { // a kill: the cut, a long wet "bluhhh" as the breath goes out of him, then light gurgling
     const a = att(p); this.slice(p);
-    voice(150 + Math.random() * 40, 58, 1.0, 0.75 * a, undefined, 0.18); // a long "bleeehh", sagging and fading like the breath going out of him
+    nz(0.035, 260, 140, 0.8, 0.5 * a, 'lowpass'); // the "b": lips popping open
+    voice(150 + Math.random() * 40, 58, 1.0, 0.75 * a, [[640, 6, 380], [1190, 8, 1000]], 0.18); // "luhhh": an l gliding into a long "uh" // a long "bleeehh", sagging and fading like the breath going out of him
     nz(1.1, 1900, 650, 1.2, 0.13 * a); // the breath itself, a rasping exhale under it
     for (let i = 0; i < 9; i++) bubble(0.85 + i * 0.08 + Math.random() * 0.05, 260 + Math.random() * 380, (0.085 - i * 0.006) * a);
     nz(0.7, 700, 250, 3, 0.07 * a); // a little wet rasp under the bubbles
