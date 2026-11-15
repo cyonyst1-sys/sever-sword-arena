@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115003332';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115003332';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115003332';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115003332';
-import * as net from './net.js?v=20261115003332';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115003332';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115003332';
-import { makeKillFx } from './killfx.js?v=20261115003332';
-import { makeGrapple } from './grapple.js?v=20261115003332';
-import { initShop } from './shop.js?v=20261115003332';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115003332';
-import { portal } from './portal.js?v=20261115003332';
-import { Piranhas, GiantSaws } from './piranha.js?v=20261115003332';
+import { Arena, MAPS } from './arena.js?v=20261115003805';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115003805';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115003805';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115003805';
+import * as net from './net.js?v=20261115003805';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115003805';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115003805';
+import { makeKillFx } from './killfx.js?v=20261115003805';
+import { makeGrapple } from './grapple.js?v=20261115003805';
+import { initShop } from './shop.js?v=20261115003805';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115003805';
+import { portal } from './portal.js?v=20261115003805';
+import { Piranhas, GiantSaws } from './piranha.js?v=20261115003805';
 
 // ---------- settings ----------
 const store = {
@@ -698,8 +698,8 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     sfx.kill(v.pos); if (v === me) shake = Math.max(shake, 0.6);
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
-  feed(fell ? (sawn ? `${vn} was sawn in half` : eaten ? `${vn} was eaten by the piranha` : arena.chomp ? `${vn} was swallowed by the maw` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
-  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : eaten ? 'Eaten by the piranha' : arena.chomp ? 'Swallowed by the maw' : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten; }
+  feed(fell ? (sawn ? `${vn} was sawn in half` : eaten ? `${vn} was eaten by the piranha` : arena.fallText ? `${vn} ${arena.fallText(v.pos)}` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
+  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
     const st = rosterGet(S.myId)?.streak || 0; if (bladeFor(st + 1) > bladeFor(st)) showBanner('BLADE GROWS');

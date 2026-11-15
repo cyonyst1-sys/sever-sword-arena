@@ -169,7 +169,7 @@ export function addScenery(A) {
     const w = new THREE.Mesh(sea.geometry, new THREE.MeshBasicMaterial({ map: wisps, color: sea.material.color, transparent: true, opacity: 0.8, depthWrite: false, fog: sea.material.fog }));
     w.position.copy(sea.position); w.position.y += 7; S.add(w);
   }
-  if (A.mapId !== 'city') for (const sea of seas) { // heaped clouds over every sea of cloud (or smog), tinted like it, kept below where you die
+  if (A.mapId !== 'city' && A.mapId !== 'foundry') for (const sea of seas) { // heaped clouds over every sea of cloud (or smog), tinted like it, kept below where you die
     const top = Math.min(sea.position.y + 22, A.killY - 2), tint = sea.material.color.clone().lerp(C(0xffffff), sea.material.color.getHSL({}).l < 0.3 ? 0.06 : 0.3); // (dark smog stays dark)
     cloudHeaps(S, r, { n: low ? 40 : 70, rMin: 20, rMax: 330, y: top, depth: Math.max(2, top - sea.position.y - 4), sMin: 10, sMax: 26, tint });
   }

@@ -29,7 +29,7 @@ export function bladeMesh(R, mats) {
 
 export function buildFoundry(A, T) {
   const S = A.scene, M = A.mats, r = T.rng(6161);
-  A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -45; A.water = -55; // (the smog: a giant saw rises out of it to cut up anyone who falls; see piranha.js)
+  A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -45; // (below: a floor of grinders; all round the outside: spikes)
   A.setSky({ top: 0x2a1c3a, mid: 0xd7703a, bot: 0x5a3430, fog: 0xa0583a, near: 90, far: 360, hemiSky: 0xffe0c0, hemiGround: 0x5a4040, hemi: 1.5, sunColor: 0xffc890, sun: 2.8, sunOff: new THREE.Vector3(-50, 40, 30) });
   const plate = std(0xffffff, { map: T.canvasTex((g, s) => {
     g.fillStyle = '#7a7d86'; g.fillRect(0, 0, s, s);
@@ -191,6 +191,47 @@ export function buildFoundry(A, T) {
 
   A.finishNav();
 
+  // ---- below: a floor of grinders, rows of toothed rollers turning against each other where the smog was. All round
+  // the outside, past where anyone travels: a forest of huge jagged spikes, some leaning in. Touch either and you die.
+  {
+    const steel = std(0x8a8e98, { metalness: 0.7, roughness: 0.35, emissive: 0x24140e }), hot = std(0x8a3a20, { metalness: 0.6, roughness: 0.4, emissive: 0xff5a1a, emissiveIntensity: 0.55 });
+    // one roller segment (10 m along x): a drum with rings of teeth, merged into one geometry
+    const parts = [new THREE.CylinderGeometry(1.5, 1.5, 10, 10).rotateZ(Math.PI / 2)];
+    for (let k = 0; k < 4; k++) for (let t = 0; t < 6; t++) { const a = t / 6 * TAU + k * 0.5, g = new THREE.ConeGeometry(0.5, 1.4, 4); g.translate(0, 2.1, 0); g.rotateX(a); g.translate(-3.6 + k * 2.4, 0, 0); parts.push(g); }
+    const merged = (() => { const P = [], N = []; for (const g of parts) { const ng = g.index ? g.toNonIndexed() : g; P.push(...ng.attributes.position.array); N.push(...ng.attributes.normal.array); } const m = new THREE.BufferGeometry(); m.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); m.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); return m; })();
+    const GY = -52, rows = [];
+    for (let z = -128; z <= 128; z += 3.9) { const half = Math.sqrt(Math.max(0, 135 * 135 - z * z)); for (let x = -half; x < half; x += 10) rows.push([x + 5, z, rows.length % 2]); }
+    const rollers = new THREE.InstancedMesh(merged, steel, rows.length), glow = new THREE.Mesh(new THREE.CircleGeometry(136, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff4a12 }));
+    glow.position.y = GY - 2.5; S.add(glow); // white-hot light between the rollers
+    rollers.frustumCulled = false; S.add(rollers);
+    const mm = new THREE.Matrix4(), q = new THREE.Quaternion(), ax = new THREE.Vector3(1, 0, 0), pv = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+    let spin = 0;
+    A.anim.push((t, dt) => { spin += (dt || 0) * 2.2; rows.forEach(([x, z, odd], i) => { q.setFromAxisAngle(ax, odd ? spin : -spin); mm.compose(pv.set(x, GY, z), q, one); rollers.setMatrixAt(i, mm); }); rollers.instanceMatrix.needsUpdate = true; });
+    // the spikes: outside everything you can stand on
+    let reach = 0; for (const p of A.plats) reach = Math.max(reach, Math.hypot(p.x, p.z) + Math.max(p.w || 0, p.d || 0) / 2);
+    const R0 = reach + 10, spikes = [], cone = new THREE.ConeGeometry(1, 1, 6); cone.translate(0, 0.5, 0);
+    for (let i = 0; i < 260; i++) {
+      const a = r() * TAU, d = R0 + Math.pow(r(), 0.7) * 120, x = Math.cos(a) * d, z = Math.sin(a) * d, h = 14 + r() * 46 * (1 - (d - R0) / 200), w = 4 + r() * 6;
+      const lean = (r() - 0.2) * 0.45; // most lean in toward the arena a little, some out
+      spikes.push({ x, z, by: GY, h: h + (-GY), w, tx: -Math.cos(a) * lean, tz: -Math.sin(a) * lean });
+    }
+    const sm = new THREE.InstancedMesh(cone, steel, spikes.length), tips = new THREE.InstancedMesh(cone, hot, spikes.length), up = new THREE.Vector3(0, 1, 0), dv = new THREE.Vector3(), sv = new THREE.Vector3();
+    spikes.forEach((s, i) => {
+      dv.set(s.tx, 1, s.tz).normalize(); q.setFromUnitVectors(up, dv); s.dir = dv.clone();
+      mm.compose(pv.set(s.x, s.by, s.z), q, sv.set(s.w, s.h, s.w)); sm.setMatrixAt(i, mm);
+      mm.compose(pv.set(s.x, s.by, s.z).addScaledVector(dv, s.h * 0.82), q, sv.set(s.w * 0.18, s.h * 0.18, s.w * 0.18)); tips.setMatrixAt(i, mm); // glowing tips
+    });
+    S.add(sm, tips);
+    A.killAt = (p) => { // a spike, anywhere along it; below that, the grinders take you at the old smog line
+      if (Math.hypot(p.x, p.z) < R0 - 6) return A.killY;
+      for (const s of spikes) { const rx = p.x - s.x, ry = p.y - s.by, rz = p.z - s.z, along = rx * s.dir.x + ry * s.dir.y + rz * s.dir.z;
+        if (along < 0 || along > s.h) continue; const px = rx - s.dir.x * along, py = ry - s.dir.y * along, pz = rz - s.dir.z * along;
+        if (Math.hypot(px, py, pz) < s.w * (1 - along / s.h) + 0.3) return Infinity; }
+      return A.killY;
+    };
+    A.chomp = () => {}; // (a death down here still sprays blood)
+    A.fallText = (p) => (p.y > A.killY + 1 ? 'was impaled on the spikes' : 'was ground up'); A.fallBy = (p) => (p.y > A.killY + 1 ? 'Impaled on the spikes' : 'Ground up');
+  }
   // ---- backdrop: smokestacks glowing at the base, a haze of embers, a sea of smog below
   farRing(A, 20, 330, (x, z, i) => {
     const h = 90 + (i % 4) * 30, m = new THREE.Mesh(new THREE.CylinderGeometry(6 + (i % 3) * 2, 10 + (i % 3) * 3, h, 10), new THREE.MeshBasicMaterial({ color: 0x2a1e22, fog: false }));

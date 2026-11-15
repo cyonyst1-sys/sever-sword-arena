@@ -91,6 +91,7 @@ export function buildMaw(A, T) {
   // ---- breathing, and the gulp when someone falls in
   let gulp = -9;
   A.chomp = (p) => { gulp = A.lastT || 0; };
+  A.fallText = () => 'was swallowed by the maw'; A.fallBy = () => 'Swallowed by the maw';
   A.anim.push((t) => {
     const b = 1 + Math.sin(t * 0.7) * 0.012; flesh.scale.set(b, 1, b);
     const u = t - gulp, g = u >= 0 && u < 1.1 ? Math.sin(Math.min(1, u / 1.1) * Math.PI) * (u < 0.25 ? u / 0.25 : 1) : 0;
