@@ -3,12 +3,12 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261114211314';
-import { buildFoundry } from './foundry.js?v=20261114211314';
-import { buildBamboo } from './bamboo.js?v=20261114211314';
-import { buildCity } from './city.js?v=20261114211314';
-import { buildDojo } from './dojo.js?v=20261114211314';
-import { addScenery } from './scenery.js?v=20261114211314';
+import { buildTilt } from './tilt.js?v=20261114215119';
+import { buildFoundry } from './foundry.js?v=20261114215119';
+import { buildBamboo } from './bamboo.js?v=20261114215119';
+import { buildCity } from './city.js?v=20261114215119';
+import { buildDojo } from './dojo.js?v=20261114215119';
+import { addScenery } from './scenery.js?v=20261114215119';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -102,7 +102,7 @@ export class Arena {
     // everything the map adds lives under one group, so switching maps can remove it all
     this.realScene = scene; this.root = new THREE.Group(); scene.add(this.root);
     this.scene = this.root; this.quality = quality; this.mapId = MAPS[mapId] ? mapId : 'spire';
-    this.boxes = []; this.discs = []; this.ramps = []; this.rayBoxes = []; this.bamboo = []; this.pads = []; this.nodes = []; this.nodeMap = new Map(); this.spawns = []; this.anim = [];
+    this.water = null; this.boxes = []; this.discs = []; this.ramps = []; this.rayBoxes = []; this.bamboo = []; this.pads = []; this.nodes = []; this.nodeMap = new Map(); this.spawns = []; this.anim = [];
     this.mats = {
       stone: new THREE.MeshStandardMaterial({ map: stoneTex(150, 5), roughness: 0.92 }),
       dark: new THREE.MeshStandardMaterial({ map: stoneTex(110, 9), roughness: 0.95 }),
@@ -214,9 +214,13 @@ export class Arena {
     }
     S.add(sun); S.add(sun.target);
     this.killY = -45;
-    // the forest floor far below, with mist above it
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(420, 32).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x24301c, roughness: 1 }));
-    floor.position.y = -62; S.add(floor);
+    // a dark swamp far below (a giant piranha lives in it: see piranha.js), lily pads, mist above it
+    this.water = -54;
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(420, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x12261e, roughness: 0.2, metalness: 0.2 }));
+    floor.position.y = this.water; floor.userData.water = true; S.add(floor);
+    { const rr = rng(4242), n = 220, im = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 12, 0.3, Math.PI * 2 - 0.6).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x4f7a34, roughness: 0.8 }), n), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+      for (let i = 0; i < n; i++) { const a = rr() * Math.PI * 2, d = 8 + rr() * 260, s = 0.8 + rr() * 2.2; mm.compose(new THREE.Vector3(Math.cos(a) * d, this.water + 0.05, Math.sin(a) * d), q.setFromAxisAngle(up, rr() * 6.3), new THREE.Vector3(s, 1, s)); im.setMatrixAt(i, mm); }
+      S.add(im); }
     const mist = new THREE.Mesh(new THREE.CircleGeometry(420, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xdde8d6, transparent: true, opacity: 0.45, depthWrite: false }));
     mist.position.y = -40; S.add(mist);
     // the leafy roof

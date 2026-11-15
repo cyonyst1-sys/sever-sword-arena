@@ -1,16 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114211314';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114211314';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114211314';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114211314';
-import * as net from './net.js?v=20261114211314';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114211314';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114211314';
-import { makeKillFx } from './killfx.js?v=20261114211314';
-import { makeGrapple } from './grapple.js?v=20261114211314';
-import { initShop } from './shop.js?v=20261114211314';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114211314';
-import { portal } from './portal.js?v=20261114211314';
+import { Arena, MAPS } from './arena.js?v=20261114215119';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114215119';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114215119';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114215119';
+import * as net from './net.js?v=20261114215119';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114215119';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114215119';
+import { makeKillFx } from './killfx.js?v=20261114215119';
+import { makeGrapple } from './grapple.js?v=20261114215119';
+import { initShop } from './shop.js?v=20261114215119';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114215119';
+import { portal } from './portal.js?v=20261114215119';
+import { Piranhas } from './piranha.js?v=20261114215119';
 
 // ---------- settings ----------
 const store = {
@@ -42,6 +43,7 @@ function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id && !ar
 const ground = (x, z, y, m) => arena.groundHeight(x, z, y, m);
 const blood = new Particles(scene, ground, { color: 0x0d0c0e, size: 0.07, decals: true, max: 2400, decalColor: 0x060507 }); // black blood
 const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravity: 6, max: 400 });
+const splash = new Particles(scene, ground, { color: 0xcfe6dc, size: 0.32, gravity: 22, max: 500 }), piranhas = new Piranhas(scene, splash); // Great Canopy's swamp
 const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 900 }); // bamboo chips
 const killFx = makeKillFx(scene, ground); // kill effects from the shop
 // sword-trail effects from the shop
@@ -139,7 +141,7 @@ function syncFighters() {
 }
 function clearWorld() {
   for (const id of [...fighters.keys()]) dropFighter(id);
-  pieces.clear();
+  pieces.clear(); piranhas.clear();
 }
 
 // ---------- input ----------
@@ -655,10 +657,18 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     if (at) killFx.apply(kfx, at, n, pieces.last);
     sfx.slice(at || v.pos);
   } else if (v === me) sfx.fall();
-  v.group.visible = false; v.grap.hide();
+  const eaten = fell && arena.water != null; v.grap.hide();
+  if (!eaten) v.group.visible = false;
+  else { v.eatenAt = now() + 0.56; v.group.visible = true; } // stays in view until the jaws close on it
+  const ca = (now() + 0.5) * 0.25; // (side-on to where the death camera will be circling, or to this viewer's camera)
+  if (eaten) piranhas.bite(v.pos, v === me ? new THREE.Vector3(v.pos.x + Math.cos(ca) * 13, 0, v.pos.z + Math.sin(ca) * 13) : camera.position, arena.water, () => { // the jaws close: the victim is gone, black blood, a crunch
+    v.eatenAt = 0; if (!v.alive) v.group.visible = false;
+    for (let i = 0; i < 70; i++) blood.emit(v.pos.x, v.pos.y + 1, v.pos.z, (Math.random() - 0.5) * 9, Math.random() * 7, (Math.random() - 0.5) * 9, 1.5);
+    sfx.slice(v.pos); if (v === me) shake = Math.max(shake, 0.6);
+  });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
-  feed(fell ? `${vn} fell into the sky` : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
-  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? 'You fell' : `Cut down by ${kn}`; }
+  feed(fell ? (eaten ? `${vn} was eaten by the piranha` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
+  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (eaten ? 'Eaten by the piranha' : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
     const st = rosterGet(S.myId)?.streak || 0; if (bladeFor(st + 1) > bladeFor(st)) showBanner('BLADE GROWS');
@@ -676,7 +686,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   }
   return true;
 }
-const deathAt = new THREE.Vector3(); let deathBy = '';
+const deathAt = new THREE.Vector3(); let deathBy = '', deathEaten = false;
 
 // ---------- spawning ----------
 // Pagoda Falls: everyone comes in on the outer ring (rock spires and terraces) and rushes the pagoda
@@ -1885,8 +1895,8 @@ function updateCamera(dt) {
   arena.follow(me.alive ? me.pos : deathAt);
   if (!me.alive) { // circle the place you died
     const a = now() * 0.25;
-    camPos.set(deathAt.x + Math.cos(a) * 6, deathAt.y + 3.5, deathAt.z + Math.sin(a) * 6);
-    camera.position.lerp(camPos, 1 - Math.exp(-3 * dt)); camera.lookAt(deathAt.x, deathAt.y + 0.5, deathAt.z);
+    const R = deathEaten ? 13 : 6; camPos.set(deathAt.x + Math.cos(a) * R, deathAt.y + (deathEaten ? 1.5 : 3.5), deathAt.z + Math.sin(a) * R); // (the piranha: stand back to see all of it)
+    camera.position.lerp(camPos, 1 - Math.exp(-(deathEaten ? 7 : 3) * dt)); camera.lookAt(deathAt.x, deathAt.y + (deathEaten ? -1.5 : 0.5), deathAt.z);
     return;
   }
   const look = viewDir(camLook); // the camera follows its own angles, not the twisting body
@@ -1965,14 +1975,14 @@ function tick(rdt, tt) {
       f.updateTrail(tt);
       const tfx = trailFx[f.trailStyle.fx]; // ember, petal and zap trails shed particles off a fast blade
       if (tfx && f.tipSpeed > 9 && f.trail.length > 1) for (let k = 0; k < 2; k++) { const u = Math.random(), p = _t.copy(f.hand).lerp(f.tip, 0.4 + u * 0.6), j = f.trailStyle.fx === 'zap' ? 5 : 1.5; tfx.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.18 : 0.9); }
-      f.group.visible = f.alive && !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0);
+      f.group.visible = f.alive ? !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0) : f.eatenAt > now(); // (a fighter the piranha is about to eat stays in view)
       // rope
       if (f.hook) f.grap.show(f.handL, f.hook.p, rdt); else f.grap.hide();
     }
     netTick(rdt);
   } else if (S.phase === 'game') netTick(rdt);
   const pdt = hitstop > 0 ? rdt * 0.08 : rdt; hitstop -= rdt;
-  pieces.update(pdt); blood.update(pdt); sparks.update(pdt); leafBits.update(pdt); debris.paper.update(pdt); debris.wood.update(pdt); debris.straw.update(pdt); debris.glass.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
+  pieces.update(pdt); blood.update(pdt); splash.update(pdt); piranhas.update(pdt); sparks.update(pdt); leafBits.update(pdt); debris.paper.update(pdt); debris.wood.update(pdt); debris.straw.update(pdt); debris.glass.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
   shake *= Math.exp(-9 * rdt); punch *= Math.exp(-6 * rdt);
   updateCamera(rdt);
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it

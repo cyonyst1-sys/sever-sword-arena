@@ -156,6 +156,7 @@ export function addScenery(A) {
     if (!o.isMesh || !o.material || Array.isArray(o.material)) return;
     const g = o.geometry, m = o.material, p = g.parameters || {};
     if (g.type === 'CircleGeometry' && p.radius >= 400) {
+      if (o.userData.water) { o.scale.setScalar(1.35); return; }
       if (m.isMeshStandardMaterial) { o.scale.setScalar(1.35); m.map = rockMap.clone(); m.map.needsUpdate = true; m.map.repeat.set(60, 60); m.color.multiplyScalar(1.6); m.needsUpdate = true; return; } // the canopy's forest floor
       if (m.opacity < 0.5) return;
       m.map = clouds; m.needsUpdate = true; seas.push(o);
