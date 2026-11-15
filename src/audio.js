@@ -34,9 +34,33 @@ function tn(f0, f1, dur, vol, type) {
   const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(g); g.connect(MG); o.start(t); o.stop(t + dur + 0.05);
 }
+// a short voiced grunt: a buzzy source through two vowel formants ("eh"), its pitch sagging
+function voice(f0, f1, dur, vol, fm = [[560, 6], [1750, 9]]) {
+  if (!AC || vol < 0.003) return;
+  const t = AC.currentTime, o = AC.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  const vib = AC.createOscillator(), vg = AC.createGain(); vib.frequency.value = 23; vg.gain.value = f0 * 0.04; vib.connect(vg); vg.connect(o.frequency); // a rough, wet wobble
+  const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.setValueAtTime(vol, t + dur * 0.55); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  for (const [f, q] of fm) { const b = AC.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = f; b.Q.value = q; o.connect(b); b.connect(g); }
+  g.connect(MG); o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
+}
+// one small wet bubble pop, after a delay: a quick upward chirp
+function bubble(delay, f, vol) {
+  if (!AC || vol < 0.003) return;
+  const t = AC.currentTime + delay, o = AC.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 2.2, t + 0.035);
+  const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+  o.connect(g); g.connect(MG); o.start(t); o.stop(t + 0.08);
+}
 export const sfx = {
   swish(sp, p) { const a = att(p, NEAR); nz(0.18, 600 + Math.min(sp, 40) * 40, 3200, 1.1, a * (0.08 + Math.min(0.2, sp / 150))); },
-  slice(p) { const a = att(p); nz(0.25, 3200, 700, 0.8, 0.35 * a); tn(170, 45, 0.22, 0.4 * a); nz(0.35, 500, 120, 0.7, 0.3 * a, 'lowpass'); },
+  slice(p) { const a = att(p); nz(0.25, 3200, 700, 0.8, 0.35 * a); nz(0.3, 420, 110, 0.7, 0.32 * a, 'lowpass'); }, // the cut: a hiss and a soft thud
+  kill(p) { // a kill: the cut, a short wet "bleh", then light gurgling
+    const a = att(p); this.slice(p);
+    voice(150 + Math.random() * 40, 85, 0.3, 0.32 * a);
+    for (let i = 0; i < 9; i++) bubble(0.28 + i * 0.07 + Math.random() * 0.05, 260 + Math.random() * 380, (0.05 - i * 0.004) * a);
+    nz(0.6, 700, 250, 3, 0.05 * a); // a little wet rasp under the bubbles
+  },
   tear(p) { const a = att(p); nz(0.16, 5200, 1800, 2, 0.22 * a); nz(0.1, 2600, 900, 3, 0.12 * a); },
   chop(p) { const a = att(p); nz(0.12, 2200, 900, 2.5, 0.3 * a); tn(260, 140, 0.1, 0.18 * a, 'triangle'); nz(0.25, 700, 300, 1, 0.12 * a, 'lowpass'); },
   steel(p) { const a = att(p); [880, 1760, 2640].forEach((f, i) => tn(f, f, 0.25 - i * 0.05, 0.06 * a)); },

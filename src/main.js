@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114233847';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114233847';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114233847';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114233847';
-import * as net from './net.js?v=20261114233847';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114233847';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114233847';
-import { makeKillFx } from './killfx.js?v=20261114233847';
-import { makeGrapple } from './grapple.js?v=20261114233847';
-import { initShop } from './shop.js?v=20261114233847';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114233847';
-import { portal } from './portal.js?v=20261114233847';
-import { Piranhas, GiantSaws } from './piranha.js?v=20261114233847';
+import { Arena, MAPS } from './arena.js?v=20261114234237';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114234237';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114234237';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114234237';
+import * as net from './net.js?v=20261114234237';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114234237';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114234237';
+import { makeKillFx } from './killfx.js?v=20261114234237';
+import { makeGrapple } from './grapple.js?v=20261114234237';
+import { initShop } from './shop.js?v=20261114234237';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114234237';
+import { portal } from './portal.js?v=20261114234237';
+import { Piranhas, GiantSaws } from './piranha.js?v=20261114234237';
 
 // ---------- settings ----------
 const store = {
@@ -655,7 +655,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     let at = pieces.split(soup, n, -n.dot(pt), v.vel, imp, 1, burst);
     if (!at) { const mid = v.pos.clone(); mid.y += 1.1; at = pieces.split(soup, n, -n.dot(mid), v.vel, imp, 1, burst); }
     if (at) killFx.apply(kfx, at, n, pieces.last);
-    sfx.slice(at || v.pos);
+    sfx.kill(at || v.pos);
   } else if (v === me) sfx.fall();
   const eaten = fell && arena.water != null; v.grap.hide(); if (fell && arena.chomp) { arena.chomp(v.pos); for (let i = 0; i < 80; i++) blood.emit(v.pos.x, v.pos.y + 1, v.pos.z, (Math.random() - 0.5) * 8, 2 + Math.random() * 8, (Math.random() - 0.5) * 8, 1.5); } // (Colosseum: the maw gulps)
   if (!eaten) v.group.visible = false;
@@ -666,12 +666,12 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   if (sawn) saws.bite(v.pos, look, arena.water, (n) => { // the saw's edge reaches the body: cut in two along the blade
     v.eatenAt = 0; if (v.alive) return; v.group.visible = false;
     v.pose(0); const pt = v.pos.clone(); pt.y += 1; pieces.split(bakeMeshes(v.meshes), n, -n.dot(pt), new THREE.Vector3(0, 3, 0), new THREE.Vector3(0, 7, 0), 1);
-    sfx.slice(v.pos); if (v === me) shake = Math.max(shake, 0.6);
+    sfx.kill(v.pos); if (v === me) shake = Math.max(shake, 0.6);
   });
   else if (eaten) piranhas.bite(v.pos, look, arena.water, () => { // the jaws close: the victim is gone, black blood, a crunch
     v.eatenAt = 0; if (!v.alive) v.group.visible = false;
     for (let i = 0; i < 70; i++) blood.emit(v.pos.x, v.pos.y + 1, v.pos.z, (Math.random() - 0.5) * 9, Math.random() * 7, (Math.random() - 0.5) * 9, 1.5);
-    sfx.slice(v.pos); if (v === me) shake = Math.max(shake, 0.6);
+    sfx.kill(v.pos); if (v === me) shake = Math.max(shake, 0.6);
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
   feed(fell ? (sawn ? `${vn} was sawn in half` : eaten ? `${vn} was eaten by the piranha` : arena.chomp ? `${vn} was swallowed by the maw` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
