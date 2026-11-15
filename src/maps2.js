@@ -3,7 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261115004640';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261115004754';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -243,6 +243,18 @@ export function buildIsles(A, T) {
     g.fillStyle = '#3f7a34'; g.fillRect(0, 0, s, s); for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '20,50,20' : '120,180,90'},${0.15 + r() * 0.25})`; g.fillRect(r() * s, 0, 1 + r() * 2, s); }
   }, 64) });
   A.plantStalks(-70, 70, false, true);
+  { // ...and thousands more blades filling in between them, thick as a meadow (scenery: one draw call, not hooked or cut)
+    const low = A.quality === 'low', list = [], at = (x, z) => {
+      let ny = 0, nd = 1e9; for (const p of isl) { const d = Math.hypot(p.x - x, p.z - z); if (d < nd) { nd = d; ny = p.y; } }
+      list.push([x, z, ny + 1 + r() * 5.5, 0.06 + r() * 0.05, r() * TAU]);
+    };
+    const step = low ? 2.6 : 1.55;
+    for (let gx = -108; gx <= 108; gx += step) for (let gz = -108; gz <= 108; gz += step) { const x = gx + (r() - 0.5) * step * 1.4, z = gz + (r() - 0.5) * step * 1.4; if (Math.hypot(x, z) < 112 && r() > 0.12 && clear(A, x, z, 0.7)) at(x, z); }
+    for (const [gx, gz] of groves) for (let i = 0; i < (low ? 80 : 220); i++) { const a = r() * TAU, d = Math.sqrt(r()) * 13, x = gx + Math.cos(a) * d, z = gz + Math.sin(a) * d; if (clear(A, x, z, 0.6)) at(x, z); }
+    const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 1, 1, 4, 1, true).translate(0, 0.5, 0), M.bamboo, list.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v = new THREE.Vector3(), s = new THREE.Vector3();
+    list.forEach(([x, z, top, rad, rot], i) => { mm.compose(v.set(x, -70, z), q.setFromAxisAngle(up, rot), s.set(rad, top + 70, rad * 0.25)); im.setMatrixAt(i, mm); });
+    im.frustumCulled = false; S.add(im);
+  }
   A.finishNav();
 
   // ---- backdrop: stars, the full moon with a halo, far floating islands with trees, a moonlit cloud sea, fireflies
