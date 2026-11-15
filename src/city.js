@@ -3,9 +3,9 @@
 // breakable chunks as the Paper Dojo: every window pane shatters, office partitions and crates break, and the
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
-import { cloudHeaps } from './scenery.js?v=20261115004849';
+import { cloudHeaps } from './scenery.js?v=20261115005338';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261115004849';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261115005338';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -61,10 +61,11 @@ export function buildCity(A, T) {
     for (let k = 0; k < n; k++) {
       const lo = floors[k], hi = floors[k + 1], y = lo.y, s = k % 2, xs = s === 0 ? x0 + 1.6 : x1 - 1.6;
       A.curPlat = lo.i;
-      if (k === 0) box4(x0, x1, z0, z1, y, y + H - 0.5); // (bare bones: glass only round the ground floor)
+      if (k <= 1) box4(x0, x1, z0, z1, y, y + H - 0.5); else { glass(x0 + 0.35, z0, x1 - 0.35, z0, y, y + H - 0.5); glass(x0 + 0.35, z1, x1 - 0.35, z1, y, y + H - 0.5); } // (glass all round the lower floors, on two sides above)
       stairs(lo, hi, xs, z1 - 1.4, xs, z0 + 2.6, 2.5);
       const pz = z + (r() - 0.5) * 3;
-      void pz; // (no partitions: open floors)
+      if (k < 2) wall(A, x0 + 3.3, pz, x1 - 3.3, pz, y, y + H - 0.5, { kind: 'drywall', posts: false, ceil: true, doors: [0.3, 0.75], t: 0.14 }); // drywall partitions on the lower floors
+      if (k === 0) wall(A, x, z0 + 3, x, pz - 1.2, y, y + H - 0.5, { kind: 'drywall', posts: false, ceil: true, doors: [0.5], t: 0.14 });
       stack(A, x + (r() - 0.5) * (w - 8), z + (r() - 0.5) * (d - 5), y, 2, 1, 1, 0.8, 0.75, 0.7, 'wood', false); // a desk
     }
     const top = floors[n], ty = top.y; A.curPlat = top.i;
@@ -117,14 +118,15 @@ export function buildCity(A, T) {
       stack(A, p.x - hw * 0.5, p.z + hd * 0.4, p.y, 1, 6, 1, 2.4, 0.12, 1.2, 'drywall', false);
       stack(A, p.x + hw * 0.45, p.z - hd * 0.45, p.y, 2, 2, 2, 1, 1, 1, 'wood');
       if (k % 2 === 0 && p.w > 10) wall(A, p.x - hw + 1.5, p.z, p.x + hw - 1.5, p.z, p.y, p.y + 3.6, { kind: 'drywall', posts: false, doors: [0.5], t: 0.14 });
+      if (k === 0) wall(A, p.x, p.z - hd + 1.5, p.x, p.z + hd - 1.5, p.y, p.y + 3.6, { kind: 'drywall', posts: false, doors: [0.3, 0.7], t: 0.14 }); // (and across the other way on the lowest deck)
     });
     for (const [y0, y1] of o.glass || []) { A.curPlat = ps[0].i; glass(xs[0] + 0.3, z0, xs[xs.length - 1] - 0.3, z0, y0, y1); glass(x0, zs[0] + 0.3, x0, zs[zs.length - 1] - 0.3, y0, y1); } // the first windows going in
     A.curPlat = undefined;
     return ps;
   };
-  const c1 = frame(0, 0, 24, 24, -10, 52, [[-2, 0, 1, 0, 1], [14, 0.5, 1, 0, 1], [30, 0, 1, 0.5, 1], [46, 0.5, 1, 0, 0.5]], { glass: [[-2, 5.6]] });
-  frame(31, 0, 18, 18, -4, 40, [[0, 0, 1, 0, 1], [16, 0, 1, 0.34, 0.67], [32, 0, 1, 0, 0.5]], { glass: [[0, 7.6]] });
-  frame(-31, 0, 18, 18, -8, 28, [[-4, 0, 1, 0, 1], [12, 0, 1, 0, 0.5]]);
+  const c1 = frame(0, 0, 24, 24, -10, 52, [[-2, 0, 1, 0, 1], [14, 0.5, 1, 0, 1], [30, 0, 1, 0.5, 1], [46, 0.5, 1, 0, 0.5]], { glass: [[-2, 5.6], [14, 19.6], [30, 35.6]] });
+  frame(31, 0, 18, 18, -4, 40, [[0, 0, 1, 0, 1], [16, 0, 1, 0.34, 0.67], [32, 0, 1, 0, 0.5]], { glass: [[0, 7.6], [16, 21.6]] });
+  frame(-31, 0, 18, 18, -8, 28, [[-4, 0, 1, 0, 1], [12, 0, 1, 0, 0.5]], { glass: [[-4, 1.6], [12, 17.6]] });
   { // a tower crane on the big frame: mast, a long jib you can run along, a counterweight, a cab
     const p = c1[c1.length - 1]; A.curPlat = p.i; const g = group();
     chunk(A, g, 'steel', 5.4, 6.6, 46, 80, -6.6, -5.4, true); // (stands on the top deck)
@@ -138,9 +140,9 @@ export function buildCity(A, T) {
     A.curPlat = undefined;
   }
 
-  // ---------- two tower cranes out past the edge: a mast up out of the clouds, a jib reaching outward (run along it,
+  // ---------- two tower cranes out past the edge: a mast up out of the clouds, a jib reaching in over the city (run along it,
   // hook it), a counterweight, and a load platform hanging on the cable that you can drop onto ----------
-  for (const [mx, mz, dir, topY, py] of [[-50, -16, -1, 56, 20], [50, 18, 1, 62, 26]]) {
+  for (const [mx, mz, dir, topY, py] of [[-50, -16, 1, 56, 20], [50, 18, -1, 62, 26]]) {
     const L = 30, tipX = mx + dir * (L - 4), yellowS = std(0xe8b422, { roughness: 0.6, metalness: 0.3 });
     A.addBox(mx - 1, mx + 1, -90, topY, mz - 1, mz + 1, yellowS); A.pillars.push({ x: mx, z: mz, w: 2 }); // the mast
     A.addBox(Math.min(mx - dir * 10, mx + dir * L), Math.max(mx - dir * 10, mx + dir * L), topY, topY + 1.2, mz - 0.8, mz + 0.8, yellowS); // the jib (and the counter-jib behind)
