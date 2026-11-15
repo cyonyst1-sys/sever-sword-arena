@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115044059';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115044059';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115044059';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115044059';
-import * as net from './net.js?v=20261115044059';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115044059';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115044059';
-import { makeKillFx } from './killfx.js?v=20261115044059';
-import { makeGrapple } from './grapple.js?v=20261115044059';
-import { initShop } from './shop.js?v=20261115044059';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115044059';
-import { portal } from './portal.js?v=20261115044059';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115044059';
+import { Arena, MAPS } from './arena.js?v=20261115045249';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115045249';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115045249';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115045249';
+import * as net from './net.js?v=20261115045249';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115045249';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115045249';
+import { makeKillFx } from './killfx.js?v=20261115045249';
+import { makeGrapple } from './grapple.js?v=20261115045249';
+import { initShop } from './shop.js?v=20261115045249';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115045249';
+import { portal } from './portal.js?v=20261115045249';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115045249';
 
 // ---------- settings ----------
 const store = {
@@ -258,9 +258,39 @@ function lipHook(f, pt) {
   }
   return null;
 }
+// an enemy close to where you're aiming (within ~2 m of the line), in rope range and in clear sight
+function enemyInSights(f, origin, dir) {
+  let best = null, bp = 2.2; const max = HOOK_MAX * upm(f, 'rope');
+  for (const g of fighters.values()) {
+    if (g === f || !g.alive || !isEnemy(f, g)) continue;
+    const to = _t3.set(g.pos.x - origin.x, g.pos.y + 1.1 - origin.y, g.pos.z - origin.z), along = to.dot(dir);
+    if (along < 2 || along > max) continue;
+    const perp = Math.sqrt(Math.max(0, to.lengthSq() - along * along)); if (perp >= bp) continue;
+    const d = to.length(), hit = arena.raycast(origin, to.clone().divideScalar(d), d); if (hit && hit.dist < d - 1.2) continue; // (something in the way)
+    bp = perp; best = g;
+  }
+  return best;
+}
+// someone has hooked fighter vId: whoever controls that fighter pulls it (here, or tell its player)
+function yankStart(vId, byId) {
+  const v = fighters.get(vId); if (!v || !v.alive) return;
+  if (isLocal(v)) v.yankedBy = { id: byId, until: now() + 1.4 };
+  else if (S.host) net.sendTo(vId, { t: 'yank', v: vId, by: byId });
+}
+// the hooker's end of an enemy hook: the rope follows them in; it lets go once they're pulled across
+function enemyHook(f) {
+  const e = fighters.get(f.hook.enemy);
+  if (!e || !e.alive || now() > f.hook.until || Math.hypot(e.pos.x - f.pos.x, e.pos.z - f.pos.z) < 3) { f.hook = null; return; }
+  f.hook.p.set(e.pos.x, e.pos.y + 1.1, e.pos.z);
+}
 function fireHook(f, origin, dir) {
   if (!f.alive || (f.hookCd || 0) > 0) return false;
   if (!origin) { origin = camera.position.clone(); dir = new THREE.Vector3(); camera.getWorldDirection(dir); origin.addScaledVector(dir, camDist); }
+  if (!f.onGround && !f.isBot) { const e = enemyInSights(f, origin, dir); if (e) { // in the air, an enemy in your sights: hook them and yank them over
+    f.hook = { p: e.pos.clone().setY(e.pos.y + 1.1), len: 99, enemy: e.id, until: now() + 1.4 }; f.hookCd = 0.6;
+    if (S.host) yankStart(e.id, f.id); else net.send({ t: 'yank', v: e.id });
+    sfx.hookFire(f.pos); sfx.hookHit(f.hook.p); return true;
+  } }
   arena.rayThin = !!f.isBot && !f.hookGlass; const h = arena.grappleTarget(origin, dir, HOOK_MAX * upm(f, 'rope')); arena.rayThin = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
   f.hookCd = 0.25;
   if (!h) { sfx.hookFire(f.pos); return false; }
@@ -343,7 +373,17 @@ function stepFighter(f, dt, wish, sprint, jump) {
       f.vel.y = Math.max(f.vel.y, JUMP_V * 0.92 * Math.sqrt(upm(f, 'jump'))); sfx.jump(f.pos);
       for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; debris.paper.emit(f.pos.x + Math.cos(a) * 0.3, f.pos.y, f.pos.z + Math.sin(a) * 0.3, Math.cos(a) * 2.5, -0.5, Math.sin(a) * 2.5, 0.5); } // a puff of air under the feet
     }
-    if (f.hook) applyHook(f, dt);
+    if (f.hook && f.hook.enemy) enemyHook(f); else if (f.hook) applyHook(f, dt);
+  }
+  if (f.yankedBy) { // hooked by an enemy: hauled through the air to just in front of them (lifted off the ground if they're above), then let go
+    const h = fighters.get(f.yankedBy.id);
+    if (!h || !h.alive || !f.alive || now() > f.yankedBy.until) f.yankedBy = null;
+    else {
+      const fx = -Math.sin(h.yaw), fz = -Math.cos(h.yaw), tx = h.pos.x + fx * 2.6, ty = h.pos.y + 0.3, tz = h.pos.z + fz * 2.6;
+      const dx = tx - f.pos.x, dy = ty - f.pos.y, dz = tz - f.pos.z, L = Math.hypot(dx, dy, dz);
+      if (L < 1.6) { f.yankedBy = null; f.vel.set(h.vel.x * 0.5 + fx * 1.5, Math.max(1.5, h.vel.y * 0.5), h.vel.z * 0.5 + fz * 1.5); f.stagger = Math.max(f.stagger || 0, 0.6); } // released in front of them, off balance
+      else { const sp = Math.min(30, 12 + L * 1.8); f.vel.set(dx / L * sp, dy / L * sp, dz / L * sp); f.onGround = false; f.hook = null; f.dashT = 0; f.mantle = null; }
+    }
   }
   f.prevPos.copy(f.pos);
   const was = f.onGround, fallV = f.vel.y;
@@ -354,7 +394,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
     if (arena.brk) crash(f);
     f.onGround = arena.collide(f.pos, f.vel, RAD, HGT, (k ? f.onGround : was) && f.dashT <= 0 && !f.hook, py);
   }
-  if (f.hook) { // rope can't stretch
+  if (f.hook && !f.hook.enemy) { // rope can't stretch
     const c = _t.copy(f.pos); c.y += 1.3; const d = _t2.subVectors(f.hook.via || f.hook.p, c); const L = d.length();
     if (L > f.hook.len + 0.05) f.pos.addScaledVector(d.divideScalar(L), L - f.hook.len);
     if (f.onGround && f.hook.p.y > f.pos.y + 1) f.onGround = false;
@@ -1273,7 +1313,7 @@ function startMatch() {
   sendObj();
   if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); }
 }
-// how close the match is to its end, 0..1 (by the clock, the leading score, or players left): Comet Run uses it
+// how close the match is to its end, 0..1 (by the clock, the leading score, or players left): Comet Crash uses it
 function matchProgress() {
   if (S.phase !== 'game') return 0;
   let p = S.mode === 'lbs' || coop() || S.mode === 'boss' ? 0 : 1 - S.timeLeft / FFA_TIME;
@@ -1626,6 +1666,7 @@ function hostMsg(from, d) {
   }
   const f = fighters.get(from); if (!f) return;
   if (d.t === 'p' && Array.isArray(d.s)) applyState(f, d.s);
+  else if (d.t === 'yank' && typeof d.v === 'string') yankStart(d.v, from); // (a player hooked an enemy)
   else if (d.t === 'bamboo' && Number.isInteger(d.s) && typeof d.y === 'number') { cutBamboo(d.s, d.y); net.broadcast({ t: 'bamboo', s: d.s, y: d.y }, from); }
   else if (d.t === 'chain' && Number.isInteger(d.id)) { cutChain(d.id); net.broadcast({ t: 'chain', id: d.id }, from); }
   else if (d.t === 'brk' && Number.isInteger(d.i)) { smashChunk(d.i, Array.isArray(d.n) ? d.n : null, +d.d || 0); net.broadcast({ t: 'brk', i: d.i, n: d.n, d: d.d }, from); }
@@ -1653,6 +1694,7 @@ function clientMsg(d) {
   else if (d.t === 'wave') { S.wave = d.n; showBanner('WAVE ' + d.n); sfx.gong(); }
   else if (d.t === 'banner') showBanner(d.s);
   else if (d.t === 'obj') applyObj(d.o);
+  else if (d.t === 'yank' && d.v === S.myId && me) me.yankedBy = { id: d.by, until: now() + 1.4 }; // (we've been hooked)
   else if (d.t === 'bamboo') cutBamboo(d.s, d.y);
   else if (d.t === 'chain') cutChain(d.id);
   else if (d.t === 'brk') smashChunk(d.i, d.n, d.d);
@@ -2021,7 +2063,7 @@ function frame(t) {
 }
 function tick(rdt, tt) {
   arena.update(tt); fx.update(tt); if (arena.tendrilTick) arena.tendrilTick(rdt, fighters.values()); // (Colosseum: tendrils sway and get dragged by whoever hangs on them)
-  if (arena.cometTick && arena.cometTick(rdt, matchProgress(), S.ended)) { shake = Math.max(shake, 1.4); sfx.thunder(); sfx.thunder(); } // (Comet Run: the planet looms; at the end, impact)
+  if (arena.cometTick && arena.cometTick(rdt, matchProgress(), S.ended)) { shake = Math.max(shake, 1.4); sfx.thunder(); sfx.thunder(); } // (Comet Crash: the planet looms; at the end, impact)
   if (S.phase === 'game' && !S.paused) {
     if (S.host) hostTick(rdt);
     if (arena.tickPads) arena.tickPads(fighters.values(), now()); // (Bamboo Fort: spawn pads fall away once left)

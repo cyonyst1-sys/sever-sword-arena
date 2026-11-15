@@ -1,4 +1,4 @@
-// Comet Run: a cluster of asteroids (jump and dash across them) riding a comet toward a planet, with small rocks
+// Comet Crash: a cluster of asteroids (jump and dash across them) riding a comet toward a planet, with small rocks
 // floating round it to grapple. The planet grows as the match goes on (by time left, the score, or players left),
 // stars stream past faster and faster, the leading edge catches fire in the atmosphere, and when the match ends the
 // comet hits the planet and explodes.
