@@ -3,7 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261115012125';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261115012236';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -264,6 +264,14 @@ export function buildIsles(A, T) {
     const red = std(0xb3202a, { roughness: 0.55, emissive: 0x2a0408, side: THREE.DoubleSide }), spikeM = std(0xe8d8c0, { roughness: 0.4 }), vein = std(0x5a0a12, { roughness: 0.8 });
     for (const p of pads) {
       const root = new THREE.Group(); root.position.set(p.x, WATER + 0.05, p.z); root.rotation.y = r() * TAU; S.add(root);
+      { // a thin vine straight up out of its middle to just above the grass, a glowing red bud on top: you can see where it lurks
+        let gl = -1e9; for (const st of A.bamboo) if (Math.abs(st.x - p.x) < 16 && Math.abs(st.z - p.z) < 16) gl = Math.max(gl, st.top);
+        if (gl < WATER) gl = WATER + 12;
+        const H = gl + 2.5 - WATER, pts = []; for (let k = 0; k <= 8; k++) { const u = k / 8; pts.push(new THREE.Vector3(Math.sin(u * 7 + p.x) * 0.35 * u, u * H, Math.cos(u * 5 + p.z) * 0.35 * u)); }
+        const stem = new THREE.Group(); root.add(stem); p.stem = stem;
+        stem.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.09, 6, false), std(0x6a1018, { roughness: 0.6, emissive: 0x2a0408 })));
+        const bud = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 8), new THREE.MeshStandardMaterial({ color: 0xff3a3a, emissive: 0xff1a20, emissiveIntensity: 1.4 })); bud.scale.y = 1.4; bud.position.copy(pts[8]); stem.add(bud);
+      }
       p.halves = [-1, 1].map((sd) => {
         const h = new THREE.Group(); root.add(h);
         const g = new THREE.CircleGeometry(p.R, 24, sd < 0 ? 0.08 : Math.PI + 0.08, Math.PI - 0.16).rotateX(-Math.PI / 2); // (a notch at the hinge)
@@ -280,6 +288,7 @@ export function buildIsles(A, T) {
     A.anim.push((t, dt) => {
       dt = dt || 0;
       for (const p of pads) {
+        if (p.stem) { p.stem.rotation.x = Math.sin(t * 0.7 + p.x) * 0.03; p.stem.rotation.z = Math.cos(t * 0.6 + p.z) * 0.03; } // (the vine sways a little)
         if (p.t < 0) continue;
         p.t += dt; const u = p.t, lift = p.at.y - WATER - 0.6;
         const up = u < 0.25 ? u / 0.25 : u < 0.7 ? 1 : Math.max(0, 1 - (u - 0.7) / 0.8); // leap up, hold the bite, sink back
