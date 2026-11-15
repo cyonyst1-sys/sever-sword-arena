@@ -116,7 +116,7 @@ export function buildTendrils(A, pts) {
     const uB = { value: new THREE.Vector2() };
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05, emissive: 0x220308 });
     mat.onBeforeCompile = (sh) => { sh.uniforms.uB = uB; sh.uniforms.uH = { value: H };
-      sh.vertexShader = 'uniform vec2 uB; uniform float uH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat ts = clamp(position.y / uH, 0.0, 1.0); transformed.xz += uB * ts * ts;'); };
+      sh.vertexShader = 'uniform vec2 uB; uniform float uH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat ts = clamp(position.y / uH, 0.0, 1.0); transformed.xz += uB * pow(ts, 2.6); transformed.y -= 14.0 * pow(ts, 5.0);'); };
     mat.customProgramCacheKey = () => 'tendril';
     const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; A.scene.add(m);
     const ph = i * 1.7, dl = Math.hypot(x, z) || 1, inw = dl - 5 - (i % 4) * 2.5, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2); // (curling right in: the tips hang over the centre platform) // a natural curve at rest
@@ -126,10 +126,11 @@ export function buildTendrils(A, pts) {
   });
   const tipOff = (t, out) => out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin((A.lastT || 0) * 0.4 + t.ph) * 3, Math.cos((A.lastT || 0) * 0.33 + t.ph * 1.3) * 3));
   const tmp = new THREE.Vector2();
-  A.tendrilPoint = (i, s, out) => { const t = list[i]; tipOff(t, tmp); return out.set(t.x + tmp.x * s * s, t.by + s * t.H, t.z + tmp.y * s * s); };
+  const bw = (s) => Math.pow(s, 2.6), dropY = (s) => 14 * Math.pow(s, 5); // (the shape: rising, then hooking in hard over the top, the tip drooping like a claw)
+  A.tendrilPoint = (i, s, out) => { const t = list[i]; tipOff(t, tmp); return out.set(t.x + tmp.x * bw(s), t.by + s * t.H - dropY(s), t.z + tmp.y * bw(s)); };
   A.tendrilAt = (p) => { // which tendril (and how far up it) a hook point is on
-    for (let i = 0; i < list.length; i++) { const t = list[i], s = (p.y - t.by) / t.H; if (s < 0 || s > 1) continue; tipOff(t, tmp);
-      if (Math.hypot(p.x - (t.x + tmp.x * s * s), p.z - (t.z + tmp.y * s * s)) < t.R0 + 1) return { i, s }; }
+    for (let i = 0; i < list.length; i++) { const t = list[i]; let s = (p.y - t.by) / t.H; s = (p.y - t.by + dropY(Math.min(1, Math.max(0, s)))) / t.H; if (s < 0 || s > 1) continue; tipOff(t, tmp);
+      if (Math.hypot(p.x - (t.x + tmp.x * bw(s)), p.z - (t.z + tmp.y * bw(s))) < t.R0 + 1) return { i, s }; }
     return null;
   };
   const pv = new THREE.Vector3();
@@ -143,7 +144,7 @@ export function buildTendrils(A, pts) {
       t.vel.x += (-2 * t.bend.x - 1.1 * t.vel.x + t.fx) * dt; t.vel.y += (-2 * t.bend.y - 1.1 * t.vel.y + t.fz) * dt;
       t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 12) t.bend.multiplyScalar(12 / l);
       tipOff(t, tmp); t.uB.value.copy(tmp);
-      for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * s * s, cz = t.z + tmp.y * s * s, r = t.R0 * (1 - s * 0.75) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; }
+      for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * bw(s), cz = t.z + tmp.y * bw(s), cy = t.by + s * t.H - dropY(s), r = t.R0 * (1 - s * 0.75) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; b.y0 = cy - t.H * 0.05; b.y1 = cy + t.H * 0.05; }
     }
     for (const f of fighters) { const h = f.hook; if (h && h.tend) A.tendrilPoint(h.tend.i, h.tend.s, h.p); } // ropes stay attached as it moves
   };

@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115011718';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115011718';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115011718';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115011718';
-import * as net from './net.js?v=20261115011718';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115011718';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115011718';
-import { makeKillFx } from './killfx.js?v=20261115011718';
-import { makeGrapple } from './grapple.js?v=20261115011718';
-import { initShop } from './shop.js?v=20261115011718';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115011718';
-import { portal } from './portal.js?v=20261115011718';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115011718';
+import { Arena, MAPS } from './arena.js?v=20261115012125';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115012125';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115012125';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115012125';
+import * as net from './net.js?v=20261115012125';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115012125';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115012125';
+import { makeKillFx } from './killfx.js?v=20261115012125';
+import { makeGrapple } from './grapple.js?v=20261115012125';
+import { initShop } from './shop.js?v=20261115012125';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115012125';
+import { portal } from './portal.js?v=20261115012125';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115012125';
 
 // ---------- settings ----------
 const store = {
@@ -453,6 +453,7 @@ function bladeSweep(f, dt) {
   // chains (Swinging Decks): a blade moving through one snaps it
   if (arena.lines && isLocal(f) && !f.isBot) for (const L of arena.lines) { // (players only: bots fighting near the corners would drop every deck)
     if (!L.alive) continue;
+    if (f.hook && L.deck && Math.hypot(f.hook.p.x - L.deck.x, f.hook.p.z - L.deck.z) < (L.deck.round || 8) + 1.5 && Math.abs(f.hook.p.y - L.deck.y) < 4) continue; // (not the chain holding up the deck you're hooked onto)
     const R = f.bladeLen + 2;
     if (f.pos.x < Math.min(L.a.x, L.b.x) - R || f.pos.x > Math.max(L.a.x, L.b.x) + R || f.pos.z < Math.min(L.a.z, L.b.z) - R || f.pos.z > Math.max(L.a.z, L.b.z) + R || f.pos.y > L.b.y || f.pos.y + 3.5 < L.a.y) continue;
     for (let k = 0; k <= 6; k++) {
@@ -465,6 +466,7 @@ function bladeSweep(f, dt) {
   // and the bamboo (canopy): a blade moving through a stalk severs it (a swing, or just carrying it past at speed); bots too
   for (const s of arena.bambooNear(f.pos.x, f.pos.z, f.bladeLen + 2.5, _near)) { // (only the stalks near us)
     const st = arena.bamboo[s];
+    if (f.hook && Math.hypot(f.hook.p.x - st.x, f.hook.p.z - st.z) < st.r + 0.6) continue; // never the one you're swinging from (not even by mowing)
     if (arena.mow && (st.cutCd || 0) <= now() && Math.abs(st.x - f.pos.x) < st.r + 1 && Math.abs(st.z - f.pos.z) < st.r + 1) { // (Moonlit Isles: wading through the grass mows it)
       const y = f.pos.y + 0.9; if (st.segs.some((g) => y > g.y0 + 0.3 && y < g.y1 - 0.3)) { st.cutCd = now() + 0.3; cutBamboo(s, +y.toFixed(2), true); continue; }
     }
@@ -550,6 +552,12 @@ function segBox(a, c, b) {
 const inBox = (p, b, m) => p.x > b.x0 - m && p.x < b.x1 + m && p.y > b.y0 - m && p.y < b.y1 + m && p.z > b.z0 - m && p.z < b.z1 + m;
 const _imp = new THREE.Vector3();
 // a blade moving through chunks slices each one it passes (a swing, or just carrying it past at speed)
+// the breakable structure (its group of chunks) a fighter's hook is in, if any: worked out once per hook
+function hookGroup(f) {
+  const h = f.hook; if (!h || !arena.brk) return undefined;
+  if (h.g === undefined) { h.g = null; for (const b of arena.brkQuery(h.p.x - 0.5, h.p.x + 0.5, h.p.z - 0.5, h.p.z + 0.5)) if (b.alive && inBox(h.p, b, 0.3)) { h.g = b.g; break; } }
+  return h.g;
+}
 function brkSweep(f, dt) {
   if (!isLocal(f)) return;
   const R = f.bladeLen + 1.5, list = arena.brkQuery(f.pos.x - R, f.pos.x + R, f.pos.z - R, f.pos.z + R);
@@ -562,7 +570,7 @@ function brkSweep(f, dt) {
     for (const b of list) {
       if (!b.alive || b.hard) continue;
       const h = segBox(_A, _B, b); if (h < 0) continue;
-      if (f.hook && inBox(f.hook.p, b, 0.3)) continue; // never the one you're swinging from
+      if (hookGroup(f) === b.g) continue; // never the thing you're swinging from (nor anything holding it up)
       if (f.isBot && b.y1 <= f.pos.y + 0.25 && b.y1 >= f.pos.y - 1.5) continue; // bots don't chop out the floor they're fighting on (players still can)
       n ||= cutNormal(f);
       _c1.lerpVectors(_A, _B, h);
@@ -580,6 +588,7 @@ function crash(f) {
   for (const b of arena.brkQuery(f.pos.x - 1, f.pos.x + 1, f.pos.z - 1, f.pos.z + 1)) {
     if (!b.alive || b.hard || b.y1 <= f.pos.y + 0.45 || b.y0 >= f.pos.y + HGT) continue;
     if (!(b.soft || f.dashT > 0 || f.isBot)) continue;
+    if (hookGroup(f) === b.g) continue; // (nor smash what you're swinging from)
     const cx = Math.max(b.x0, Math.min(f.pos.x, b.x1)), cz = Math.max(b.z0, Math.min(f.pos.z, b.z1));
     if ((f.pos.x - cx) ** 2 + (f.pos.z - cz) ** 2 > R * R) continue;
     if ((cx - f.pos.x) * f.vel.x + (cz - f.pos.z) * f.vel.z < 0) continue; // only what we're moving into
