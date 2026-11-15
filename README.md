@@ -59,6 +59,8 @@ Click **Multiplayer** on the home screen.
 
 ## Maps
 
+Every map is ringed by two painted mountain ranges (snow, rock faces, forests; volcanic hills with lava vents on Saw Foundry), with a drifting textured sea of cloud below. They are drawn on canvases at load, in `src/scenery.js`, so there are no image files to download.
+
 Pick the map on the home screen (the host picks it in a multiplayer room). Both are about 200 m across, above a sea of clouds, with sky pillars everywhere and jump pads between platforms. Fall into the clouds and you're out.
 
 ### Sky Plateaus
