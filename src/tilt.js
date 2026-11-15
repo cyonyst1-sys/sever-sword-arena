@@ -4,7 +4,7 @@
 // Running or dashing across a deck pushes it the other way. Whoever stands on a deck rides along with it.
 import * as THREE from 'three';
 import { deck, drift, farRing } from './maps2.js';
-import { cloudHeaps } from './scenery.js?v=20261115162701';
+import { cloudHeaps } from './scenery.js?v=20261115164123';
 
 const TAU = Math.PI * 2, N = 2, R = 12.5, DISH = 1.8, GAP = 5, L = 24, MAXOFF = 4; // grid, dish radius and depth, gap, chain length, furthest swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
@@ -29,7 +29,7 @@ export function buildTilt(A, T) {
     for (let k = 10; k >= 0; k--) { const u = k / 10; prof.push(new THREE.Vector2(Math.max(0.01, u * (R + 0.1)), D * u * u - 0.5 - (1 - u) * 0.25)); }
     const g = new THREE.LatheGeometry(prof, 48), uv = g.attributes.uv, ps = g.attributes.position;
     for (let i = 0; i < ps.count; i++) uv.setXY(i, ps.getX(i) / 7, ps.getZ(i) / 7); return g; })();
-  const plankD = planks.clone(); plankD.side = THREE.DoubleSide;
+  const plankD = planks.clone(); plankD.side = THREE.DoubleSide; plankD.shadowSide = THREE.FrontSide; // (so the dish doesn't shadow its own top)
   for (let i = 0; i < N; i++) for (let k = 0; k < N; k++) {
     const x = -span / 2 + R + i * (2 * R + GAP), z = -span / 2 + R + k * (2 * R + GAP), y = Math.round((r() * 3 - 1) * 2) / 2;
     const p = { kind: 'swing', x, z, y, w: 2 * R, d: 2 * R, ang: 0, round: R, dish: DISH, i: A.plats.length, meshes: [], boxes: [], ramps: [], rays: [] };

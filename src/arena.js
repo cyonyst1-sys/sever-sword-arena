@@ -3,14 +3,15 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115162701';
-import { buildFoundry } from './foundry.js?v=20261115162701';
-import { buildBamboo } from './bamboo.js?v=20261115162701';
-import { buildCity } from './city.js?v=20261115162701';
-import { buildDojo } from './dojo.js?v=20261115162701';
-import { buildComet } from './comet.js?v=20261115162701';
-import { addScenery } from './scenery.js?v=20261115162701';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115162701';
+import { buildTilt } from './tilt.js?v=20261115164123';
+import { buildFoundry } from './foundry.js?v=20261115164123';
+import { buildBamboo } from './bamboo.js?v=20261115164123';
+import { buildCity } from './city.js?v=20261115164123';
+import { buildDojo } from './dojo.js?v=20261115164123';
+import { buildComet } from './comet.js?v=20261115164123';
+import { addScenery } from './scenery.js?v=20261115164123';
+import { addAtmosphere } from './atmos.js?v=20261115164123';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115164123';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -113,7 +114,7 @@ export class Arena {
       wood: new THREE.MeshStandardMaterial({ map: woodTex(), roughness: 0.85 }),
       rock: new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 1, flatShading: true }),
     };
-    this.build(); addScenery(this);
+    this.build(); addScenery(this); addAtmosphere(this);
     this.bird = ['spire', 'plateaus', 'pagoda', 'dojo', 'city', 'tilt'].includes(this.mapId); // (a sky map with clouds below: fall to them and a giant bird gets you)
   }
   dispose() {
@@ -575,7 +576,7 @@ export class Arena {
         for (let k = 10; k >= 0; k--) { const u = k / 10; prof.push(new THREE.Vector2(Math.max(0.01, u * (R + 0.1)), p.y + D * u * u - 0.55 - (1 - u) * 0.25)); } // the thin shell underneath
         const g = new THREE.LatheGeometry(prof, 48), uv = g.attributes.uv, ps = g.attributes.position;
         for (let i = 0; i < ps.count; i++) uv.setXY(i, ps.getX(i) / 6, ps.getZ(i) / 6); g.translate(p.x, 0, p.z); // floor tiles laid flat, not wrapped round
-        M.dishFloor ||= Object.assign(M.floor.clone(), { side: THREE.DoubleSide }); const m = new THREE.Mesh(g, M.dishFloor); m.castShadow = m.receiveShadow = true; S.add(m); this.own(p, m);
+        M.dishFloor ||= Object.assign(M.floor.clone(), { side: THREE.DoubleSide, shadowSide: THREE.FrontSide }); const m = new THREE.Mesh(g, M.dishFloor); m.castShadow = m.receiveShadow = true; S.add(m); this.own(p, m);
         const c = { x: p.x, z: p.z, r: R, y0: p.y - 0.8, y1: p.y, dish: D }; this.discs.push(c); (p.discs = [c]);
         const box = { x0: p.x - R * 0.88, x1: p.x + R * 0.88, y0: p.y - 0.8, y1: p.y + D, z0: p.z - R * 0.88, z1: p.z + R * 0.88 }; this.rayBoxes.push(box); p.rays.push(box);
         const stem = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.16, R * 0.08, 3.5, 12), M.stone); stem.position.set(p.x, p.y - 2.3, p.z); S.add(stem); this.own(p, stem);
