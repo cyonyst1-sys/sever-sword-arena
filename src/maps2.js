@@ -3,7 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY } from './maw.js?v=20261115002630';
+import { buildMaw, mawY } from './maw.js?v=20261115002751';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -231,9 +231,18 @@ export function buildIsles(A, T) {
   // bamboo groves between the islands, plus a light scatter everywhere else
   const groves = [];
   for (let k = 0; k < 13; k++) { const a = (k / 13) * TAU + 0.2, d = k % 2 ? 66 : 30 + (k % 3) * 8; groves.push([Math.cos(a) * d, Math.sin(a) * d]); }
-  for (const [gx, gz] of groves) for (let i = 0; i < 38; i++) { const a = r() * TAU, d = Math.sqrt(r()) * 10, x = gx + Math.cos(a) * d, z = gz + Math.sin(a) * d; if (clear(A, x, z, 1.4)) stalk(A, x, z, 0.15 + r() * 0.08); }
-  for (let gx = -108; gx <= 108; gx += 10) for (let gz = -108; gz <= 108; gz += 10) { const x = gx + (r() - 0.5) * 8, z = gz + (r() - 0.5) * 8; if (Math.hypot(x, z) < 112 && r() > 0.35 && clear(A, x, z, 2)) stalk(A, x, z, 0.15 + r() * 0.08); }
-  A.plantStalks(-70, 70);
+  // tall grass: very thin flat blades, packed thick in clumps between the islands and scattered densely everywhere else,
+  // each reaching a few metres above the island nearest it (still hookable, and they cut)
+  const isl = A.plats.slice(), blade = (x, z) => {
+    let ny = 0, nd = 1e9; for (const p of isl) { const d = Math.hypot(p.x - x, p.z - z); if (d < nd) { nd = d; ny = p.y; } }
+    stalk(A, x, z, 0.07 + r() * 0.05); const st = A.bamboo[A.bamboo.length - 1]; st.top = ny + 2 + r() * 5; st.rot = r() * TAU;
+  };
+  for (const [gx, gz] of groves) for (let i = 0; i < 130; i++) { const a = r() * TAU, d = Math.sqrt(r()) * 12, x = gx + Math.cos(a) * d, z = gz + Math.sin(a) * d; if (clear(A, x, z, 0.8)) blade(x, z); }
+  for (let gx = -108; gx <= 108; gx += 4.5) for (let gz = -108; gz <= 108; gz += 4.5) { const x = gx + (r() - 0.5) * 4, z = gz + (r() - 0.5) * 4; if (Math.hypot(x, z) < 112 && r() > 0.4 && clear(A, x, z, 1.2)) blade(x, z); }
+  M.bamboo = new THREE.MeshStandardMaterial({ roughness: 0.7, emissive: 0x0c2410, side: THREE.DoubleSide, map: T.canvasTex((g, s) => { // grass: green with fine veins
+    g.fillStyle = '#3f7a34'; g.fillRect(0, 0, s, s); for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '20,50,20' : '120,180,90'},${0.15 + r() * 0.25})`; g.fillRect(r() * s, 0, 1 + r() * 2, s); }
+  }, 64) });
+  A.plantStalks(-70, 70, false, true);
   A.finishNav();
 
   // ---- backdrop: stars, the full moon with a halo, far floating islands with trees, a moonlit cloud sea, fireflies

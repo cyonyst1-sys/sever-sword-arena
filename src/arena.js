@@ -3,15 +3,15 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115002630';
-import { buildFoundry } from './foundry.js?v=20261115002630';
-import { buildBamboo } from './bamboo.js?v=20261115002630';
-import { buildCity } from './city.js?v=20261115002630';
-import { buildDojo } from './dojo.js?v=20261115002630';
-import { addScenery } from './scenery.js?v=20261115002630';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115002630';
+import { buildTilt } from './tilt.js?v=20261115002751';
+import { buildFoundry } from './foundry.js?v=20261115002751';
+import { buildBamboo } from './bamboo.js?v=20261115002751';
+import { buildCity } from './city.js?v=20261115002751';
+import { buildDojo } from './dojo.js?v=20261115002751';
+import { addScenery } from './scenery.js?v=20261115002751';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115002751';
 const NONE = [];
-const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
+const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
 export const ISLAND_R = 30;
 const STEP = 0.5;
@@ -428,7 +428,8 @@ export class Arena {
   // ---------- shared by the maps with cuttable stalks (canopy, pagoda, isles) ----------
   /** Every stalk in this.bamboo becomes one instance of a single mesh (one draw call for hundreds), standing
    *  from y0 to y1 in this.mats.bamboo. The texture runs by world height, so it stays put wherever a stalk is cut. */
-  plantStalks(y0, y1, vine = false) {
+  plantStalks(y0, y1, vine = false, blades = false) {
+    this.blades = blades; // (Moonlit Isles: thin flat grass blades, each turned its own way)
     if (vine) { // Great Canopy: twisting jungle vines instead of bamboo (a liana texture, and a wiggle bent in on the GPU)
       this.vine = true;
       this.mats.bamboo = new THREE.MeshStandardMaterial({ roughness: 0.8, map: canvasTex((g, S) => {
@@ -446,9 +447,9 @@ export class Arena {
         'wp.x += 0.42 * sin(wp.y * 0.33 + ph) + 0.18 * sin(wp.y * 0.81 + ph * 0.7); wp.z += 0.42 * cos(wp.y * 0.27 + ph * 1.3) + 0.18 * cos(wp.y * 0.9 + ph);',
         'vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;'].join('\n'));
     };
-    this.bambooIM = new THREE.InstancedMesh(vine ? new THREE.CylinderGeometry(1, 1, 1, 5, 40, true) : new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), bm, Math.max(1, this.bamboo.length));
+    this.bambooIM = new THREE.InstancedMesh(vine ? new THREE.CylinderGeometry(1, 1, 1, 5, 40, true) : blades ? new THREE.CylinderGeometry(0.12, 1, 1, 4, 1, true) : new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), bm, Math.max(1, this.bamboo.length));
     this.bambooIM.frustumCulled = false; this.scene.add(this.bambooIM);
-    for (let s = 0; s < this.bamboo.length; s++) this.addBambooSeg(s, y0, y1);
+    for (let s = 0; s < this.bamboo.length; s++) this.addBambooSeg(s, y0, this.bamboo[s].top ?? y1); // (top: a stalk can stop short)
     this.bambooIM.instanceMatrix.needsUpdate = true;
   }
   /** Bots' map knowledge: which surfaces are joined on foot, roughly how far apart others are, and swing routes. */
@@ -1005,7 +1006,7 @@ export class Arena {
   addBambooSeg(s, y0, y1) {
     const st = this.bamboo[s], len = y1 - y0;
     st.segs = []; this.rayBoxes = this.rayBoxes.filter((b) => b.bamboo !== s);
-    _bm.compose(_bp.set(st.x, (y0 + y1) / 2, st.z), _bq.identity(), _bs.set(len < 0.4 ? 0 : st.r, len < 0.4 ? 0 : len, len < 0.4 ? 0 : st.r));
+    _bm.compose(_bp.set(st.x, (y0 + y1) / 2, st.z), (st.rot ? _bq.setFromAxisAngle(_UP, st.rot) : _bq.identity()), _bs.set(len < 0.4 ? 0 : st.r, len < 0.4 ? 0 : len, len < 0.4 ? 0 : st.r * (this.blades ? 0.25 : 1)));
     this.bambooIM.setMatrixAt(st.inst, _bm); this.bambooIM.instanceMatrix.needsUpdate = true;
     if (len < 0.4) return;
     const box = { x0: st.x - st.r, x1: st.x + st.r, y0, y1, z0: st.z - st.r, z1: st.z + st.r, bamboo: s };
