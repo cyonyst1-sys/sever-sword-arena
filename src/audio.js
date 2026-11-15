@@ -57,10 +57,10 @@ export const sfx = {
   slice(p) { const a = att(p); nz(0.25, 3200, 700, 0.8, 0.35 * a); nz(0.3, 420, 110, 0.7, 0.32 * a, 'lowpass'); }, // the cut: a hiss and a soft thud
   kill(p) { // a kill: the cut, a long wet "bleeehh" as the breath goes out of him, then light gurgling
     const a = att(p); this.slice(p);
-    voice(150 + Math.random() * 40, 58, 1.0, 0.32 * a, undefined, 0.18); // a long "bleeehh", sagging and fading like the breath going out of him
-    nz(1.1, 1900, 650, 1.2, 0.07 * a); // the breath itself, a rasping exhale under it
-    for (let i = 0; i < 9; i++) bubble(0.85 + i * 0.08 + Math.random() * 0.05, 260 + Math.random() * 380, (0.05 - i * 0.004) * a);
-    nz(0.7, 700, 250, 3, 0.04 * a); // a little wet rasp under the bubbles
+    voice(150 + Math.random() * 40, 58, 1.0, 0.75 * a, undefined, 0.18); // a long "bleeehh", sagging and fading like the breath going out of him
+    nz(1.1, 1900, 650, 1.2, 0.13 * a); // the breath itself, a rasping exhale under it
+    for (let i = 0; i < 9; i++) bubble(0.85 + i * 0.08 + Math.random() * 0.05, 260 + Math.random() * 380, (0.085 - i * 0.006) * a);
+    nz(0.7, 700, 250, 3, 0.07 * a); // a little wet rasp under the bubbles
   },
   tear(p) { const a = att(p); nz(0.16, 5200, 1800, 2, 0.22 * a); nz(0.1, 2600, 900, 3, 0.12 * a); },
   chop(p) { const a = att(p); nz(0.12, 2200, 900, 2.5, 0.3 * a); tn(260, 140, 0.1, 0.18 * a, 'triangle'); nz(0.25, 700, 300, 1, 0.12 * a, 'lowpass'); },
