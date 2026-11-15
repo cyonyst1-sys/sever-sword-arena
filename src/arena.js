@@ -3,13 +3,13 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261114231157';
-import { buildFoundry } from './foundry.js?v=20261114231157';
-import { buildBamboo } from './bamboo.js?v=20261114231157';
-import { buildCity } from './city.js?v=20261114231157';
-import { buildDojo } from './dojo.js?v=20261114231157';
-import { addScenery } from './scenery.js?v=20261114231157';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261114231157';
+import { buildTilt } from './tilt.js?v=20261114232751';
+import { buildFoundry } from './foundry.js?v=20261114232751';
+import { buildBamboo } from './bamboo.js?v=20261114232751';
+import { buildCity } from './city.js?v=20261114232751';
+import { buildDojo } from './dojo.js?v=20261114232751';
+import { addScenery } from './scenery.js?v=20261114232751';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261114232751';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -88,7 +88,7 @@ export const MAPS = {
   spire: { name: 'Sky Spires', blurb: '21 round dish platforms at nearly the same height: swing and dash from one fight to the next' },
   colosseum: { name: 'Colosseum', blurb: 'a bowl of round platforms around a big round arena floor: start on the high rim and swing down to fight' },
   plateaus: { name: 'Sky Plateaus', blurb: '7 huge platforms at slightly different heights: big brawls with room to dash' },
-  canopy: { name: 'Great Canopy', blurb: 'giant tree branches to run along, big leaves to land on, and bamboo to swing from (and cut through)' },
+  canopy: { name: 'Great Canopy', blurb: 'giant tree branches to run along, big leaves to land on, and twisting jungle vines to swing from (and cut through)' },
   pagoda: { name: 'Pagoda Falls', blurb: 'a three-tier pagoda at sunset, stone islands and rock spires around it, rope bridges, and red lacquer posts to swing from (and cut through)' },
   isles: { name: 'Moonlit Isles', blurb: 'floating grass islands under a full moon, rope bridges, a great cherry tree, and bamboo groves to swing from (and cut through)' },
   dojo: { name: 'Paper Dojo District', blurb: 'a town you can cut apart: slice through paper walls, posts, straw barns, fences and hay; climb the four-tier dojo tower, rooftops and watchtowers' },
@@ -391,7 +391,7 @@ export class Arena {
       this.bamboo.push({ x, z, r: rad, segs: [], inst: this.bamboo.length });
       this.pillars.push({ x, z, w: rad * 2 });
     }
-    this.plantStalks(-62, 78);
+    this.plantStalks(-62, 78, true); // (vines)
     this.arcPts = [];
   }
 
@@ -428,12 +428,25 @@ export class Arena {
   // ---------- shared by the maps with cuttable stalks (canopy, pagoda, isles) ----------
   /** Every stalk in this.bamboo becomes one instance of a single mesh (one draw call for hundreds), standing
    *  from y0 to y1 in this.mats.bamboo. The texture runs by world height, so it stays put wherever a stalk is cut. */
-  plantStalks(y0, y1) {
+  plantStalks(y0, y1, vine = false) {
+    if (vine) { // Great Canopy: twisting jungle vines instead of bamboo (a liana texture, and a wiggle bent in on the GPU)
+      this.vine = true;
+      this.mats.bamboo = new THREE.MeshStandardMaterial({ roughness: 0.8, map: canvasTex((g, S) => {
+        const r = rng(91); g.fillStyle = '#4a5a2a'; g.fillRect(0, 0, S, S);
+        for (let i = -S; i < S * 2; i += 9) { const v = 60 + r() * 50 | 0; g.strokeStyle = `rgb(${v + 20},${v + 30},${v * 0.5 | 0})`; g.lineWidth = 3 + r() * 4; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + S * 0.6, S); g.stroke(); } // twisted strands
+        for (let i = 0; i < 200; i++) { g.fillStyle = `rgba(30,40,15,${0.2 + r() * 0.3})`; g.fillRect(r() * S, r() * S, 1 + r() * 2, 4 + r() * 10); }
+        for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(110,160,60,${0.25 + r() * 0.3})`; g.beginPath(); g.arc(r() * S, r() * S, 2 + r() * 6, 0, Math.PI * 2); g.fill(); } // moss
+      }, 128) });
+    }
     const bm = this.mats.bamboo.clone();
     bm.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader.replace('#include <uv_vertex>', ['#include <uv_vertex>', '#ifdef USE_INSTANCING', 'vMapUv.y = (modelMatrix * instanceMatrix * vec4(position, 1.0)).y / 2.6;', '#endif'].join('\n'));
+      if (vine) sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>', [ // bend each vine in world space (same curve as vineOff below)
+        'vec4 wp = modelMatrix * instanceMatrix * vec4(transformed, 1.0); vec3 ic = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; float ph = ic.x * 1.7 + ic.z * 2.3;',
+        'wp.x += 0.42 * sin(wp.y * 0.33 + ph) + 0.18 * sin(wp.y * 0.81 + ph * 0.7); wp.z += 0.42 * cos(wp.y * 0.27 + ph * 1.3) + 0.18 * cos(wp.y * 0.9 + ph);',
+        'vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;'].join('\n'));
     };
-    this.bambooIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), bm, Math.max(1, this.bamboo.length));
+    this.bambooIM = new THREE.InstancedMesh(vine ? new THREE.CylinderGeometry(1, 1, 1, 5, 40, true) : new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), bm, Math.max(1, this.bamboo.length));
     this.bambooIM.frustumCulled = false; this.scene.add(this.bambooIM);
     for (let s = 0; s < this.bamboo.length; s++) this.addBambooSeg(s, y0, y1);
     this.bambooIM.instanceMatrix.needsUpdate = true;
@@ -1000,9 +1013,14 @@ export class Arena {
     const seg = st.segs.find((g) => y > g.y0 + 0.3 && y < g.y1 - 0.3); if (!seg) return null;
     this.addBambooSeg(s, seg.y0, y); // the stump
     // the severed top: a separate stalk that slides off the cut, tips over and drops out of sight
-    const len = seg.y1 - y, geo = new THREE.CylinderGeometry(st.r, st.r, len, 7, 1, true);
+    const len = seg.y1 - y, geo = new THREE.CylinderGeometry(st.r, st.r, len, this.vine ? 5 : 7, this.vine ? Math.max(2, Math.ceil(len / 2)) : 1, true);
     const uv = geo.attributes.uv, pos = geo.attributes.position;
     for (let i = 0; i < pos.count; i++) uv.setY(i, (pos.getY(i) + y + len / 2) / 2.6);
+    if (this.vine) { // the same curve the vine had standing (see plantStalks)
+      const ph = st.x * 1.7 + st.z * 2.3;
+      for (let i = 0; i < pos.count; i++) { const wy = pos.getY(i) + y + len / 2; pos.setX(i, pos.getX(i) + 0.42 * Math.sin(wy * 0.33 + ph) + 0.18 * Math.sin(wy * 0.81 + ph * 0.7)); pos.setZ(i, pos.getZ(i) + 0.42 * Math.cos(wy * 0.27 + ph * 1.3) + 0.18 * Math.cos(wy * 0.9 + ph)); }
+      geo.computeVertexNormals();
+    }
     geo.translate(0, len / 2, 0); // pivot at the cut
     const top = new THREE.Mesh(geo, this.mats.bamboo); top.position.set(st.x, y, st.z); this.scene.add(top);
     const a = Math.random() * Math.PI * 2, ax = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)), slide = new THREE.Vector3(-Math.sin(a), 0, Math.cos(a));
