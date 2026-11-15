@@ -126,7 +126,7 @@ An industrial foundry floating in a smoky dusk sky, full of things that cut you 
 
 ### Bamboo Fort
 
-A 60 x 60 m platform built entirely of bamboo, floating in jade mist:
+A 60 x 60 m platform built entirely of bamboo, floating in jade mist above a bamboo forest floor. Layers of cuttable bamboo forest fill the space between its outer wall and the spawn pads, so you cut your way in after you spawn:
 
 - **Even the floor is bamboo.** It's made of tiles your sword slices straight through. Cut one out and there's a hole to fall through.
 - Small bamboo **huts** with flat bamboo roofs, an open **gazebo** in the middle (cut its poles and the roof comes down), bamboo **fences** and piles of cut poles.

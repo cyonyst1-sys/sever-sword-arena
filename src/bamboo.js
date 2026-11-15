@@ -5,7 +5,7 @@
 // them (and come back a few seconds later for the next fighter).
 import * as THREE from 'three';
 import { deck, prop, stalk, drift, farRing } from './maps2.js';
-import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114222623';
+import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261114223552';
 
 const TAU = Math.PI * 2, HALF = 30, TILE = 1.5;
 
@@ -50,6 +50,20 @@ export function buildBamboo(A, T) {
     for (let j = 0; j < nseg; j++) { const b = chunk(A, g, 'bamboo', x - PW / 2, x + PW / 2, j * h / nseg, (j + 1) * h / nseg, z - PW / 2, z + PW / 2, j === 0); join(b, below); below = b; }
   };
   for (let u = -WI; u <= WI + 1e-6; u += SP) { pole(u, -WI); pole(u, WI); if (u > -WI + 1e-6 && u < WI - 1e-6) { pole(-WI, u); pole(WI, u); } }
+
+  // ---- a bamboo forest round the outside of the wall, layers deep, between the wall and the spawn pads: you spawn
+  // facing it and cut your way in. Each culm rises out of the mist (that part is scenery) and can be cut from just
+  // below the floor's height up; whatever is above the cut drops.
+  const trunks = [];
+  for (let gx = -46; gx <= 46; gx += 1.7) for (let gz = -46; gz <= 46; gz += 1.7) {
+    const x = gx + (r() - 0.5) * 1.3, z = gz + (r() - 0.5) * 1.3, d = Math.hypot(x, z);
+    if (Math.max(Math.abs(x), Math.abs(z)) < HALF + 1.3 || d > 45.5) continue; // outside the wall, inside the pads' ring
+    let near = false; for (let k = 0; k < 8; k++) { const a = k / 8 * TAU + TAU / 16; if (Math.hypot(x - Math.cos(a) * 47, z - Math.sin(a) * 47) < 4.2) near = true; } // (room round each spawn pad)
+    if (near || r() < 0.12) continue;
+    const w = 0.16 + r() * 0.14, h = 10 + r() * 14, nseg = Math.round(h / 4.5) + 1, g = group(); let below = null;
+    for (let j = 0; j < nseg; j++) { const y0 = -2 + j * (h + 2) / nseg, y1 = -2 + (j + 1) * (h + 2) / nseg, b = chunk(A, g, 'bamboo', x - w / 2, x + w / 2, y0, y1, z - w / 2, z + w / 2, j === 0); join(b, below); below = b; }
+    trunks.push([x, z, w]);
+  }
 
   // ---- small bamboo huts with flat bamboo roofs, a gazebo in the middle, fences and log piles
   const hut = (cx, cz, w, d, doorSide) => {
@@ -149,6 +163,41 @@ export function buildBamboo(A, T) {
     const h = 120 + (i % 5) * 35, m = new THREE.Mesh(new THREE.CylinderGeometry(18 + (i % 3) * 8, 46 + (i % 4) * 10, h, 9), new THREE.MeshBasicMaterial({ color: i % 2 ? 0x6f9a78 : 0x82aa86, fog: false }));
     m.position.set(x, -70 + h / 2, z); m.rotation.y = i; S.add(m);
   });
-  const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xdbe8d6, transparent: true, opacity: 0.95 })); sea.position.y = -60; S.add(sea);
+  // ---- far below: a forest floor of fallen bamboo and leaf litter, a bamboo forest rising out of it, mist between
+  const GY = -62, gt = T.canvasTex((g, s) => {
+    const q = T.rng(515); g.fillStyle = '#3e4a26'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${120 + q() * 60 | 0},${110 + q() * 50 | 0},${50 + q() * 30 | 0},${0.25 + q() * 0.3})`; g.beginPath(); g.ellipse(q() * s, q() * s, 3 + q() * 5, 1 + q() * 1.5, q() * 3, 0, TAU); g.fill(); } // dry leaves
+    for (let i = 0; i < 70; i++) { // fallen culms, criss-crossed, with their node rings
+      const x = q() * s, y = q() * s, a = q() * Math.PI, L = 60 + q() * 140, w = 4 + q() * 6, gr = 90 + q() * 70 | 0;
+      for (const [dx, dy] of [[0, 0], [-s, 0], [s, 0], [0, -s], [0, s]]) {
+        g.save(); g.translate(x + dx, y + dy); g.rotate(a);
+        g.fillStyle = 'rgba(20,24,8,0.35)'; g.fillRect(-L / 2 + 2, -w / 2 + 2, L, w); // shadow
+        const lg = g.createLinearGradient(0, -w / 2, 0, w / 2); lg.addColorStop(0, `rgb(${gr + 40},${gr + 60},${gr * 0.4 | 0})`); lg.addColorStop(1, `rgb(${gr * 0.6 | 0},${gr * 0.75 | 0},${gr * 0.25 | 0})`);
+        g.fillStyle = lg; g.fillRect(-L / 2, -w / 2, L, w);
+        g.fillStyle = 'rgba(40,50,15,0.8)'; for (let u = -L / 2 + 10 + q() * 10; u < L / 2; u += 18 + q() * 10) g.fillRect(u, -w / 2, 1.5, w);
+        g.restore();
+      }
+    }
+  }, 512);
+  gt.repeat.set(70, 70);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(620, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: gt, roughness: 0.95 }));
+  ground.position.y = GY; ground.userData.keep = true; S.add(ground);
+  const mist = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xdbe8d6, transparent: true, opacity: 0.4, depthWrite: false })); mist.position.y = -42; S.add(mist);
+  { // the bamboo forest below and all round (scenery: you can't hook or cut these)
+    const n = A.quality === 'low' ? 500 : 1100, culm = new THREE.CylinderGeometry(1, 1, 1, 7, 1, true); culm.translate(0, 0.5, 0);
+    const bt = T.bambooTex(); bt.repeat.set(1, 14);
+    const im = new THREE.InstancedMesh(culm, new THREE.MeshStandardMaterial({ map: bt, roughness: 0.6 }), n), mm = new THREE.Matrix4(), qq = new THREE.Quaternion(), e = new THREE.Euler();
+    let c = 0;
+    for (let i = 0; i < n * 3 && c < n; i++) {
+      const a = r() * TAU, d = 50 + Math.pow(r(), 0.8) * 150, x = Math.cos(a) * d, z = Math.sin(a) * d;
+      if (Math.max(Math.abs(x), Math.abs(z)) < HALF + 22) continue; // (clear of the fort and the cuttable forest round it)
+      const top = -20 + r() * (d < 90 ? 50 : 70), rad = 0.25 + r() * 0.35;
+      mm.compose(new THREE.Vector3(x, GY, z), qq.setFromEuler(e.set((r() - 0.5) * 0.08, r() * TAU, (r() - 0.5) * 0.08)), new THREE.Vector3(rad, top - GY, rad)); im.setMatrixAt(c++, mm);
+    }
+    im.count = c; S.add(im);
+    const lo = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), K.bamboo.mat, trunks.length); // the cuttable culms' lower trunks, down into the mist
+    trunks.forEach(([x, z, w], i) => { mm.compose(new THREE.Vector3(x, (GY - 2) / 2, z), qq.identity(), new THREE.Vector3(w, -2 - GY, w)); lo.setMatrixAt(i, mm); });
+    S.add(lo);
+  }
   drift(A, 260, 0x9ccf5c, 0.16, [0.8, -0.6, 0.4], 0.6);
 }
