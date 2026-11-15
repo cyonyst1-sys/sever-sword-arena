@@ -119,12 +119,12 @@ export function buildTendrils(A, pts) {
       sh.vertexShader = 'uniform vec2 uB; uniform float uH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat ts = clamp(position.y / uH, 0.0, 1.0); transformed.xz += uB * ts * ts;'); };
     mat.customProgramCacheKey = () => 'tendril';
     const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; A.scene.add(m);
-    const ph = i * 1.7, rest = new THREE.Vector2(Math.cos(ph * 2.3) * 2.5, Math.sin(ph * 1.9) * 2.5); // a natural curve at rest
+    const ph = i * 1.7, inw = 11 + ((i * 5) % 7), dl = Math.hypot(x, z) || 1, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2); // a natural curve at rest
     const boxes = []; for (let s = 0.12; s < 1; s += 0.08) { const b = { x0: 0, x1: 0, y0: by + (s - 0.05) * H, y1: by + (s + 0.05) * H, z0: 0, z1: 0, ts: s, tend: i }; A.rayBoxes.push(b); boxes.push(b); }
     list.push({ x, z, by, H, R0, uB, rest, ph, bend: new THREE.Vector2(), vel: new THREE.Vector2(), boxes });
     A.pillars.push({ x, z, w: 2.8 });
   });
-  const tipOff = (t, out) => out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin((A.lastT || 0) * 0.6 + t.ph) * 0.8, Math.cos((A.lastT || 0) * 0.5 + t.ph * 1.3) * 0.8));
+  const tipOff = (t, out) => out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin((A.lastT || 0) * 0.45 + t.ph) * 1.8, Math.cos((A.lastT || 0) * 0.38 + t.ph * 1.3) * 1.8));
   const tmp = new THREE.Vector2();
   A.tendrilPoint = (i, s, out) => { const t = list[i]; tipOff(t, tmp); return out.set(t.x + tmp.x * s * s, t.by + s * t.H, t.z + tmp.y * s * s); };
   A.tendrilAt = (p) => { // which tendril (and how far up it) a hook point is on
@@ -137,11 +137,11 @@ export function buildTendrils(A, pts) {
     if (!dt) return;
     for (const t of list) { t.fx = 0; t.fz = 0; }
     for (const f of fighters) { const h = f.hook; if (!h || !h.tend) continue; const t = list[h.tend.i]; if (!t) continue; // the rope drags the tip toward whoever hangs on it
-      A.tendrilPoint(h.tend.i, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, k = 26 * h.tend.s;
+      A.tendrilPoint(h.tend.i, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, k = 48 * h.tend.s;
       t.fx += dx / l * k; t.fz += dz / l * k; }
     for (const t of list) {
-      t.vel.x += (-5 * t.bend.x - 1.3 * t.vel.x + t.fx) * dt; t.vel.y += (-5 * t.bend.y - 1.3 * t.vel.y + t.fz) * dt;
-      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 9) t.bend.multiplyScalar(9 / l);
+      t.vel.x += (-2.2 * t.bend.x - 0.9 * t.vel.x + t.fx) * dt; t.vel.y += (-2.2 * t.bend.y - 0.9 * t.vel.y + t.fz) * dt;
+      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 18) t.bend.multiplyScalar(18 / l);
       tipOff(t, tmp); t.uB.value.copy(tmp);
       for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * s * s, cz = t.z + tmp.y * s * s, r = t.R0 * (1 - s * 0.75) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; }
     }
