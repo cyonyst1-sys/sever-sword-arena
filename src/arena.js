@@ -3,12 +3,12 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261114222031';
-import { buildFoundry } from './foundry.js?v=20261114222031';
-import { buildBamboo } from './bamboo.js?v=20261114222031';
-import { buildCity } from './city.js?v=20261114222031';
-import { buildDojo } from './dojo.js?v=20261114222031';
-import { addScenery } from './scenery.js?v=20261114222031';
+import { buildTilt } from './tilt.js?v=20261114222623';
+import { buildFoundry } from './foundry.js?v=20261114222623';
+import { buildBamboo } from './bamboo.js?v=20261114222623';
+import { buildCity } from './city.js?v=20261114222623';
+import { buildDojo } from './dojo.js?v=20261114222623';
+import { addScenery } from './scenery.js?v=20261114222623';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -84,7 +84,7 @@ export const TEX = { rng, canvasTex, stoneTex, woodTex, bambooTex, worldUV, spec
 function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; } return [x, z]; }
 
 export const MAPS = {
-  spire: { name: 'Sky Spires', blurb: '23 small platforms at many heights: swing from one fight to the next' },
+  spire: { name: 'Sky Spires', blurb: '21 round dish platforms at nearly the same height: swing and dash from one fight to the next' },
   colosseum: { name: 'Colosseum', blurb: 'a bowl of round platforms around a big round arena floor: start on the high rim and swing down to fight' },
   plateaus: { name: 'Sky Plateaus', blurb: '7 huge platforms at slightly different heights: big brawls with room to dash' },
   canopy: { name: 'Great Canopy', blurb: 'giant tree branches to run along, big leaves to land on, and bamboo to swing from (and cut through)' },
@@ -531,10 +531,10 @@ export class Arena {
           if (add(Math.round(Math.cos(a) * R), Math.round(Math.sin(a) * R), Math.round(y0 + r() * (y1 - y0)), Math.round(s0 + r() * (s1 - s0)), Math.round(s0 + r() * (s1 - s0)), kind)) break;
         }
       };
-      ring(6, 28, 36, -5, 12, 11, 15, 'ring', 0);
-      ring(9, 52, 66, -9, 24, 9, 14, 'outer', 0.5);
-      ring(4, 16, 42, 20, 32, 7, 9, 'perch', 0.25);
-      ring(3, 18, 44, -21, -14, 10, 13, 'low', 0.7);
+      ring(6, 28, 36, -2, 4, 11, 15, 'ring', 0); // (all within a few metres of each other: a dash or a jump or two between levels)
+      ring(9, 52, 66, -4, 7, 9, 14, 'outer', 0.5);
+      ring(4, 40, 48, 6, 10, 7, 9, 'perch', 0.25);
+      ring(3, 70, 80, -7, -4, 10, 13, 'low', 0.7);
     }
 
     for (const p of plats) {

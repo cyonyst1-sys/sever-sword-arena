@@ -81,7 +81,7 @@ Same size as the other maps: a giant forest canopy high above a misty swamp. Swi
 
 ### Sky Spires
 
-A sky arena made of 23 thin, round, dish-shaped platforms at different heights (each curves gently up to its rim, so you land in a shallow bowl):
+A sky arena made of 21 thin, round, dish-shaped platforms, all within a few metres of the same height (a dash or a jump or two between levels) (each curves gently up to its rim, so you land in a shallow bowl):
 
 - A large **hub** in the middle, a ring of platforms around it, and an outer ring further out, each at its own height.
 - **High perches** floating above the others and **low platforms** hanging below them.
