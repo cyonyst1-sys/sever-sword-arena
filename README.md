@@ -65,7 +65,7 @@ Pick the map on the home screen (the host picks it in a multiplayer room). Both 
 
 ### Sky Plateaus
 
-Fewer, much bigger platforms for larger battles. Each is the top of a mesa, like the tepuis of South America: a round, sandy top with gentle dips and mounds, and sheer layered sandstone cliffs dropping straight down through the clouds.
+Fewer, much bigger platforms for larger battles. Each is the top of a mesa, like the tepuis of South America: a round, sandy top with gentle dips and mounds, and sheer layered sandstone cliffs dropping straight down through the clouds. Big **jump pads** (6 m glowing discs) link the mesas: stand anywhere on one and press **Space** to launch onto the next mesa.
 
 - **7 huge plateaus** (about 40 m across): a 46 m central plateau and six around it, each at a slightly different height (from 4 m below to 8 m above the centre).
 - Low **terraces** (a step up, no jump needed), low walls and stone blocks spread over each plateau, and some **pillars rise straight through the plateaus** as cover and mid-fight grapple points.
@@ -86,7 +86,6 @@ A sky arena made of 21 thin, round, dish-shaped platforms, all within a few metr
 - A large **hub** in the middle, a ring of platforms around it, and an outer ring further out, each at its own height.
 - **High perches** floating above the others and **low platforms** hanging below them.
 - **No jump pads**: you get between the dishes by grappling the pillars and dashing, and so do the bots.
-- **Jump pads** (the glowing discs near platform edges) link every platform into one network. Stand on one and press **Space** to launch onto the next platform.
 - About 90 **sky pillars** all over the arena, rising far above and below the platforms (marked with glowing rings), to grapple and swing between. Grapple the edge of a platform and the hook pulls you up and over onto it.
 
 

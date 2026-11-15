@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261114224605';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114224605';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114224605';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114224605';
-import * as net from './net.js?v=20261114224605';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114224605';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114224605';
-import { makeKillFx } from './killfx.js?v=20261114224605';
-import { makeGrapple } from './grapple.js?v=20261114224605';
-import { initShop } from './shop.js?v=20261114224605';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261114224605';
-import { portal } from './portal.js?v=20261114224605';
-import { Piranhas, GiantSaws } from './piranha.js?v=20261114224605';
+import { Arena, MAPS } from './arena.js?v=20261114224950';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261114224950';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261114224950';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261114224950';
+import * as net from './net.js?v=20261114224950';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261114224950';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261114224950';
+import { makeKillFx } from './killfx.js?v=20261114224950';
+import { makeGrapple } from './grapple.js?v=20261114224950';
+import { initShop } from './shop.js?v=20261114224950';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261114224950';
+import { portal } from './portal.js?v=20261114224950';
+import { Piranhas, GiantSaws } from './piranha.js?v=20261114224950';
 
 // ---------- settings ----------
 const store = {
@@ -311,7 +311,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
     const pressed = jump && (f.isBot || !f.jumpHeld); f.jumpHeld = !!jump; f.airJumpCd = (f.airJumpCd || 0) - dt;
     if (jump && f.onGround) {
       const p = f.padCd <= 0 && arena.padAt(f.pos);
-      if (p) { f.vel.copy(p.v); f.padCd = 0.8; f.hook = null; f.padFlight = true; sfx.pad(f.pos); } // jump on a pad to launch
+      if (p) { f.vel.set((p.tx - f.pos.x) / p.T, (p.ty - f.pos.y + 12 * p.T * p.T) / p.T, (p.tz - f.pos.z) / p.T); f.padCd = 0.8; f.hook = null; f.padFlight = true; sfx.pad(f.pos); } // jump on a pad to launch
       else { f.vel.y = JUMP_V * Math.sqrt(upm(f, 'jump')); sfx.jump(f.pos); }
       f.onGround = false; f.airJumpCd = 0.18;
     } else if (pressed && !f.onGround && !f.hook && !f.padFlight && (f.airJumps || 0) < 2 && f.airJumpCd <= 0) {

@@ -3,13 +3,13 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261114224605';
-import { buildFoundry } from './foundry.js?v=20261114224605';
-import { buildBamboo } from './bamboo.js?v=20261114224605';
-import { buildCity } from './city.js?v=20261114224605';
-import { buildDojo } from './dojo.js?v=20261114224605';
-import { addScenery } from './scenery.js?v=20261114224605';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261114224605';
+import { buildTilt } from './tilt.js?v=20261114224950';
+import { buildFoundry } from './foundry.js?v=20261114224950';
+import { buildBamboo } from './bamboo.js?v=20261114224950';
+import { buildCity } from './city.js?v=20261114224950';
+import { buildDojo } from './dojo.js?v=20261114224950';
+import { addScenery } from './scenery.js?v=20261114224950';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261114224950';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -176,13 +176,13 @@ export class Arena {
   addPad(x, y, z, tx, ty, tz, T, from = -1, to = -1) {
     const G = 24;
     const v = new THREE.Vector3((tx - x) / T, (ty - y + 0.5 * G * T * T) / T, (tz - z) / T);
-    const pad = { x, y, z, r: 1.0, v, from, to, meshes: [] };
+    const pad = { x, y, z, r: 3.0, v, tx, ty, tz, T, from, to, meshes: [] }; // (big: 6 m across)
     this.pads.push(pad);
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, 0.18, 24), this.mats.dark);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.4, 0.18, 40), this.mats.dark);
     base.position.set(x, y + 0.09, z); base.receiveShadow = true; this.scene.add(base);
-    const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.06, 24), new THREE.MeshBasicMaterial({ color: 0x55e0ff }));
+    const glow = new THREE.Mesh(new THREE.CylinderGeometry(2.9, 2.9, 0.06, 40), new THREE.MeshBasicMaterial({ color: 0x55e0ff }));
     glow.position.set(x, y + 0.2, z); this.scene.add(glow);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.05, 6, 28), new THREE.MeshBasicMaterial({ color: 0x9ff3ff, transparent: true, opacity: 0.8 }));
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(3.0, 0.08, 6, 48), new THREE.MeshBasicMaterial({ color: 0x9ff3ff, transparent: true, opacity: 0.8 }));
     ring.rotation.x = Math.PI / 2; ring.position.set(x, y + 0.25, z); this.scene.add(ring);
     this.anim.push((t) => { if (pad.gone) return; const k = (t * 0.9) % 1; ring.position.y = y + 0.25 + k * 2.2; ring.material.opacity = 0.8 * (1 - k); ring.scale.setScalar(1 - k * 0.35); });
     pad.meshes.push(base, glow, ring);
@@ -597,11 +597,11 @@ export class Arena {
       const key = Math.min(a.i, b.i) + '-' + Math.max(a.i, b.i);
       if (linked.has(key) || (cap && ((padN.get(a.i) || 0) >= cap || (padN.get(b.i) || 0) >= cap))) return false;
       // take off near the edge facing the other platform; land near the middle, well clear of its pads
-      const pa = spot(a, b, 2.2), pb = spot(b, a, 2.2);
+      const pa = spot(a, b, 3.8), pb = spot(b, a, 3.8); // (pads are 6 m across: well in from the edge)
       // (on big platforms: land 8 m in from the near edge, well clear of the return pad)
-      const la = Math.min(b.w, b.d) > 24 ? spot(b, a, 8) : new THREE.Vector3(b.x, b.y, b.z).lerp(pb, -0.4);
-      const lb = Math.min(a.w, a.d) > 24 ? spot(a, b, 8) : new THREE.Vector3(a.x, a.y, a.z).lerp(pa, -0.4);
-      if (padSpots.get(a.i).some((q) => q.distanceTo(pa) < 2.8) || padSpots.get(b.i).some((q) => q.distanceTo(pb) < 2.8)) return false;
+      const la = Math.min(b.w, b.d) > 24 ? spot(b, a, 11) : new THREE.Vector3(b.x, b.y, b.z).lerp(pb, -0.4);
+      const lb = Math.min(a.w, a.d) > 24 ? spot(a, b, 11) : new THREE.Vector3(a.x, a.y, a.z).lerp(pa, -0.4);
+      if (padSpots.get(a.i).some((q) => q.distanceTo(pa) < 7) || padSpots.get(b.i).some((q) => q.distanceTo(pb) < 7)) return false;
       // long enough in the air to come down onto the far platform, never up through it from below
       const up = Math.max(0, b.y - a.y), minT = Math.sqrt(2 * (up + 3) / 24) * 1.2;
       const flat = big ? pa.distanceTo(la) : d; // (big map: time the jump by how far it actually carries)
@@ -614,8 +614,8 @@ export class Arena {
         this.arcPts.push(...arcA, ...arcB);
         this.addPad(pa.x, a.y, pa.z, la.x, b.y, la.z, T, a.i, b.i); this.addPad(pb.x, b.y, pb.z, lb.x, a.y, lb.z, T, b.i, a.i);
         padSpots.get(a.i).push(pa, lb); padSpots.get(b.i).push(pb, la);
-        if (a.flats) a.flats.push({ x: pa.x, z: pa.z, r: 2.6 }, { x: lb.x, z: lb.z, r: 3.5 }); // (mesa tops: level ground at pads and landings)
-        if (b.flats) b.flats.push({ x: pb.x, z: pb.z, r: 2.6 }, { x: la.x, z: la.z, r: 3.5 });
+        if (a.flats) a.flats.push({ x: pa.x, z: pa.z, r: 3.9 }, { x: lb.x, z: lb.z, r: 4 }); // (mesa tops: level ground at pads and landings)
+        if (b.flats) b.flats.push({ x: pb.x, z: pb.z, r: 3.9 }, { x: la.x, z: la.z, r: 4 });
         const na = this.node(`D${a.i}_${b.i}`, pa.x, a.y, pa.z), nb = this.node(`D${b.i}_${a.i}`, pb.x, b.y, pb.z);
         na.plat = a.i; na.to = b.i; nb.plat = b.i; nb.to = a.i;
         this.link('P' + a.i, `D${a.i}_${b.i}`); this.link(`D${a.i}_${b.i}`, 'P' + b.i, 'pad', false);
@@ -666,7 +666,7 @@ export class Arena {
       const n = big ? Math.round(p.w * p.d / 70) : p.kind === 'perch' ? 1 : p.kind === 'hub' ? 5 : 2 + Math.floor(r() * 2);
       for (let k = 0, tries = 0; k < n && tries < (big ? n * 12 : 30); tries++) {
         const x = p.x + (r() - 0.5) * (p.w - 3), z = p.z + (r() - 0.5) * (p.d - 3);
-        if (keep.some((q) => Math.hypot(q.x - x, q.z - z) < 3)) continue;
+        if (keep.some((q) => Math.hypot(q.x - x, q.z - z) < 4.6)) continue;
         if (p.round && Math.hypot(x - p.x, z - p.z) > p.round - (p.hf ? 3 : 1.8)) continue; // (inside the dish or mesa top)
         const py = p.hf ? p.hf(x, z) - 0.3 : p.dish ? p.y + p.dish * ((x - p.x) ** 2 + (z - p.z) ** 2) / p.round ** 2 - 0.25 : p.y; // (sits on the curve)
         if (this.arcPts.some((q) => q.y < p.y + 4 && Math.hypot(q.x - x, q.z - z) < 2.4)) continue; // under a pad's flight path
