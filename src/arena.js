@@ -3,13 +3,13 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115001449';
-import { buildFoundry } from './foundry.js?v=20261115001449';
-import { buildBamboo } from './bamboo.js?v=20261115001449';
-import { buildCity } from './city.js?v=20261115001449';
-import { buildDojo } from './dojo.js?v=20261115001449';
-import { addScenery } from './scenery.js?v=20261115001449';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115001449';
+import { buildTilt } from './tilt.js?v=20261115002351';
+import { buildFoundry } from './foundry.js?v=20261115002351';
+import { buildBamboo } from './bamboo.js?v=20261115002351';
+import { buildCity } from './city.js?v=20261115002351';
+import { buildDojo } from './dojo.js?v=20261115002351';
+import { addScenery } from './scenery.js?v=20261115002351';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115002351';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -698,8 +698,8 @@ export class Arena {
     // ---- sky pillars all over the arena ----
     const pillars = [];
     for (let gx = -102; gx <= 102; gx += 16) for (let gz = -102; gz <= 102; gz += 16) {
-      const x = gx + (r() - 0.5) * 9, z = gz + (r() - 0.5) * 9, w = 1.4 + r() * 1.0;
-      if (Math.hypot(x, z) > 110 || r() < 0.2) continue;
+      const sq = big ? 0.78 : 1, x = (gx + (r() - 0.5) * 9) * sq, z = (gz + (r() - 0.5) * 9) * sq, w = 1.4 + r() * 1.0; // (Sky Plateaus: pulled in toward the mesas)
+      if (Math.hypot(x, z) > (big ? 82 : 110) || r() < (dish && Math.hypot(x, z) > 45 ? 0.5 : big ? 0.4 : 0.2)) continue; // (Sky Spires: fewer out at the edges; Sky Plateaus: fewer overall)
       const on = plats.find((p) => Math.abs(p.x - x) < p.w / 2 + w / 2 + 2.5 && Math.abs(p.z - z) < p.d / 2 + w / 2 + 2.5);
       if (on) {
         // big map: some pillars rise straight through the plateaus (cover and grapple points mid-fight)
@@ -712,6 +712,11 @@ export class Arena {
       const m = this.addBox(x - w / 2, x + w / 2, -90, 95, z - w / 2, z + w / 2, M.dark);
       m.castShadow = false;
       pillars.push({ x, z, w });
+    }
+    if (dish) for (let k = 0, tries = 0; k < 9 && tries < 300; tries++) { // Sky Spires: a few more pillars round the middle, between the dishes
+      const a = r() * Math.PI * 2, d = 13 + r() * 30, x = Math.cos(a) * d, z = Math.sin(a) * d, w = 1.4 + r() * 1.0;
+      if (plats.some((p) => Math.hypot(p.x - x, p.z - z) < (p.round || p.w / 2) + w / 2 + 2.5) || pillars.some((q) => Math.hypot(q.x - x, q.z - z) < 7)) continue;
+      const m = this.addBox(x - w / 2, x + w / 2, -90, 95, z - w / 2, z + w / 2, M.dark); m.castShadow = false; pillars.push({ x, z, w }); k++;
     }
     const ringGeo = new THREE.BoxGeometry(1, 0.25, 1), per = Math.ceil(170 / 14);
     const rings = new THREE.InstancedMesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x7fe8ff }), pillars.length * per);
