@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115010258';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115010258';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115010258';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115010258';
-import * as net from './net.js?v=20261115010258';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115010258';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115010258';
-import { makeKillFx } from './killfx.js?v=20261115010258';
-import { makeGrapple } from './grapple.js?v=20261115010258';
-import { initShop } from './shop.js?v=20261115010258';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115010258';
-import { portal } from './portal.js?v=20261115010258';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115010258';
+import { Arena, MAPS } from './arena.js?v=20261115011503';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115011503';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115011503';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115011503';
+import * as net from './net.js?v=20261115011503';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115011503';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115011503';
+import { makeKillFx } from './killfx.js?v=20261115011503';
+import { makeGrapple } from './grapple.js?v=20261115011503';
+import { initShop } from './shop.js?v=20261115011503';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115011503';
+import { portal } from './portal.js?v=20261115011503';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115011503';
 
 // ---------- settings ----------
 const store = {
@@ -463,8 +463,11 @@ function bladeSweep(f, dt) {
     }
   }
   // and the bamboo (canopy): a blade moving through a stalk severs it (a swing, or just carrying it past at speed); bots too
-  for (let s = 0; s < arena.bamboo.length; s++) {
+  for (const s of arena.bambooNear(f.pos.x, f.pos.z, f.bladeLen + 2.5, _near)) { // (only the stalks near us)
     const st = arena.bamboo[s];
+    if (arena.mow && (st.cutCd || 0) <= now() && Math.abs(st.x - f.pos.x) < st.r + 1 && Math.abs(st.z - f.pos.z) < st.r + 1) { // (Moonlit Isles: wading through the grass mows it)
+      const y = f.pos.y + 0.9; if (st.segs.some((g) => y > g.y0 + 0.3 && y < g.y1 - 0.3)) { st.cutCd = now() + 0.3; cutBamboo(s, +y.toFixed(2), true); continue; }
+    }
     if (Math.hypot(st.x - f.pos.x, st.z - f.pos.z) > f.bladeLen + 1.8 || (st.cutCd || 0) > now()) continue;
     if (f.hook && Math.hypot(f.hook.p.x - st.x, f.hook.p.z - st.z) < st.r + 0.35) continue; // never the one you're swinging from
     for (let k = 0; k <= 6; k++) {
@@ -522,6 +525,7 @@ function cutChain(id, mine) {
   if (mine) { if (S.host) net.broadcast({ t: 'chain', id }); else net.send({ t: 'chain', id }); }
 }
 // cut stalk s at height y (and tell everyone if we did it)
+const _near = [];
 function cutBamboo(s, y, mine) {
   const at = arena.cutBamboo(s, y); if (!at) return;
   const st = arena.bamboo[s]; // anyone we control who was hooked onto the part that just fell lets go
@@ -682,9 +686,10 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     sfx.kill(at || v.pos);
   } else if (v === me) sfx.fall();
   const birdy = fell && arena.bird && v.pos.y <= arena.killY + 1.5; // (a cloud map: the giant bird)
-  const eaten = fell && (arena.water != null || birdy); v.grap.hide(); if (fell && arena.chomp) { arena.chomp(v.pos); for (let i = 0; i < 80; i++) blood.emit(v.pos.x, v.pos.y + 1, v.pos.z, (Math.random() - 0.5) * 8, 2 + Math.random() * 8, (Math.random() - 0.5) * 8, 1.5); } // (Colosseum: the maw gulps)
+  const lily = fell && arena.lilyNear ? arena.lilyNear(v.pos) : null; // (Moonlit Isles: snapped up by a lily pad)
+  const eaten = fell && (arena.water != null || birdy || !!lily); v.grap.hide(); if (fell && arena.chomp) { arena.chomp(v.pos); for (let i = 0; i < 80; i++) blood.emit(v.pos.x, v.pos.y + 1, v.pos.z, (Math.random() - 0.5) * 8, 2 + Math.random() * 8, (Math.random() - 0.5) * 8, 1.5); } // (Colosseum: the maw gulps)
   if (!eaten) v.group.visible = false;
-  else { v.eatenAt = now() + (birdy ? 0.8 : 0.56); v.group.visible = true; } // stays in view until the jaws (or the saw) get it
+  else { v.eatenAt = now() + (lily ? 0.3 : birdy ? 0.8 : 0.56); v.group.visible = true; } // stays in view until the jaws (or the saw) get it
   const sawn = eaten && arena.mapId === 'foundry';
   const ca = (now() + 0.5) * 0.25; // (side-on to where the death camera will be circling, or to this viewer's camera)
   const look = v === me ? new THREE.Vector3(v.pos.x + Math.cos(ca) * 13, 0, v.pos.z + Math.sin(ca) * 13) : camera.position;
@@ -692,6 +697,11 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     v.eatenAt = 0; if (v.alive) return; v.group.visible = false;
     v.pose(0); const pt = v.pos.clone(); pt.y += 1; pieces.split(bakeMeshes(v.meshes), n, -n.dot(pt), new THREE.Vector3(0, 3, 0), new THREE.Vector3(0, 7, 0), 1);
     sfx.kill(v.pos); if (v === me) shake = Math.max(shake, 0.6);
+  });
+  else if (lily) arena.lilySnap(lily, v.pos, () => { // the pad's jaws slam shut
+    v.eatenAt = 0; if (!v.alive) v.group.visible = false;
+    for (let i = 0; i < 70; i++) blood.emit(v.pos.x, v.pos.y + 1, v.pos.z, (Math.random() - 0.5) * 9, Math.random() * 6, (Math.random() - 0.5) * 9, 1.5);
+    sfx.slice(v.pos); if (v === me) shake = Math.max(shake, 0.6);
   });
   else if (birdy) birds.bite(v.pos, look, () => { // the beak snaps shut: gone, blood, a crunch
     v.eatenAt = 0; if (!v.alive) v.group.visible = false;
@@ -704,8 +714,8 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     sfx.kill(v.pos); if (v === me) shake = Math.max(shake, 0.6);
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
-  feed(fell ? (sawn ? `${vn} was sawn in half` : birdy ? `${vn} was snatched by a giant bird` : eaten ? `${vn} was eaten by the piranha` : arena.fallText ? `${vn} ${arena.fallText(v.pos)}` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
-  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; }
+  feed(fell ? (sawn ? `${vn} was sawn in half` : lily ? `${vn} was snapped up by a lily pad` : birdy ? `${vn} was snatched by a giant bird` : eaten ? `${vn} was eaten by the piranha` : arena.fallText ? `${vn} ${arena.fallText(v.pos)}` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
+  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
     const st = rosterGet(S.myId)?.streak || 0; if (bladeFor(st + 1) > bladeFor(st)) showBanner('BLADE GROWS');
@@ -2006,6 +2016,7 @@ function tick(rdt, tt) {
       if (isLocal(f)) {
         bladeSweep(f, rdt); dashSweep(f);
         if (f.pos.y < (arena.killAt ? arena.killAt(f.pos) : arena.killY)) selfFell(f); // (Colosseum: the maw's flesh kills on touch)
+        else if (arena.lilyNear && f.alive && f.prot <= 0 && arena.lilyNear(f.pos)) selfFell(f); // (Moonlit Isles: over a lily pad, it strikes)
         else if (arena.hazardHit && f.alive && f.prot <= 0) { const h = arena.hazardHit(f.pos); if (h) sawKill(f, h.n, h.pt); } // Saw Foundry: walked into a blade
       }
       f.prevHand.copy(f.hand); f.prevTip.copy(f.tip);

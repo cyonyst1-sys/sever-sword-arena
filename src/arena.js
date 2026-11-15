@@ -3,13 +3,13 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115010258';
-import { buildFoundry } from './foundry.js?v=20261115010258';
-import { buildBamboo } from './bamboo.js?v=20261115010258';
-import { buildCity } from './city.js?v=20261115010258';
-import { buildDojo } from './dojo.js?v=20261115010258';
-import { addScenery } from './scenery.js?v=20261115010258';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115010258';
+import { buildTilt } from './tilt.js?v=20261115011503';
+import { buildFoundry } from './foundry.js?v=20261115011503';
+import { buildBamboo } from './bamboo.js?v=20261115011503';
+import { buildCity } from './city.js?v=20261115011503';
+import { buildDojo } from './dojo.js?v=20261115011503';
+import { addScenery } from './scenery.js?v=20261115011503';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115011503';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -112,7 +112,7 @@ export class Arena {
       rock: new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 1, flatShading: true }),
     };
     this.build(); addScenery(this);
-    this.bird = ['spire', 'plateaus', 'pagoda', 'isles', 'dojo', 'city', 'tilt'].includes(this.mapId); // (a sky map with clouds below: fall to them and a giant bird gets you)
+    this.bird = ['spire', 'plateaus', 'pagoda', 'dojo', 'city', 'tilt'].includes(this.mapId); // (a sky map with clouds below: fall to them and a giant bird gets you)
   }
   dispose() {
     this.realScene.remove(this.root);
@@ -436,6 +436,8 @@ export class Arena {
   // ---------- shared by the maps with cuttable stalks (canopy, pagoda, isles) ----------
   /** Every stalk in this.bamboo becomes one instance of a single mesh (one draw call for hundreds), standing
    *  from y0 to y1 in this.mats.bamboo. The texture runs by world height, so it stays put wherever a stalk is cut. */
+  /** The stalks within about rad of (x, z), from the 4 m grid. */
+  bambooNear(x, z, rad, out = []) { out.length = 0; if (!this.bGrid) return out; const c0 = Math.floor((x - rad) / 4), c1 = Math.floor((x + rad) / 4), d0 = Math.floor((z - rad) / 4), d1 = Math.floor((z + rad) / 4); for (let i = c0; i <= c1; i++) for (let j = d0; j <= d1; j++) { const l = this.bGrid.get(i * 4096 + j); if (l) for (const s of l) out.push(s); } return out; }
   plantStalks(y0, y1, vine = false, blades = false) {
     this.blades = blades; // (Moonlit Isles: thin flat grass blades, each turned its own way)
     if (vine) { // Great Canopy: twisting jungle vines instead of bamboo (a liana texture, and a wiggle bent in on the GPU)
@@ -458,6 +460,7 @@ export class Arena {
     this.bambooIM = new THREE.InstancedMesh(vine ? new THREE.CylinderGeometry(1, 1, 1, 5, 40, true) : blades ? new THREE.CylinderGeometry(0.12, 1, 1, 4, 1, true) : new THREE.CylinderGeometry(1, 1, 1, 8, 1, true), bm, Math.max(1, this.bamboo.length));
     this.bambooIM.frustumCulled = false; this.scene.add(this.bambooIM);
     for (let s = 0; s < this.bamboo.length; s++) this.addBambooSeg(s, y0, this.bamboo[s].top ?? y1); // (top: a stalk can stop short)
+    this.bGrid = new Map(); for (let s = 0; s < this.bamboo.length; s++) { const st = this.bamboo[s], k = Math.floor(st.x / 4) * 4096 + Math.floor(st.z / 4); (this.bGrid.get(k) || this.bGrid.set(k, []).get(k)).push(s); } // (4 m cells, to find the stalks near someone fast)
     this.bambooIM.instanceMatrix.needsUpdate = true;
   }
   /** Bots' map knowledge: which surfaces are joined on foot, roughly how far apart others are, and swing routes. */
@@ -1013,12 +1016,12 @@ export class Arena {
   // cut topples and falls away, and the stump below stays (you can still hook it, or cut it lower).
   addBambooSeg(s, y0, y1) {
     const st = this.bamboo[s], len = y1 - y0;
-    st.segs = []; this.rayBoxes = this.rayBoxes.filter((b) => b.bamboo !== s);
+    st.segs = []; if (!st.noHook) this.rayBoxes = this.rayBoxes.filter((b) => b.bamboo !== s); // (noHook: grass you can't grapple)
     _bm.compose(_bp.set(st.x, (y0 + y1) / 2, st.z), (st.rot ? _bq.setFromAxisAngle(_UP, st.rot) : _bq.identity()), _bs.set(len < 0.4 ? 0 : st.r, len < 0.4 ? 0 : len, len < 0.4 ? 0 : st.r * (this.blades ? 0.25 : 1)));
     this.bambooIM.setMatrixAt(st.inst, _bm); this.bambooIM.instanceMatrix.needsUpdate = true;
     if (len < 0.4) return;
     const box = { x0: st.x - st.r, x1: st.x + st.r, y0, y1, z0: st.z - st.r, z1: st.z + st.r, bamboo: s };
-    this.rayBoxes.push(box);
+    if (!st.noHook) this.rayBoxes.push(box);
     st.segs.push({ y0, y1, box });
   }
   /** Cut stalk s at height y: the part above topples and falls; the stump below stays. */

@@ -3,7 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261115010258';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261115011503';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -231,30 +231,67 @@ export function buildIsles(A, T) {
   // bamboo groves between the islands, plus a light scatter everywhere else
   const groves = [];
   for (let k = 0; k < 13; k++) { const a = (k / 13) * TAU + 0.2, d = k % 2 ? 66 : 30 + (k % 3) * 8; groves.push([Math.cos(a) * d, Math.sin(a) * d]); }
-  // tall grass: very thin flat blades, packed thick in clumps between the islands and scattered densely everywhere else,
-  // each reaching a few metres above the island nearest it (still hookable, and they cut)
-  const isl = A.plats.slice(), blade = (x, z) => {
+  // ---- dark water below the islands (touch it and you're gone), grass growing up out of it thick as a reed bed
+  // (every blade cuts, and you mow through it just by moving), and four red spiked lily pads in clear water that snap
+  // up and swallow anyone who steps on them or flies over them
+  const isl = A.plats.slice(), WATER = Math.min(...isl.map((p) => p.y)) - 4;
+  A.killY = WATER; A.water = null;
+  { const w = new THREE.Mesh(new THREE.CircleGeometry(420, 64).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x0c1830, roughness: 0.12, metalness: 0.55, emissive: 0x050c1c }));
+    w.position.y = WATER; w.userData.keep = true; S.add(w); }
+  const pads = []; // four lily pads, out in open water clear of the islands
+  for (let k = 0, tries = 0; k < 4 && tries < 400; tries++) {
+    const a = r() * TAU, d = 22 + r() * 70, x = Math.cos(a) * d, z = Math.sin(a) * d;
+    if (!clear(A, x, z, 9) || pads.some((p) => Math.hypot(p.x - x, p.z - z) < 40)) continue;
+    pads.push({ x, z, R: 4.2 }); k++;
+  }
+  const blade = (x, z, hook) => { // a grass blade: up out of the water to a little above the island nearest it
+    if (pads.some((p) => Math.hypot(p.x - x, p.z - z) < p.R + 4)) return; // (clear water round each lily pad)
     let ny = 0, nd = 1e9; for (const p of isl) { const d = Math.hypot(p.x - x, p.z - z); if (d < nd) { nd = d; ny = p.y; } }
-    stalk(A, x, z, 0.07 + r() * 0.05); const st = A.bamboo[A.bamboo.length - 1]; st.top = ny + 2 + r() * 5; st.rot = r() * TAU;
+    const st = { x, z, r: 0.07 + r() * 0.05, segs: [], inst: A.bamboo.length, top: ny + 1.5 + r() * 5, rot: r() * TAU, noHook: !hook };
+    A.bamboo.push(st); if (hook) A.pillars.push({ x, z, w: st.r * 2 });
   };
-  for (const [gx, gz] of groves) for (let i = 0; i < 130; i++) { const a = r() * TAU, d = Math.sqrt(r()) * 12, x = gx + Math.cos(a) * d, z = gz + Math.sin(a) * d; if (clear(A, x, z, 0.8)) blade(x, z); }
-  for (let gx = -108; gx <= 108; gx += 4.5) for (let gz = -108; gz <= 108; gz += 4.5) { const x = gx + (r() - 0.5) * 4, z = gz + (r() - 0.5) * 4; if (Math.hypot(x, z) < 112 && r() > 0.4 && clear(A, x, z, 1.2)) blade(x, z); }
+  const low = A.quality === 'low', step = low ? 2 : 1.22;
+  let n = 0;
+  for (let gx = -108; gx <= 108; gx += step) for (let gz = -108; gz <= 108; gz += step) { const x = gx + (r() - 0.5) * step * 1.3, z = gz + (r() - 0.5) * step * 1.3; if (Math.hypot(x, z) < 112 && clear(A, x, z, 0.7)) blade(x, z, (n++ % 7) === 0); }
+  for (const [gx, gz] of groves) for (let i = 0; i < (low ? 60 : 160); i++) { const a = r() * TAU, d = Math.sqrt(r()) * 12, x = gx + Math.cos(a) * d, z = gz + Math.sin(a) * d; if (clear(A, x, z, 0.6)) blade(x, z, (n++ % 7) === 0); }
   M.bamboo = new THREE.MeshStandardMaterial({ roughness: 0.7, emissive: 0x0c2410, side: THREE.DoubleSide, map: T.canvasTex((g, s) => { // grass: green with fine veins
     g.fillStyle = '#3f7a34'; g.fillRect(0, 0, s, s); for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '20,50,20' : '120,180,90'},${0.15 + r() * 0.25})`; g.fillRect(r() * s, 0, 1 + r() * 2, s); }
   }, 64) });
-  A.plantStalks(-70, 70, false, true);
-  { // ...and thousands more blades filling in between them, thick as a meadow (scenery: one draw call, not hooked or cut)
-    const low = A.quality === 'low', list = [], at = (x, z) => {
-      let ny = 0, nd = 1e9; for (const p of isl) { const d = Math.hypot(p.x - x, p.z - z); if (d < nd) { nd = d; ny = p.y; } }
-      list.push([x, z, ny + 1 + r() * 5.5, 0.06 + r() * 0.05, r() * TAU]);
-    };
-    const step = low ? 2.6 : 1.55;
-    for (let gx = -108; gx <= 108; gx += step) for (let gz = -108; gz <= 108; gz += step) { const x = gx + (r() - 0.5) * step * 1.4, z = gz + (r() - 0.5) * step * 1.4; if (Math.hypot(x, z) < 112 && r() > 0.12 && clear(A, x, z, 0.7)) at(x, z); }
-    for (const [gx, gz] of groves) for (let i = 0; i < (low ? 80 : 220); i++) { const a = r() * TAU, d = Math.sqrt(r()) * 13, x = gx + Math.cos(a) * d, z = gz + Math.sin(a) * d; if (clear(A, x, z, 0.6)) at(x, z); }
-    const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 1, 1, 4, 1, true).translate(0, 0.5, 0), M.bamboo, list.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v = new THREE.Vector3(), s = new THREE.Vector3();
-    list.forEach(([x, z, top, rad, rot], i) => { mm.compose(v.set(x, -70, z), q.setFromAxisAngle(up, rot), s.set(rad, top + 70, rad * 0.25)); im.setMatrixAt(i, mm); });
-    im.frustumCulled = false; S.add(im);
+  A.plantStalks(WATER - 0.5, 70, false, true);
+  A.mow = true; // (moving through the grass cuts it)
+  { // the lily pads: a red, slightly cupped pad with a notch, dark veins, and a ring of spikes round the rim pointing up.
+    // Each is two halves hinged across the middle: when it strikes it leaps up and the halves slam shut like jaws.
+    const red = std(0xb3202a, { roughness: 0.55, emissive: 0x2a0408, side: THREE.DoubleSide }), spikeM = std(0xe8d8c0, { roughness: 0.4 }), vein = std(0x5a0a12, { roughness: 0.8 });
+    for (const p of pads) {
+      const root = new THREE.Group(); root.position.set(p.x, WATER + 0.05, p.z); root.rotation.y = r() * TAU; S.add(root);
+      p.halves = [-1, 1].map((sd) => {
+        const h = new THREE.Group(); root.add(h);
+        const g = new THREE.CircleGeometry(p.R, 24, sd < 0 ? 0.08 : Math.PI + 0.08, Math.PI - 0.16).rotateX(-Math.PI / 2); // (a notch at the hinge)
+        const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) { const rr = Math.hypot(pp.getX(i), pp.getZ(i)) / p.R; pp.setY(i, rr * rr * 0.35); } g.computeVertexNormals();
+        h.add(new THREE.Mesh(g, red));
+        for (let k = 0; k < 5; k++) { const a = (sd < 0 ? 0.3 : Math.PI + 0.3) + k * 0.6, v = new THREE.Mesh(new THREE.BoxGeometry(p.R * 0.85, 0.04, 0.09), vein); v.position.set(Math.cos(a) * p.R * 0.45, 0.06, -Math.sin(a) * p.R * 0.45); v.rotation.y = a; h.add(v); }
+        for (let k = 0; k < 11; k++) { const a = (sd < 0 ? 0.15 : Math.PI + 0.15) + k * (Math.PI - 0.3) / 10, sp = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.3, 6), spikeM); sp.position.set(Math.cos(a) * (p.R - 0.15), 0.95, -Math.sin(a) * (p.R - 0.15)); sp.rotation.set(Math.sin(a) * 0.25 * -1, 0, Math.cos(a) * -0.25); h.add(sp); } // spikes round the rim, leaning out a little
+        h.userData.side = sd; return h;
+      });
+      p.root = root; p.t = -1;
+    }
+    A.lilyNear = (q) => { for (const p of pads) if (Math.hypot(q.x - p.x, q.z - p.z) < p.R + 0.4 && q.y < WATER + 45) return p; return null; }; // stepped on, or flown over
+    A.lilySnap = (p, at, onClose) => { p.t = 0; p.at = at.clone(); p.onClose = onClose; p.closed = false; };
+    A.anim.push((t, dt) => {
+      dt = dt || 0;
+      for (const p of pads) {
+        if (p.t < 0) continue;
+        p.t += dt; const u = p.t, lift = p.at.y - WATER - 0.6;
+        const up = u < 0.25 ? u / 0.25 : u < 0.7 ? 1 : Math.max(0, 1 - (u - 0.7) / 0.8); // leap up, hold the bite, sink back
+        p.root.position.y = WATER + 0.05 + lift * (1 - Math.pow(1 - up, 3));
+        const shut = u < 0.18 ? 0 : u < 0.3 ? (u - 0.18) / 0.12 : u < 1.2 ? 1 : Math.max(0, 1 - (u - 1.2) / 0.5); // SNAP shut, then open again on the water
+        for (const h of p.halves) h.rotation.x = h.userData.side * shut * 1.45;
+        if (!p.closed && u >= 0.3) { p.closed = true; if (p.onClose) p.onClose(); }
+        if (u > 1.8) { p.t = -1; p.root.position.y = WATER + 0.05; for (const h of p.halves) h.rotation.x = 0; }
+      }
+    });
   }
+  A.fallText = (q) => 'fell in the water'; A.fallBy = (q) => 'Fell in the water';
   A.finishNav();
 
   // ---- backdrop: stars, the full moon with a halo, far floating islands with trees, a moonlit cloud sea, fireflies
