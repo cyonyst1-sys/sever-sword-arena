@@ -124,7 +124,7 @@ export function buildTendrils(A, pts) {
     list.push({ x, z, by, H, R0, uB, rest, ph, bend: new THREE.Vector2(), vel: new THREE.Vector2(), boxes });
     A.pillars.push({ x, z, w: 2.8 });
   });
-  const tipOff = (t, out) => out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin((A.lastT || 0) * 0.45 + t.ph) * 1.8, Math.cos((A.lastT || 0) * 0.38 + t.ph * 1.3) * 1.8));
+  const tipOff = (t, out) => out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin((A.lastT || 0) * 0.4 + t.ph) * 3, Math.cos((A.lastT || 0) * 0.33 + t.ph * 1.3) * 3));
   const tmp = new THREE.Vector2();
   A.tendrilPoint = (i, s, out) => { const t = list[i]; tipOff(t, tmp); return out.set(t.x + tmp.x * s * s, t.by + s * t.H, t.z + tmp.y * s * s); };
   A.tendrilAt = (p) => { // which tendril (and how far up it) a hook point is on
@@ -137,11 +137,11 @@ export function buildTendrils(A, pts) {
     if (!dt) return;
     for (const t of list) { t.fx = 0; t.fz = 0; }
     for (const f of fighters) { const h = f.hook; if (!h || !h.tend) continue; const t = list[h.tend.i]; if (!t) continue; // the rope drags the tip toward whoever hangs on it
-      A.tendrilPoint(h.tend.i, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, k = 48 * h.tend.s;
+      A.tendrilPoint(h.tend.i, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, k = 95 * h.tend.s;
       t.fx += dx / l * k; t.fz += dz / l * k; }
     for (const t of list) {
-      t.vel.x += (-2.2 * t.bend.x - 0.9 * t.vel.x + t.fx) * dt; t.vel.y += (-2.2 * t.bend.y - 0.9 * t.vel.y + t.fz) * dt;
-      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 18) t.bend.multiplyScalar(18 / l);
+      t.vel.x += (-0.9 * t.bend.x - 0.55 * t.vel.x + t.fx) * dt; t.vel.y += (-0.9 * t.bend.y - 0.55 * t.vel.y + t.fz) * dt;
+      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 32) t.bend.multiplyScalar(32 / l);
       tipOff(t, tmp); t.uB.value.copy(tmp);
       for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * s * s, cz = t.z + tmp.y * s * s, r = t.R0 * (1 - s * 0.75) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; }
     }
