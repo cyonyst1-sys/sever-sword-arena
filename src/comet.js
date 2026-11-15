@@ -124,12 +124,12 @@ export function buildComet(A, T) {
     for (let i = 0; i < NS; i++) { const v = seeds[i]; v.addScaledVector(D, -speed * dt); if (v.dot(D) < -450) v.addScaledVector(D, 900); if (v.length() > 720) v.setLength(260); pos[i * 6] = v.x; pos[i * 6 + 1] = v.y; pos[i * 6 + 2] = v.z; tmp.copy(v).addScaledVector(D, len); pos[i * 6 + 3] = tmp.x; pos[i * 6 + 4] = tmp.y; pos[i * 6 + 5] = tmp.z; }
     sg.attributes.position.needsUpdate = true;
     tailM.opacity = 0.05 + 0.02 * Math.sin(clock * 3) + e * 0.05;
-    fireM.opacity = Math.max(0, prog - 0.6) * 0.45 * (0.9 + 0.1 * Math.sin(clock * 23)); // the leading edge burns in the atmosphere (a soft glow ahead)
+    fireM.opacity = 0; fire.visible = false; // (no orange burn glow: it got in the way)
     fire.scale.set(95 + e * 40, 55 + e * 60, 95 + e * 40);
     for (const q of small) { q.m.rotation.x += q.spin.x * dt; q.m.rotation.y += q.spin.y * dt; q.m.rotation.z += q.spin.z * dt; }
     if (impactT >= 0) { // the surface rushes in... and the comet hits: a white flash and a swelling fireball
       const u = impactT - 1.1;
-      if (u >= 0) { flash.visible = true; flash.position.copy(D).multiplyScalar(30); flash.scale.setScalar(20 + u * 420); flashM.opacity = Math.max(0, 1 - u * 0.45); flashM.color.setHSL(0.08 - Math.min(0.08, u * 0.04), 1, 0.75 - Math.min(0.3, u * 0.15)); }
+      if (u >= 0) { flash.visible = true; flash.position.copy(D).multiplyScalar(30); flash.scale.setScalar(20 + u * 420); flashM.opacity = Math.max(0, 1 - u * 0.9); flashM.color.setHSL(0.08 - Math.min(0.08, u * 0.04), 1, 0.75 - Math.min(0.3, u * 0.15)); }
       if (u >= 0 && !boomed) { boomed = true; flashScreen(); return true; } // (main shakes the camera and plays the boom)
     }
     return false;
