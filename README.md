@@ -65,7 +65,7 @@ Pick the map on the home screen (the host picks it in a multiplayer room). Both 
 
 ### Sky Plateaus
 
-Fewer, much bigger platforms for larger battles:
+Fewer, much bigger platforms for larger battles. Each is the top of a mesa, like the tepuis of South America: a round, sandy top with gentle dips and mounds, and sheer layered sandstone cliffs dropping straight down through the clouds.
 
 - **7 huge plateaus** (about 40 m across): a 46 m central plateau and six around it, each at a slightly different height (from 4 m below to 8 m above the centre).
 - Low **terraces** (a step up, no jump needed), low walls and stone blocks spread over each plateau, and some **pillars rise straight through the plateaus** as cover and mid-fight grapple points.

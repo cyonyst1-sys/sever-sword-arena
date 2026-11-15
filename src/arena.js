@@ -3,12 +3,13 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261114223552';
-import { buildFoundry } from './foundry.js?v=20261114223552';
-import { buildBamboo } from './bamboo.js?v=20261114223552';
-import { buildCity } from './city.js?v=20261114223552';
-import { buildDojo } from './dojo.js?v=20261114223552';
-import { addScenery } from './scenery.js?v=20261114223552';
+import { buildTilt } from './tilt.js?v=20261114224605';
+import { buildFoundry } from './foundry.js?v=20261114224605';
+import { buildBamboo } from './bamboo.js?v=20261114224605';
+import { buildCity } from './city.js?v=20261114224605';
+import { buildDojo } from './dojo.js?v=20261114224605';
+import { addScenery } from './scenery.js?v=20261114224605';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261114224605';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(); // bamboo instance updates
 
@@ -555,15 +556,18 @@ export class Arena {
         { const sp = new THREE.Vector3(p.x + (r() - 0.5) * 2, p.y, p.z + (r() - 0.5) * 2); sp.plat = p.i; this.spawns.push(sp); }
         continue;
       }
-      const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2, z0 = p.z - p.d / 2, z1 = p.z + p.d / 2;
-      this.addBox(x0, x1, p.y - 0.35, p.y, z0, z1, M.floor);
-      this.addBox(x0 + 0.2, x1 - 0.2, p.y - 2.2, p.y - 0.35, z0 + 0.2, z1 - 0.2, M.stone);
-      const rad = Math.min(p.w, p.d) * 0.6, h = big ? 14 + r() * 10 : 5 + r() * 8;
-      const cone = new THREE.ConeGeometry(rad, h, 8, 3); cone.rotateX(Math.PI);
-      const cp = cone.attributes.position;
-      for (let i = 0; i < cp.count; i++) { const y = cp.getY(i); if (y < h / 2 - 0.01) { const s = 1 + (r() - 0.5) * 0.4; cp.setX(i, cp.getX(i) * s); cp.setZ(i, cp.getZ(i) * s); } }
-      cone.translate(p.x, p.y - 2.2 - h / 2, p.z); cone.computeVertexNormals();
-      const rock = new THREE.Mesh(cone, M.rock); S.add(rock); this.own(p, rock);
+      if (big) makeMesa(this, p, r); // Sky Plateaus: the top of a mesa (its mesh is built once the pads are placed)
+      else {
+        const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2, z0 = p.z - p.d / 2, z1 = p.z + p.d / 2;
+        this.addBox(x0, x1, p.y - 0.35, p.y, z0, z1, M.floor);
+        this.addBox(x0 + 0.2, x1 - 0.2, p.y - 2.2, p.y - 0.35, z0 + 0.2, z1 - 0.2, M.stone);
+        const rad = Math.min(p.w, p.d) * 0.6, h = 5 + r() * 8;
+        const cone = new THREE.ConeGeometry(rad, h, 8, 3); cone.rotateX(Math.PI);
+        const cp = cone.attributes.position;
+        for (let i = 0; i < cp.count; i++) { const y = cp.getY(i); if (y < h / 2 - 0.01) { const s = 1 + (r() - 0.5) * 0.4; cp.setX(i, cp.getX(i) * s); cp.setZ(i, cp.getZ(i) * s); } }
+        cone.translate(p.x, p.y - 2.2 - h / 2, p.z); cone.computeVertexNormals();
+        const rock = new THREE.Mesh(cone, M.rock); S.add(rock); this.own(p, rock);
+      }
       this.node('P' + p.i, p.x, p.y, p.z).plat = p.i;
       { const sp = new THREE.Vector3(p.x + (r() - 0.5) * 3, p.y, p.z + (r() - 0.5) * 3); sp.plat = p.i; this.spawns.push(sp); }
       if (big) { // big platforms: spawn spots and walking waypoints in each quarter too
@@ -581,6 +585,7 @@ export class Arena {
     const linked = new Set(), padN = new Map(), padSpots = new Map(plats.map((p) => [p.i, []]));
     const spot = (a, b, inset) => {
       const dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz) || 1, ux = dx / l, uz = dz / l;
+      if (a.round) return new THREE.Vector3(a.x + ux * (a.round - inset), a.y, a.z + uz * (a.round - inset)); // (round: in from its rim)
       const t = Math.min(Math.abs(ux) > 1e-3 ? (a.w / 2 - inset) / Math.abs(ux) : 1e9, Math.abs(uz) > 1e-3 ? (a.d / 2 - inset) / Math.abs(uz) : 1e9);
       return new THREE.Vector3(a.x + ux * t, a.y, a.z + uz * t);
     };
@@ -609,6 +614,8 @@ export class Arena {
         this.arcPts.push(...arcA, ...arcB);
         this.addPad(pa.x, a.y, pa.z, la.x, b.y, la.z, T, a.i, b.i); this.addPad(pb.x, b.y, pb.z, lb.x, a.y, lb.z, T, b.i, a.i);
         padSpots.get(a.i).push(pa, lb); padSpots.get(b.i).push(pb, la);
+        if (a.flats) a.flats.push({ x: pa.x, z: pa.z, r: 2.6 }, { x: lb.x, z: lb.z, r: 3.5 }); // (mesa tops: level ground at pads and landings)
+        if (b.flats) b.flats.push({ x: pb.x, z: pb.z, r: 2.6 }, { x: la.x, z: la.z, r: 3.5 });
         const na = this.node(`D${a.i}_${b.i}`, pa.x, a.y, pa.z), nb = this.node(`D${b.i}_${a.i}`, pb.x, b.y, pb.z);
         na.plat = a.i; na.to = b.i; nb.plat = b.i; nb.to = a.i;
         this.link('P' + a.i, `D${a.i}_${b.i}`); this.link(`D${a.i}_${b.i}`, 'P' + b.i, 'pad', false);
@@ -637,11 +644,16 @@ export class Arena {
     });
 
     if (dish) this.finishNav(); // (no pads: swing routes between the dishes, like the other pad-free maps)
+    if (big) { // mesas: build their meshes now the pads are placed, and stand spawns and waypoints on the ground
+      for (const p of plats) mesaMesh(this, p, r);
+      for (const sp of this.spawns) { const p = plats[sp.plat]; if (p && p.hf) sp.y = p.hf(sp.x, sp.z) + 0.05; }
+      for (const n of this.nodes) { const p = plats[n.plat]; if (p && p.hf && !n.to) n.p.y = p.hf(n.p.x, n.p.z); }
+    }
     // ---- cover on each platform (kept off the pads, landings and centre) ----
     for (const p of plats) {
       this.tag = p;
       const keep = [new THREE.Vector3(p.x, p.y, p.z), ...padSpots.get(p.i)];
-      if (big) { // low terraces (a step up, no jump needed) so the plateaus have levels to fight across
+      if (big && !p.hf) { // low terraces (a step up, no jump needed) so the plateaus have levels to fight across
         for (let k = 0, tries = 0; k < 3 && tries < 40; tries++) {
           const tw = 8 + r() * 6, td = 8 + r() * 6;
           const x = p.x + (r() - 0.5) * (p.w - tw - 4), z = p.z + (r() - 0.5) * (p.d - td - 4);
@@ -655,8 +667,8 @@ export class Arena {
       for (let k = 0, tries = 0; k < n && tries < (big ? n * 12 : 30); tries++) {
         const x = p.x + (r() - 0.5) * (p.w - 3), z = p.z + (r() - 0.5) * (p.d - 3);
         if (keep.some((q) => Math.hypot(q.x - x, q.z - z) < 3)) continue;
-        if (p.dish && Math.hypot(x - p.x, z - p.z) > p.round - 1.8) continue; // (inside the dish)
-        const py = p.dish ? p.y + p.dish * ((x - p.x) ** 2 + (z - p.z) ** 2) / p.round ** 2 - 0.25 : p.y; // (sits on the curve)
+        if (p.round && Math.hypot(x - p.x, z - p.z) > p.round - (p.hf ? 3 : 1.8)) continue; // (inside the dish or mesa top)
+        const py = p.hf ? p.hf(x, z) - 0.3 : p.dish ? p.y + p.dish * ((x - p.x) ** 2 + (z - p.z) ** 2) / p.round ** 2 - 0.25 : p.y; // (sits on the curve)
         if (this.arcPts.some((q) => q.y < p.y + 4 && Math.hypot(q.x - x, q.z - z) < 2.4)) continue; // under a pad's flight path
         if (r() < 0.55) { const along = r() < 0.5, L = 1.5 + r(); this.addBox(x - (along ? L : 0.3), x + (along ? L : 0.3), py, py + 1.1, z - (along ? 0.3 : L), z + (along ? 0.3 : L), M.stone); }
         else this.addBox(x - 0.55, x + 0.55, py, py + 2.3, z - 0.55, z + 0.55, M.dark);
@@ -665,7 +677,7 @@ export class Arena {
       // glowing crystal on each corner for readability from afar
       for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
         const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.35, 0), new THREE.MeshStandardMaterial({ color: 0x7fe8ff, emissive: 0x2fb8e0, emissiveIntensity: 1.2, flatShading: true }));
-        if (p.dish) c.position.set(p.x + cx * (p.round - 0.3) * 0.707, p.y + p.dish + 0.6, p.z + cz * (p.round - 0.3) * 0.707); else c.position.set(p.x + cx * (p.w / 2 - 0.5), p.y + 0.6, p.z + cz * (p.d / 2 - 0.5)); c.scale.y = 1.8; S.add(c); this.own(p, c);
+        if (p.round) { const X = p.x + cx * (p.round - (p.hf ? 1.2 : 0.3)) * 0.707, Z = p.z + cz * (p.round - (p.hf ? 1.2 : 0.3)) * 0.707; c.position.set(X, (p.hf ? p.hf(X, Z) : p.y + p.dish) + 0.6, Z); } else c.position.set(p.x + cx * (p.w / 2 - 0.5), p.y + 0.6, p.z + cz * (p.d / 2 - 0.5)); c.scale.y = 1.8; S.add(c); this.own(p, c);
       }
     }
     this.tag = null;
@@ -729,12 +741,13 @@ export class Arena {
     return r.hL + (r.hH - r.hL) * Math.min(1, Math.max(0, t));
   }
   /** Highest walkable surface at (x,z) no higher than a step above y. -Infinity over the void. */
+  discTop(c, x, z) { return c.hf ? c.hf(x, z) : c.dish ? c.y1 + c.dish * Math.min(1, ((x - c.x) ** 2 + (z - c.z) ** 2) / (c.r * c.r)) : c.y1; } // (flat, a dish, or a mesa's rolling top)
   groundHeight(x, z, y, m = 0.18) {
     let g = -Infinity;
 
     for (const b of this.boxes) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1;
     for (const r of this.ramps) { const h = this.rampH(r, x, z); if (h !== null && h <= y + (r.noWall ? 1.2 : STEP) && h > g) g = h; } // branch tops: a fast dash up one still lands on it
-    for (const c of this.discs) { const d2 = (x - c.x) ** 2 + (z - c.z) ** 2; if (d2 > (c.r + m) ** 2) continue; const t = c.dish ? c.y1 + c.dish * Math.min(1, d2 / (c.r * c.r)) : c.y1; if (t <= y + STEP && t > g) g = t; } // round platforms and columns (and dishes, curving up to the rim)
+    for (const c of this.discs) { const d2 = (x - c.x) ** 2 + (z - c.z) ** 2; if (d2 > (c.r + m) ** 2) continue; const t = this.discTop(c, x, z); if (t <= y + STEP && t > g) g = t; } // round platforms and columns (and dishes, curving up to the rim)
     if (this.brk) for (const b of this.brkNear(x, z)) if (b.kind !== 'glass' && x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1; // breakables (hay, crates, wall tops)
     if (this.tilt) { const h = this.tilt.heightAt(x, z, m); if (h !== null && h <= y + 1.2 && h > g) g = h; } // a tilting deck (Tipping Point)
     return g;
@@ -757,7 +770,7 @@ export class Arena {
   }
   wallAt(x, z, y, h = 1.7, m = 0.3) {
     for (const b of this.boxes) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 > y + STEP && b.y0 < y + h) return true;
-    for (const c of this.discs) if ((c.dish ? c.y1 + c.dish * Math.min(1, ((x - c.x) ** 2 + (z - c.z) ** 2) / (c.r * c.r)) : c.y1) > y + STEP && c.y0 < y + h && (x - c.x) ** 2 + (z - c.z) ** 2 <= (c.r + m) ** 2) return true;
+    for (const c of this.discs) if (this.discTop(c, x, z) > y + STEP && c.y0 < y + h && (x - c.x) ** 2 + (z - c.z) ** 2 <= (c.r + m) ** 2) return true;
     return false;
   }
   /** Push a standing cylinder (feet at pos.y) out of walls; handles ceilings. Returns true if grounded. */
@@ -781,7 +794,8 @@ export class Arena {
         }
       }
       for (const c of this.discs) { // round platforms and columns: push out sideways
-        const sy = c.dish ? c.y1 + c.dish * Math.min(1, ((pos.x - c.x) ** 2 + (pos.z - c.z) ** 2) / (c.r * c.r)) : c.y1; // (a dish: its surface where you are, its rim from outside)
+        if (c.hf && (pos.x - c.x) ** 2 + (pos.z - c.z) ** 2 < (c.r - 0.3) ** 2) continue; // (on a mesa top: no walls inside it)
+        const sy = this.discTop(c, pos.x, pos.z); // (a dish or mesa: its surface where you are, its rim from outside)
         if (sy <= top + STEP || c.y0 >= pos.y + h) continue;
         let dx = pos.x - c.x, dz = pos.z - c.z; const d = Math.hypot(dx, dz), min = c.r + rad;
         if (d >= min) continue;
