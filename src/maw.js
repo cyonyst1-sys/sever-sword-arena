@@ -119,7 +119,7 @@ export function buildTendrils(A, pts) {
       sh.vertexShader = 'uniform vec2 uB; uniform float uH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat ts = clamp(position.y / uH, 0.0, 1.0); transformed.xz += uB * ts * ts;'); };
     mat.customProgramCacheKey = () => 'tendril';
     const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; A.scene.add(m);
-    const ph = i * 1.7, inw = 11 + ((i * 5) % 7), dl = Math.hypot(x, z) || 1, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2); // a natural curve at rest
+    const ph = i * 1.7, dl = Math.hypot(x, z) || 1, inw = dl - 5 - (i % 4) * 2.5, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2); // (curling right in: the tips hang over the centre platform) // a natural curve at rest
     const boxes = []; for (let s = 0.12; s < 1; s += 0.08) { const b = { x0: 0, x1: 0, y0: by + (s - 0.05) * H, y1: by + (s + 0.05) * H, z0: 0, z1: 0, ts: s, tend: i }; A.rayBoxes.push(b); boxes.push(b); }
     list.push({ x, z, by, H, R0, uB, rest, ph, bend: new THREE.Vector2(), vel: new THREE.Vector2(), boxes });
     A.pillars.push({ x, z, w: 2.8 });
@@ -137,11 +137,11 @@ export function buildTendrils(A, pts) {
     if (!dt) return;
     for (const t of list) { t.fx = 0; t.fz = 0; }
     for (const f of fighters) { const h = f.hook; if (!h || !h.tend) continue; const t = list[h.tend.i]; if (!t) continue; // the rope drags the tip toward whoever hangs on it
-      A.tendrilPoint(h.tend.i, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, k = 95 * h.tend.s;
+      A.tendrilPoint(h.tend.i, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, k = 28 * h.tend.s;
       t.fx += dx / l * k; t.fz += dz / l * k; }
     for (const t of list) {
-      t.vel.x += (-0.9 * t.bend.x - 0.55 * t.vel.x + t.fx) * dt; t.vel.y += (-0.9 * t.bend.y - 0.55 * t.vel.y + t.fz) * dt;
-      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 32) t.bend.multiplyScalar(32 / l);
+      t.vel.x += (-2 * t.bend.x - 1.1 * t.vel.x + t.fx) * dt; t.vel.y += (-2 * t.bend.y - 1.1 * t.vel.y + t.fz) * dt;
+      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 12) t.bend.multiplyScalar(12 / l);
       tipOff(t, tmp); t.uB.value.copy(tmp);
       for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * s * s, cz = t.z + tmp.y * s * s, r = t.R0 * (1 - s * 0.75) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; }
     }
