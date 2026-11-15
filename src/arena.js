@@ -3,20 +3,20 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115164758';
-import { buildFoundry } from './foundry.js?v=20261115164758';
-import { buildBamboo } from './bamboo.js?v=20261115164758';
-import { buildCity } from './city.js?v=20261115164758';
-import { buildDojo } from './dojo.js?v=20261115164758';
-import { buildComet } from './comet.js?v=20261115164758';
-import { addScenery } from './scenery.js?v=20261115164758';
-import { addAtmosphere } from './atmos.js?v=20261115164758';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115164758';
+import { buildTilt } from './tilt.js?v=20261115165022';
+import { buildFoundry } from './foundry.js?v=20261115165022';
+import { buildBamboo } from './bamboo.js?v=20261115165022';
+import { buildCity } from './city.js?v=20261115165022';
+import { buildDojo } from './dojo.js?v=20261115165022';
+import { buildComet } from './comet.js?v=20261115165022';
+import { addScenery } from './scenery.js?v=20261115165022';
+import { addAtmosphere } from './atmos.js?v=20261115165022';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115165022';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
 export const ISLAND_R = 30;
-const STEP = 0.5;
+const STEP = 0.5, RIM = 0.65; // (RIM: how far a round platform's walkable rounded edge reaches past its rim)
 
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 function canvasTex(draw, size = 256) {
@@ -829,6 +829,15 @@ export class Arena {
   }
 
   // ---------- queries ----------
+  /** A branch's (or leaf's) walking height including its rounded sides: off the edge of the flat top the surface curves
+   *  down like the side of a log, so landing on the side still counts and you can run up onto the top. */
+  rampWalk(r, x, z) {
+    const h = this.rampH(r, x, z); if (h !== null || !r.noWall) return h;
+    const t = ((x - r.lx) * r.ux + (z - r.lz) * r.uz) / r.len, s = (x - r.lx) * -r.uz + (z - r.lz) * r.ux, sh = Math.max(0.55, r.w * 0.28), e = Math.abs(s) - r.w / 2;
+    if (t < -0.02 || t > 1.02 || e > sh) return null;
+    const k = e / sh, w2 = r.w / 2;
+    return r.hL + (r.hH - r.hL) * Math.min(1, Math.max(0, t)) + (r.foldK ? r.foldK * w2 * w2 + r.foldV * w2 : 0) - sh * 1.15 * k * k;
+  }
   rampH(r, x, z) {
     const t = ((x - r.lx) * r.ux + (z - r.lz) * r.uz) / r.len;
     const s = (x - r.lx) * -r.uz + (z - r.lz) * r.ux;
@@ -841,8 +850,14 @@ export class Arena {
     let g = -Infinity;
 
     for (const b of this.boxes) if (x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1;
-    for (const r of this.ramps) { const h = this.rampH(r, x, z); if (h !== null && h <= y + (r.noWall ? 1.2 : STEP) && h > g) g = h; } // branch tops: a fast dash up one still lands on it
-    for (const c of this.discs) { const d2 = (x - c.x) ** 2 + (z - c.z) ** 2; if (d2 > (c.r + m) ** 2) continue; const t = this.discTop(c, x, z); if (t <= y + STEP && t > g) g = t; } // round platforms and columns (and dishes, curving up to the rim)
+    for (const r of this.ramps) { const h = this.rampWalk(r, x, z); if (h !== null && h <= y + (r.noWall ? 1.2 : STEP) && h > g) g = h; } // branch tops: a fast dash up one still lands on it
+    for (const c of this.discs) { const d2 = (x - c.x) ** 2 + (z - c.z) ** 2; if (d2 > (c.r + m) ** 2) {
+        // the rounded rim of a platform: just outside its edge the surface curves down, so a landing on the side still
+        // counts and you can run up onto the top
+        if (c.hf || c.r < 2.5 || d2 > (c.r + RIM) ** 2) continue;
+        const k = (Math.sqrt(d2) - c.r) / RIM, t = c.y1 + (c.dish || 0) - RIM * 1.15 * k * k; if (t <= y + 1.0 && t > g) g = t; continue;
+      }
+      const t = this.discTop(c, x, z); if (t <= y + STEP && t > g) g = t; } // round platforms and columns (and dishes, curving up to the rim)
     if (this.brk) for (const b of this.brkNear(x, z)) if (b.kind !== 'glass' && x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1; // breakables (hay, crates, wall tops)
     if (this.tilt) { const h = this.tilt.heightAt(x, z, m); if (h !== null && h <= y + 1.2 && h > g) g = h; } // a tilting deck (Tipping Point)
     return g;
