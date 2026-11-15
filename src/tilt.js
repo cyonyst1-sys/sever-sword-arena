@@ -4,6 +4,7 @@
 // Running or dashing across a deck pushes it the other way. Whoever stands on a deck rides along with it.
 import * as THREE from 'three';
 import { deck, drift, farRing } from './maps2.js';
+import { cloudHeaps } from './scenery.js?v=20261114231157';
 
 const TAU = Math.PI * 2, N = 4, SIZE = 7, GAP = 2, L = 24, MAXOFF = 4; // grid, deck size, gap, chain length, furthest swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
@@ -141,11 +142,8 @@ export function buildTilt(A, T) {
 
   A.finishNav();
 
-  // ---- backdrop: cloud towers, a sea of cloud, drifting specks
-  farRing(A, 18, 360, (x, z, i) => {
-    const h = 60 + (i % 4) * 25, m = new THREE.Mesh(new THREE.SphereGeometry(40 + (i % 3) * 14, 12, 8), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xf2f5f8 : 0xe1e8f0, fog: false }));
-    m.scale.set(1.4, h / 50, 1.4); m.position.set(x, -40 + h * 0.4, z); S.add(m);
-  });
+  // ---- backdrop: towering clouds, a sea of cloud, drifting specks
+  cloudHeaps(S, r, { n: 16, rMin: 330, rMax: 400, y: -32, depth: 8, sMin: 26, sMax: 42, stack: 4, fog: false }); // towering clouds round the horizon
   const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf4f7fa, transparent: true, opacity: 0.97 })); sea.position.y = -45; S.add(sea);
   drift(A, 120, 0xffffff, 0.2, [1.4, 0, 0.6], 0.4);
 }

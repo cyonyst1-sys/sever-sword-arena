@@ -169,5 +169,60 @@ export function addScenery(A) {
     const w = new THREE.Mesh(sea.geometry, new THREE.MeshBasicMaterial({ map: wisps, color: sea.material.color, transparent: true, opacity: 0.8, depthWrite: false, fog: sea.material.fog }));
     w.position.copy(sea.position); w.position.y += 7; S.add(w);
   }
+  if (A.mapId !== 'city') for (const sea of seas) { // heaped clouds over every sea of cloud (or smog), tinted like it, kept below where you die
+    const top = Math.min(sea.position.y + 22, A.killY - 2), tint = sea.material.color.clone().lerp(C(0xffffff), sea.material.color.getHSL({}).l < 0.3 ? 0.06 : 0.3); // (dark smog stays dark)
+    cloudHeaps(S, r, { n: low ? 40 : 70, rMin: 20, rMax: 330, y: top, depth: Math.max(2, top - sea.position.y - 4), sMin: 10, sMax: 26, tint });
+  }
   if (seas.length) A.anim.push((t, dt) => { clouds.offset.x += dt * 0.0015; clouds.offset.y += dt * 0.0006; if (wisps) { wisps.offset.x -= dt * 0.004; wisps.offset.y += dt * 0.0015; } });
+}
+
+// Soft heaped clouds: each a cluster of lumpy, fuzzy puffs (camera-facing sprites, all in one draw call), bright on
+// top and shadowed underneath, fading into the map's haze. o: { n, rMin, rMax, y (highest base), depth, sMin, sMax, tint }
+let puffTex = null;
+export function cloudHeaps(S, r, o) {
+  if (!puffTex) {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    for (let k = 0; k < 14; k++) { // a lumpy, soft-edged puff
+      const a = k / 14 * TAU, d = k ? 22 + Math.sin(k * 2.3) * 8 : 0, x = 64 + Math.cos(a) * d, y = 66 + Math.sin(a) * d * 0.8, rad = k ? 22 + Math.sin(k * 1.7) * 6 : 40;
+      const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.3)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    }
+    puffTex = new THREE.CanvasTexture(c);
+  }
+  const mat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, fog: o.fog !== false, uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { map: { value: null } }]),
+    vertexShader: `varying vec2 vUv; varying vec3 vCol;
+      #include <fog_pars_vertex>
+      void main() { vUv = uv;
+        #ifdef USE_INSTANCING_COLOR
+        vCol = instanceColor;
+        #else
+        vCol = vec3(1.0);
+        #endif
+        vec4 c = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+        float sx = length(instanceMatrix[0].xyz), sy = length(instanceMatrix[1].xyz);
+        vec3 right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]), up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+        vec4 mvPosition = viewMatrix * vec4(c.xyz + right * position.x * sx + up * position.y * sy, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `uniform sampler2D map; varying vec2 vUv; varying vec3 vCol;
+      #include <fog_pars_fragment>
+      void main() { vec4 t = texture2D(map, vUv); if (t.a < 0.01) discard;
+        gl_FragColor = vec4(vCol * mix(0.78, 1.04, smoothstep(0.15, 0.85, vUv.y)) + vec3(0.0, 0.01, 0.04) * (1.0 - vUv.y), t.a);
+        #include <fog_fragment>
+      }`,
+  });
+  mat.uniforms.map.value = puffTex;
+  const tint = o.tint || new THREE.Color(1, 1, 1), puffs = [];
+  for (let i = 0; i < o.n; i++) {
+    const a = r() * TAU, dd = o.rMin + r() * (o.rMax - o.rMin), cy = o.y - r() * o.depth, s = o.sMin + r() * (o.sMax - o.sMin), n = 7 + (r() * 6 | 0), cx = Math.cos(a) * dd, cz = Math.sin(a) * dd;
+    for (let k = 0; k < n; k++) {
+      const u = (r() - 0.5) * 2, v = (r() - 0.5) * 2, edge = 1 - Math.min(1, Math.hypot(u, v * 0.7)); // puffs heap up in the middle, flat underneath
+      for (let L = 0; L < (o.stack || 1); L++) { const k2 = 1 - L * 0.14; puffs.push([cx + u * s * 1.4 * k2, cy + L * s * 0.75 + edge * s * 0.45 + r() * s * 0.15, cz + v * s * k2, s * k2 * (0.55 + edge * 0.6 + r() * 0.25), 0.86 + edge * 0.14 + L * 0.02]); } // (stack: a towering cloud, narrowing as it rises)
+    }
+  }
+  const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2), mat, puffs.length), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), col = new THREE.Color(), sv = new THREE.Vector3(), pv = new THREE.Vector3();
+  puffs.forEach(([x, y, z, s, b], i) => { mm.compose(pv.set(x, y, z), q, sv.set(s, s * 0.8, s)); im.setMatrixAt(i, mm); im.setColorAt(i, col.setRGB(tint.r * b, tint.g * b, tint.b * b * 1.02)); });
+  im.frustumCulled = false; im.renderOrder = 1; S.add(im);
+  return im;
 }
