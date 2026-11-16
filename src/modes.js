@@ -10,7 +10,7 @@ export const MODES = {
   hunt: { name: 'Headhunter', blurb: 'Every kill drops gold heads. Carry them to an altar floating in open air and swing through its glowing ring to bank them; die and you drop them all. First to 20 banked.' },
   lava: { name: 'Lava Climb', blurb: 'The lava rises: race up the volcano to the summit. No respawns. Three checkpoint arenas on the way, each under a gate that only opens for you once you have eliminated enough fighters (1, then 2, then 3 in all). First to stand on the summit wins, or the last one alive. Always played on Lava Climb.' },
   horde: { name: 'Horde', blurb: 'Co-op: everyone together against waves of oni.' },
-  boss: { name: 'Boss Rush', solo: true, blurb: 'Solo, 1v1: fight through one boss after another, each with its own tricks. Bosses take several cuts to bring down. You have 3 lives, and beating a boss gives one back. After the eighth they come round again, harder. How far can you get?' },
+  boss: { name: 'ChopSocky', solo: true, blurb: 'Solo, 1v1: fight through one boss after another, each with its own tricks. Bosses take several cuts to bring down. You have 3 lives, and beating a boss gives one back. After the eighth they come round again, harder. How far can you get?' },
 };
 export const POINT_MODES = new Set(['koth', 'jugg', 'hunt']); // won on points rather than kills
 export const MODE_GOAL = { team: 30, ffa: 15, koth: 60, jugg: 60, hunt: 20 };

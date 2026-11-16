@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116002158';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116002158';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116002158';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116002158';
-import * as net from './net.js?v=20261116002158';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116002158';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116002158';
-import { makeKillFx } from './killfx.js?v=20261116002158';
-import { makeGrapple } from './grapple.js?v=20261116002158';
-import { initShop } from './shop.js?v=20261116002158';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116002158';
-import { portal } from './portal.js?v=20261116002158';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116002158';
-import { makePost } from './post.js?v=20261116002158';
+import { Arena, MAPS } from './arena.js?v=20261116002401';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116002401';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116002401';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116002401';
+import * as net from './net.js?v=20261116002401';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116002401';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116002401';
+import { makeKillFx } from './killfx.js?v=20261116002401';
+import { makeGrapple } from './grapple.js?v=20261116002401';
+import { initShop } from './shop.js?v=20261116002401';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116002401';
+import { portal } from './portal.js?v=20261116002401';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116002401';
+import { makePost } from './post.js?v=20261116002401';
 
 // ---------- settings ----------
 const store = {
@@ -1627,7 +1627,7 @@ function modeTick(dt) {
   } else if (S.mode === 'boss') {
     const b = [...fighters.values()].find((x) => x.boss), hp = b && b.alive ? b.bossHp : 0;
     const bar = b ? ` <span style="color:var(--red)">${'▮'.repeat(hp)}</span><span style="opacity:.3">${'▮'.repeat(Math.max(0, b.bossMax - hp))}</span>` : '';
-    $('topbar').innerHTML = `Boss Rush · Boss ${(S.bossIdx || 0) + 1}${b && b.boss.round ? ` (round ${b.boss.round + 1})` : ''}: ${b ? esc(b.boss.name) : '-'}${bar} · <span style="color:var(--red)">${'♥'.repeat(Math.max(0, S.lives || 0))}</span>`;
+    $('topbar').innerHTML = `ChopSocky · Boss ${(S.bossIdx || 0) + 1}${b && b.boss.round ? ` (round ${b.boss.round + 1})` : ''}: ${b ? esc(b.boss.name) : '-'}${bar} · <span style="color:var(--red)">${'♥'.repeat(Math.max(0, S.lives || 0))}</span>`;
     if (me && me.alive && b && b.alive) status = b.boss.title;
   } else if (S.mode === 'hunt') {
     let changed = false;
@@ -2086,7 +2086,7 @@ function updateHud(dt) {
   } else if (S.mode === 'boss') {
     const b = [...fighters.values()].find((x) => x.boss), hp = b && b.alive ? b.bossHp : 0;
     const bar = b ? ` <span style="color:var(--red)">${'▮'.repeat(hp)}</span><span style="opacity:.3">${'▮'.repeat(Math.max(0, b.bossMax - hp))}</span>` : '';
-    $('topbar').innerHTML = `Boss Rush · Boss ${(S.bossIdx || 0) + 1}${b && b.boss.round ? ` (round ${b.boss.round + 1})` : ''}: ${b ? esc(b.boss.name) : '-'}${bar} · <span style="color:var(--red)">${'♥'.repeat(Math.max(0, S.lives || 0))}</span>`;
+    $('topbar').innerHTML = `ChopSocky · Boss ${(S.bossIdx || 0) + 1}${b && b.boss.round ? ` (round ${b.boss.round + 1})` : ''}: ${b ? esc(b.boss.name) : '-'}${bar} · <span style="color:var(--red)">${'♥'.repeat(Math.max(0, S.lives || 0))}</span>`;
     if (me && me.alive && b && b.alive) status = b.boss.title;
   } else if (S.mode === 'hunt') {
     $('topbar').innerHTML = `Headhunter · ${clock(S.timeLeft)} · ${lead}/${MODE_GOAL.hunt} banked`;
