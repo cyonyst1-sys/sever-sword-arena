@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261116002002">
+<meta name="build" content="20261116002158">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -102,6 +102,29 @@ window.severVersion.check();
   .tabGroup > span { width:100%; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); font-weight:700; }
   .tabGroup.up button { font-weight:700; border-color:var(--gold); }
   #shopTabs { display:block !important; }
+  /* home: modes down the left, the live map preview in the middle, play/online/shop/settings and the controls on the right, maps along the bottom */
+  #home { padding:0; background:linear-gradient(90deg, rgba(8,6,6,.6), rgba(8,6,6,0) 28%, rgba(8,6,6,0) 66%, rgba(8,6,6,.6)); }
+  #home .panel.homeGrid { width:100%; height:100%; max-width:none; margin:0; background:none; border:0; border-radius:0; padding:14px; backdrop-filter:none;
+    display:grid; grid-template-columns:minmax(220px, 270px) 1fr minmax(300px, 370px); grid-template-rows:minmax(0, 1fr) auto; grid-template-areas:"left . right" "bottom bottom bottom"; gap:14px; }
+  .homeLeft, .homeRight, .homeBottom { background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:12px 14px; backdrop-filter:blur(6px); min-height:0; min-width:0; }
+  .homeLeft { grid-area:left; overflow:auto; align-self:start; max-height:100%; }
+  .homeRight { grid-area:right; overflow:auto; }
+  .homeBottom { grid-area:bottom; padding:10px 14px; }
+  .homeLeft .sect, .homeBottom .sect { margin:0 0 8px; }
+  .homeLeft .modes { grid-template-columns:1fr 1fr; gap:8px; }
+  .homeRight .logo { font-size:52px; margin:0 0 4px; }
+  .homeRight .tag { font-size:13px; margin:0 0 10px; }
+  .homeRight .soloBox { margin:10px 0; }
+  .homeRight .controls { font-size:12px; margin-top:10px; }
+  .mapStrip { display:flex; gap:16px; overflow-x:auto; padding-bottom:4px; }
+  .mapGroup { flex:0 0 auto; }
+  .mapStrip .maps { display:grid; grid-auto-flow:column; grid-template-columns:none; grid-auto-columns:168px; gap:8px; }
+  .mapGroup.special { padding-left:16px; border-left:1px solid var(--line); }
+  @media (max-width:900px) {
+    #home .panel.homeGrid { height:auto; grid-template-columns:1fr; grid-template-rows:auto; grid-template-areas:"right" "left" "bottom"; }
+    .homeLeft { max-height:none; } .homeLeft .modes { grid-template-columns:repeat(3, 1fr); }
+    .mapStrip .maps { grid-auto-columns:140px; }
+  }
   .soloBox { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin:14px 0 10px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:rgba(0,0,0,.18); }
   .soloHead { width:100%; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); font-weight:700; margin-bottom:-4px; }
   .soloBox label { flex:1 1 140px; }
@@ -147,12 +170,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261116002002",
-  "./src/arena.js": "./src/arena.js?v=20261116002002",
-  "./src/fighter.js": "./src/fighter.js?v=20261116002002",
-  "./src/slice.js": "./src/slice.js?v=20261116002002",
-  "./src/audio.js": "./src/audio.js?v=20261116002002",
-  "./src/net.js": "./src/net.js?v=20261116002002"
+  "./src/main.js": "./src/main.js?v=20261116002158",
+  "./src/arena.js": "./src/arena.js?v=20261116002158",
+  "./src/fighter.js": "./src/fighter.js?v=20261116002158",
+  "./src/slice.js": "./src/slice.js?v=20261116002158",
+  "./src/audio.js": "./src/audio.js?v=20261116002158",
+  "./src/net.js": "./src/net.js?v=20261116002158"
 } }
 </script>
 </head>
@@ -161,29 +184,26 @@ window.severVersion.check();
 <div id="vignette"></div>
 
 <div id="home" class="screen">
-  <div class="panel">
+  <div class="panel homeGrid">
+    <div class="homeLeft">
+    <label class="hidden">Mode <select id="mode"></select></label>
+      <h3 class="sect">Mode</h3>
+    <div class="cards modes" id="modePicker"></div>
+    <div class="muted" id="modeBlurb" style="margin:2px 0 4px"></div>
+    </div>
+    <div class="homeRight">
     <h1 class="logo"><span>SEVER</span><span class="lo" aria-hidden="true">SEVER</span></h1>
     <p class="tag">A third-person sword arena in the sky. Swing your blade with the mouse, and whatever it passes through is cut along that exact line.</p>
     <label>Your name <input id="name" maxlength="14" placeholder="Ronin"></label>
-    <div class="row">
       <label class="hidden">Map <select id="map"><option value="spire">Sky Spires: many small platforms</option><option value="plateaus">Sky Plateaus: a few huge platforms</option><option value="canopy">Great Canopy: tree branches and bamboo</option><option value="pagoda">Pagoda Falls: a sunset pagoda, stone islands and lacquer posts</option><option value="isles">Moonlit Isles: floating islands, a cherry tree and bamboo groves</option><option value="colosseum">Colosseum: a bowl of round platforms around a big arena floor</option><option value="dojo">Paper Dojo District: a town you can cut apart</option><option value="city">Glass Skyline: skyscrapers and steel frames to smash through</option><option value="bamboo">Bamboo Fort: everything is bamboo, even the floor</option><option value="foundry">Saw Foundry: blades, lifts and sliding platforms</option><option value="tilt">Swinging Decks: hanging decks that swing when you land</option><option value="comet">Comet Crash: asteroids riding a comet into a planet</option><option value="lava">Lava Climb</option></select></label>
-    </div>
-    <label class="hidden">Mode <select id="mode"></select></label>
-    <h3 class="sect">Mode</h3>
-    <div class="cards modes" id="modePicker"></div>
-    <div class="muted" id="modeBlurb" style="margin:2px 0 4px"></div>
-    <h3 class="sect">Map</h3>
-    <div class="cards maps" id="mapPicker"></div>
-    <h3 class="sect">Special maps <small>each comes with its own mode</small></h3>
-    <div class="cards maps" id="specialPicker"></div>
+    <div class="row"><button class="primary" id="quickBtn" title="Jump into an online match: random mode and map, bots fill the empty spots">Online Quick Match</button></div>
+    <div class="muted" id="liveCount" style="margin:-4px 0 6px">Looking for live games…</div>
     <div class="soloBox">
       <div class="soloHead">Solo</div>
       <label>Bots <select id="bots"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option></select></label>
       <label>Difficulty <select id="diff"><option value="0">Easy</option><option value="1" selected>Normal</option><option value="2">Hard</option><option value="3">Brutal</option><option value="4">Nightmare</option><option value="5">Shogun</option><option value="6">Demon</option><option value="7">Kami</option></select></label>
       <button class="primary" id="playSolo">Play solo</button>
     </div>
-    <div class="row"><button class="primary" id="quickBtn" title="Jump into an online match: random mode and map, bots fill the empty spots">Online Quick Match</button></div>
-    <div class="muted" id="liveCount" style="margin:-4px 0 6px">Looking for live games…</div>
     <div class="row"><button id="toMp">Multiplayer</button><button id="toShop" class="shopBtn">Shop <span class="coin"></span><span id="coinBadge">0</span></button><button id="toSettings">Settings</button></div>
     <div class="controls">
       <b>WASD</b><span>Move</span>
@@ -197,9 +217,15 @@ window.severVersion.check();
       <b>Tab</b><span>Scores</span>
       <b>Esc</b><span>Menu</span>
     </div>
+    </div>
+    <div class="homeBottom">
+      <div class="mapStrip">
+        <div class="mapGroup"><h3 class="sect">Map</h3><div class="cards maps" id="mapPicker"></div></div>
+        <div class="mapGroup special"><h3 class="sect">Special <small>own mode</small></h3><div class="cards maps" id="specialPicker"></div></div>
+      </div>
+    </div>
   </div>
 </div>
-
 <div id="mp" class="screen hidden">
   <div class="panel">
     <h2>Multiplayer</h2>
@@ -300,6 +326,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261116002002"></script>
+<script type="module" src="src/main.js?v=20261116002158"></script>
 </body>
 </html>
