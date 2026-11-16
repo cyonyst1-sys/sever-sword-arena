@@ -2,7 +2,7 @@
 // and turn each side into a tumbling rigid piece. Every original part is convex, so the cut face of a part
 // is the convex hull of the points where the plane crossed it.
 import * as THREE from 'three';
-import { MATS } from './fighter.js?v=20261115231735';
+import { MATS } from './fighter.js?v=20261115233212';
 
 let partSeq = 1;
 const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _nm = new THREE.Matrix3();
@@ -13,6 +13,15 @@ export function bakeMeshes(meshes) {
   for (const mesh of meshes) {
     if (!mesh.visible) continue;
     const part = partSeq++; caps[part] = mesh.userData.cap.userData.mi;
+    if (mesh.isSkinnedMesh) { // the one-piece body: each vertex where its bones have bent it, each triangle in its own material
+      const g = mesh.geometry, pos = g.attributes.position, idx = g.index, mis = mesh.userData.mis, t = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+      for (const gr of g.groups) for (let i = gr.start; i < gr.start + gr.count; i += 3) {
+        for (let j = 0; j < 3; j++) { const k = idx.getX(i + j); t[j].fromBufferAttribute(pos, k); mesh.applyBoneTransform(k, t[j]); t[j].applyMatrix4(mesh.matrixWorld); P.push(t[j].x, t[j].y, t[j].z); }
+        _n.subVectors(t[1], t[0]).cross(_v.subVectors(t[2], t[0])).normalize(); for (let j = 0; j < 3; j++) N.push(_n.x, _n.y, _n.z);
+        M.push(mis[gr.materialIndex]); Q.push(part);
+      }
+      continue;
+    }
     const g = mesh.geometry, pos = g.attributes.position, nor = g.attributes.normal, idx = g.index, mi = mesh.userData.mi;
     _nm.getNormalMatrix(mesh.matrixWorld);
     const cnt = idx ? idx.count : pos.count;

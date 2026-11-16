@@ -2,7 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { item, cleanLook } from './cosmetics.js?v=20261115231735';
+import { buildBody, poseBody } from './body.js?v=20261115233212';
+import { item, cleanLook } from './cosmetics.js?v=20261115233212';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -226,6 +227,16 @@ export class Fighter {
     this.trailMesh = new THREE.Mesh(tg, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     this.trailMesh.frustumCulled = false;
     this.pose(0);
+    // one smooth, skinned body (torso, neck, arms and legs) in place of the separate parts, built around the joints
+    // of a plain standing pose; from here on its bones follow the joints every frame
+    { const keep = { onGround: this.onGround, stride: this.stride, walk: this.walk, dashT: this.dashT, hook: this.hook };
+      this.onGround = true; this.stride = 0; this.walk = 0; this.dashT = 0; this.hook = null; this.pose(0);
+      const mats = [gi, M.skin, pants, M.skinShade];
+      this.body = buildBody(this, mats); Object.assign(this, keep);
+      this.body.userData.cap = CAP.flesh; this.body.userData.mis = mats.map(regMat); this.body.userData.mi = this.body.userData.mis[0];
+      this.group.add(this.body); this.meshes.push(this.body);
+      for (const n of ['pelvis', 'abdomen', 'chest', 'neck', 'uaL', 'uaR', 'faL', 'faR', 'elL', 'elR', 'thL', 'thR', 'shL', 'shR', 'knL', 'knR', 'delL', 'delR']) { const m = this.p[n]; if (m) { this.group.remove(m); this.meshes = this.meshes.filter((x) => x !== m); } }
+      this.pose(0); }
   }
 
   addTo(scene) { scene.add(this.group); scene.add(this.trailMesh); }
@@ -241,6 +252,7 @@ export class Fighter {
   }
 
   pose(dt) {
+    this.J ||= {};
     const P = this.p, g = this.group;
     g.position.copy(this.pos); g.rotation.y = this.yaw;
     // local velocity for the run cycle
@@ -284,6 +296,7 @@ export class Fighter {
     }
     // ---- head
     const neckBase = at(0, 0.5, 0), headC = at(0, 0.68, -0.01);
+    Object.assign(this.J, { pelvis: P0.clone(), waist: at(0, 0.15, 0), neckBase: neckBase.clone(), headBase: at(0, 0.62, 0) });
     seg(P.neck, neckBase, at(0, 0.6, 0), 0.05);
     const hp = Math.max(-0.4, Math.min(0.4, this.pitch * 0.5)) - lean * 0.6; // look up/down a little, stay level while leaning
     const H = (x, y, z) => { const cy = Math.cos(hp), sy = Math.sin(hp); return V(x, y * cy + z * sy, -y * sy + z * cy).add(headC); };
@@ -319,6 +332,7 @@ export class Fighter {
       }
       const knee = V();
       ik(hip, foot, THIGH, SHIN, V(0, 0, -1), knee);
+      const Jb = this.J; Jb['hip' + side] = hip.clone(); Jb['knee' + side] = knee.clone(); Jb['foot' + side] = foot.clone(); // (joints, for the skinned body)
       seg(P['th' + side], hip, knee, 0.095); P['kn' + side].position.copy(knee); P['kn' + side].scale.setScalar(0.06);
       seg(P['sh' + side], knee, foot, 0.07);
       seg(P['ky' + side], _a.lerpVectors(knee, foot, 0.22), _b.lerpVectors(knee, foot, 0.86), 0.072); // shin wraps
@@ -333,6 +347,7 @@ export class Fighter {
     hand.z += -sl * 0.35; hand.y += (hipY - 0.99) * 0.6;
     const el = V();
     ik(shR, hand, UPPER, FORE, V(0.6, -0.7, 0.3), el);
+    Object.assign(this.J, { shR: shR.clone(), elR: el.clone(), handR: hand.clone() });
     seg(P.uaR, shR, el, 0.064); P.elR.position.copy(el); P.elR.scale.setScalar(0.046); seg(P.faR, el, hand, 0.052);
     seg(P.wrR, _a.lerpVectors(el, hand, 0.62), _b.lerpVectors(el, hand, 0.97), 0.05); // wrist guard
     seg(P.hR, _b.copy(hand).addScaledVector(d, -0.03), _a.copy(hand).addScaledVector(d, 0.07), 0.05, 0.85);
@@ -348,6 +363,7 @@ export class Fighter {
     }
     const elL = V();
     ik(shL, handL, UPPER, FORE, V(-0.3, -0.4, 0.6), elL);
+    Object.assign(this.J, { shL: shL.clone(), elL: elL.clone(), handL: handL.clone() });
     seg(P.uaL, shL, elL, 0.064); P.elL.position.copy(elL); P.elL.scale.setScalar(0.046); seg(P.faL, elL, handL, 0.052);
     seg(P.wrL, _a.lerpVectors(elL, handL, 0.62), _b.lerpVectors(elL, handL, 0.97), 0.05);
     seg(P.hL, handL, _a.subVectors(handL, elL).normalize().multiplyScalar(0.1).add(handL), 0.05, 0.85);
@@ -362,6 +378,7 @@ export class Fighter {
     boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, 0.09), 0.13, 0.025, 0.07);
     const bl = this.bladeLen, bw = (0.05 + (bl - BLADE_LEN) * 0.012) * this.bladeW;
     boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, 0.1 + bl / 2), bw, bl, (0.012 + (bl - BLADE_LEN) * 0.003) * this.bladeT);
+    if (this.body) poseBody(this);
     // world hand/tip for hit tests
     g.updateMatrixWorld(true);
     this.hand.copy(hand).applyMatrix4(g.matrixWorld);
