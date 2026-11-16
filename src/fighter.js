@@ -2,8 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261116183752';
-import { item, cleanLook } from './cosmetics.js?v=20261116183752';
+import { buildBody, poseBody } from './body.js?v=20261116183859';
+import { item, cleanLook } from './cosmetics.js?v=20261116183859';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -246,6 +246,9 @@ function boxBasis(m, x, y, pos, sx, sy, sz) {
   m.position.copy(pos); m.scale.set(sx, sy, sz);
 }
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+// the seven skirt panels: [angle round the waist (0 = front), the leg it rides on, width]
+const KUSA = [[0, null, 0.13], [-0.95, 'L', 0.125], [0.95, 'R', 0.125], [-1.85, 'L', 0.12], [1.85, 'R', 0.12], [-2.7, 'L', 0.12], [2.7, 'R', 0.12]];
+const _ka = new THREE.Vector3(), _kb = new THREE.Vector3(), _kc = new THREE.Vector3(), _kx = new THREE.Vector3(), _ky = new THREE.Vector3();
 const _tcA = new THREE.Color(), _tcB = new THREE.Color();
 
 export const GUARD = { x: 0.42, y: 0.38 };
@@ -275,11 +278,11 @@ export class Fighter {
     const gi = cloth(horde ? HORDE_COLOR : O ? O.gi : color), trim = cloth(horde ? 0x8e1717 : O ? O.trim : color, O ? 1 : 0.55, O && O.glow || 0), pants = horde ? M.dark : cloth(O ? O.pants : 0x2c2f3a);
     // armour, in the outfit's colours: lacquered plates for the shoulders, chest and skirt; steel splints for the bracers and greaves
     const tc = horde ? 0x8e1717 : O ? O.trim : color, gc = horde ? HORDE_COLOR : O ? O.gi : color;
-    const lamPad = armor(tc, 'lamellar', 2, 1, 1.25), lamSkirt = armor(tc, 'lamellar', 5, 0.5, 1.1), lamTas = armor(tc, 'lamellar', 3, 1.5, 1.1), lamDou = armor(gc, 'lamellar', 4, 2.5, 0.85), splint = armor(horde ? 0x6a6a72 : 0xc4c8d0, 'splint', 2, 1);
+    const lamPad = armor(tc, 'lamellar', 2, 1, 1.25), lamSkirt = armor(tc, 'lamellar', 5, 0.5, 1.1), lamTas = armor(tc, 'lamellar', 1, 1.25, 1.1), lamDou = armor(gc, 'lamellar', 4, 2.5, 0.85), splint = armor(horde ? 0x6a6a72 : 0xc4c8d0, 'splint', 2, 1);
     const mk = (geo, mat, cap = CAP.flesh) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.userData.cap = cap; this.group.add(m); this.meshes.push(m); return m; };
     this.p = {
       // trunk
-      pelvis: mk(GEO.sph, pants), skirt: mk(GEO.skirt, lamSkirt, CAP.steel), skL: mk(GEO.tasset, lamTas, CAP.steel), skR: mk(GEO.tasset, lamTas, CAP.steel), abdomen: mk(GEO.cyl, gi), obi: mk(GEO.cyl, trim), chest: mk(GEO.chest, gi),
+      pelvis: mk(GEO.sph, pants), skirt: mk(GEO.skirt, lamSkirt, CAP.steel), ku0: mk(GEO.round, lamTas, CAP.steel), ku1: mk(GEO.round, lamTas, CAP.steel), ku2: mk(GEO.round, lamTas, CAP.steel), ku3: mk(GEO.round, lamTas, CAP.steel), ku4: mk(GEO.round, lamTas, CAP.steel), ku5: mk(GEO.round, lamTas, CAP.steel), ku6: mk(GEO.round, lamTas, CAP.steel), abdomen: mk(GEO.cyl, gi), obi: mk(GEO.cyl, trim), chest: mk(GEO.chest, gi),
       collar: mk(GEO.round, trim), padL: mk(GEO.round, lamPad, CAP.steel), padR: mk(GEO.round, lamPad, CAP.steel), pad2L: mk(GEO.round, lamPad, CAP.steel), pad2R: mk(GEO.round, lamPad, CAP.steel),
       dou: mk(GEO.chest, lamDou, CAP.steel), buckle: mk(GEO.round, M.gold, CAP.steel), delL: mk(GEO.sphLo, gi), delR: mk(GEO.sphLo, gi),
       // head
@@ -439,12 +442,22 @@ export class Fighter {
       const knee = V();
       ik(hip, foot, THIGH, SHIN, V(0, 0, -1), knee);
       const Jb = this.J; Jb['hip' + side] = hip.clone(); Jb['knee' + side] = knee.clone(); Jb['foot' + side] = foot.clone(); // (joints, for the skinned body)
-      seg(P['th' + side], hip, knee, 0.095); seg(P['sk' + side], hip.clone().lerp(knee, -0.08), hip.clone().lerp(knee, 0.62), 0.112); P['kn' + side].position.copy(knee); P['kn' + side].scale.setScalar(0.06);
+      seg(P['th' + side], hip, knee, 0.095); P['kn' + side].position.copy(knee); P['kn' + side].scale.setScalar(0.06);
       seg(P['sh' + side], knee, foot, 0.07);
       seg(P['ky' + side], _a.lerpVectors(knee, foot, 0.22), _b.lerpVectors(knee, foot, 0.86), 0.072); // shin wraps
       const ft = P['ft' + side];
       ft.position.set(foot.x, foot.y - 0.035 + Math.max(0, toe) * 0.05, foot.z - 0.06); ft.scale.set(0.095, 0.065, 0.25); ft.rotation.set(toe, 0, 0);
     }
+
+    // ---- the skirt (kusazuri): seven separate panels of tiered plates hanging from the waist. Each hangs from its own
+    // spot on the belt and its lower edge rides on the thigh beneath it, so the panels part and swing with the legs
+    { const J = this.J, len = 0.6;
+      for (let i = 0; i < 7; i++) { const [th, leg, wd] = KUSA[i], sn = Math.sin(th), cs = Math.cos(th), m = P['ku' + i];
+        _ka.set(sn * 0.158, hipY - 0.03, -cs * 0.122); // (where it hangs from)
+        if (leg) _kb.lerpVectors(J['hip' + leg], J['knee' + leg], len); else _kb.lerpVectors(J.hipL, J.kneeL, len).add(_kc.lerpVectors(J.hipR, J.kneeR, len)).multiplyScalar(0.5);
+        _kb.x += sn * (leg ? 0.115 : 0.02); _kb.z -= cs * (leg ? 0.12 : 0.135); if (!leg) _kb.x = 0; // (out to the surface of the thigh)
+        _ky.subVectors(_kb, _ka); const L = _ky.length() || 1e-3; _ky.divideScalar(L); _kx.set(cs, 0, sn).addScaledVector(_ky, -(cs * _ky.x + sn * _ky.z)).normalize();
+        boxBasis(m, _kx, _ky, _kc.addVectors(_ka, _kb).multiplyScalar(0.5), wd, L + 0.03, 0.028); } }
 
     // ---- sword arm
     const d = this.bladeDir(_d.clone());
