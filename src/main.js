@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116040857';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116040857';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116040857';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116040857';
-import * as net from './net.js?v=20261116040857';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116040857';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116040857';
-import { makeKillFx } from './killfx.js?v=20261116040857';
-import { makeGrapple } from './grapple.js?v=20261116040857';
-import { initShop } from './shop.js?v=20261116040857';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116040857';
-import { portal } from './portal.js?v=20261116040857';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116040857';
-import { makePost } from './post.js?v=20261116040857';
+import { Arena, MAPS } from './arena.js?v=20261116042548';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116042548';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116042548';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116042548';
+import * as net from './net.js?v=20261116042548';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116042548';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116042548';
+import { makeKillFx } from './killfx.js?v=20261116042548';
+import { makeGrapple } from './grapple.js?v=20261116042548';
+import { initShop } from './shop.js?v=20261116042548';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116042548';
+import { portal } from './portal.js?v=20261116042548';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116042548';
+import { makePost } from './post.js?v=20261116042548';
 
 // ---------- settings ----------
 const store = {
@@ -252,7 +252,7 @@ function surfY(p, x, z) { const t = arena.platTop(p, { x, z }), g = arena.ground
 // the stretch below it. Returns the barrier shutting f out, or null.
 function barrierFor(f, q = f.pos) {
   if (!arena.barriers) return null;
-  for (const b of arena.barriers) if (q.y > b.y0 && q.y < b.y1 + 1 && Math.hypot(q.x - b.x, q.z - b.z) < b.R + RAD + 0.2 && !b.rocks.every((i) => f.touched && f.touched.has(i))) return b;
+  for (const b of arena.barriers) if (q.y > b.y0 && q.y < b.y1 + 1 && Math.hypot(q.x - b.x, q.z - b.z) < b.R + RAD + 0.2 && (arena.lavaY ?? -1e9) < b.y0 - 22 && !b.rocks.every((i) => f.touched && f.touched.has(i))) return b; // (with the lava close beneath, it opens for everyone)
   return null;
 }
 // the next place f should head on the way up: the next rock in order on the stretch they're on (or one they skipped),
@@ -276,7 +276,7 @@ function gateFor(f) {
   if (!arena.gates) return null;
   const kills = rosterGet(f.id)?.k || 0;
   if (S.phase === 'game' && [...fighters.values()].filter((g) => g.alive).length <= 2) return null;
-  for (const g of arena.gates) if (f.pos.y < g.y + 0.5 && f.pos.y > g.floor - 6 && kills < g.need) return g;
+  for (const g of arena.gates) if (f.pos.y < g.y + 0.5 && f.pos.y > g.floor - 6 && kills < g.need && (arena.lavaY ?? -1e9) < g.floor - 22) return g; // (with the lava close beneath, it opens for everyone)
   return null;
 }
 // a hook that lands on a platform's side or underside moves up to the lip of its top edge, a little way in, so
@@ -2123,7 +2123,7 @@ function updateHud(dt) {
       else if (below < 16) status = 'The lava is rising: keep climbing';
     }
     if (arena.markTouched && me) arena.markTouched(me.touched || new Set());
-    if (arena.gateVis && me) { const next = arena.gates.find((g) => g.y > me.pos.y - 1); arena.gates.forEach((g, i) => { arena.gateVis(i, (rosterGet(S.myId)?.k || 0) >= g.need || alive <= 2); g.show = g === next; }); } // (only the next gate up is drawn)
+    if (arena.gateVis && me) { const next = arena.gates.find((g) => g.y > me.pos.y - 1); arena.gates.forEach((g, i) => { arena.gateVis(i, (rosterGet(S.myId)?.k || 0) >= g.need || alive <= 2 || arena.lavaY >= g.floor - 22); g.show = g === next; }); } // (only the next gate up is drawn)
   } else if (S.mode === 'lbs') {
     const alive = [...fighters.values()].filter((f) => f.alive).length;
     const falls = o.warn >= 0 ? '<span style="color:var(--red)">A platform is falling!</span>' : `Next platform falls in ${Math.ceil(Math.max(0, until.crumble - now()))} s`;

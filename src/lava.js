@@ -92,11 +92,11 @@ export function buildLava(A, T) {
   // ---- the base (where everyone starts) and the three checkpoint arenas
   const floors = LAVA.floors.map((y, i) => rock(0, 0, y, i ? LAVA.arenaR : 17, i ? 'arena' : 'base'));
   // a ring of small rocks round the base, one for each fighter to start on (so nobody starts on top of anyone else)
-  for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + 0.11, x = Math.cos(a) * 22.5, z = Math.sin(a) * 22.5, pad = rock(x, z, 1.0 + (k % 2) * 0.6, 2.5, 'pad'); A.link('P' + pad.i, 'P' + floors[0].i); const sp = new THREE.Vector3(x, pad.y + 0.05, z); sp.plat = pad.i; A.spawns.push(sp); }
+  for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + 0.11, x = Math.cos(a) * 20.4, z = Math.sin(a) * 20.4, pad = rock(x, z, 0.5 + (k % 2) * 0.4, 3.0, 'pad'); A.link('P' + pad.i, 'P' + floors[0].i); const sp = new THREE.Vector3(x, pad.y + 0.05, z); sp.plat = pad.i; A.spawns.push(sp); } // (start rocks right against the base: a short hop on)
   const summit = rock(0, 0, LAVA.summit, 7.5, 'summit');
 
   // ---- the course between them: a climbing spiral of steps of four kinds
-  const KINDS = [['hop', 0.15], ['climb', 0.45], ['swing', 0.4]]; // (rocks here and there, far apart: grapple points in the gaps between them)
+  const KINDS = [['climb', 0.75], ['swing', 0.25]]; // (few rocks, far apart: big grapple climbs and swings between them, grapple points in the gaps)
   const pick = () => { let u = r(); for (const [k, w] of KINDS) { if ((u -= w) < 0) return k; } return 'hop'; };
   const fits = (x, z, y, R) => Math.hypot(x, z) + R < WALL - 3 && plats.every((p) => Math.abs(p.y - y) > 5.5 || Math.hypot(p.x - x, p.z - z) > p.round + R + 3);
   let a = r() * TAU, dir = 1, prev = floors[0];
@@ -115,8 +115,8 @@ export function buildLava(A, T) {
       let kind = pick(), made = null;
       for (let t = 0; t < 30 && !made; t++) {
         const k = t > 20 ? 'hop' : kind;
-        const dy = k === 'hop' ? 2 + r() * 1.5 : k === 'climb' ? 14 + r() * 8 : 3 + r() * 7;
-        const dist = k === 'hop' ? 4 + r() * 3 : k === 'climb' ? 4 + r() * 5 : 16 + r() * 10; // (the gap, edge to edge)
+        const dy = k === 'hop' ? 2 + r() * 1.5 : k === 'climb' ? 22 + r() * 8 : 4 + r() * 6; // (tall and close, or far and low: never both)
+        const dist = k === 'hop' ? 4 + r() * 3 : k === 'climb' ? 3 + r() * 5 : 14 + r() * 6; // (the gap, edge to edge)
         const R = k === 'swing' ? 5 + r() * 1.5 : 4.5 + r() * 2.5;
         const nr = Math.max(16, Math.min(36, rad + (r() - 0.5) * 14)); // (wandering in and out: no neat spiral)
         const na = a + dir * (dist + prev.round + R) / ((rad + nr) / 2);
@@ -159,7 +159,7 @@ export function buildLava(A, T) {
   /** Show which course rocks the local player has stood on (green) and which barriers are open for them. */
   A.markTouched = (set) => {
     for (const p of plats) if (p.mark) p.mark.material.color.set(set.has(p.i) ? 0x40ff90 : 0xff4a2a);
-    for (const b of A.barriers) b.mesh.visible = !b.rocks.every((i) => set.has(i));
+    for (const b of A.barriers) b.mesh.visible = !b.rocks.every((i) => set.has(i)) && A.lavaY < b.y0 - 22;
   };
   // ---- the summit: a gold rim and a beam of light straight up (you can see where you're going from anywhere)
   { const gold = new THREE.Mesh(new THREE.TorusGeometry(7.6, 0.25, 8, 48), new THREE.MeshStandardMaterial({ color: 0xffc94a, metalness: 0.8, roughness: 0.3, emissive: 0x6a4000 }));
