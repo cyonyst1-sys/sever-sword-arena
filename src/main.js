@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116031623';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116031623';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116031623';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116031623';
-import * as net from './net.js?v=20261116031623';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116031623';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116031623';
-import { makeKillFx } from './killfx.js?v=20261116031623';
-import { makeGrapple } from './grapple.js?v=20261116031623';
-import { initShop } from './shop.js?v=20261116031623';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116031623';
-import { portal } from './portal.js?v=20261116031623';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116031623';
-import { makePost } from './post.js?v=20261116031623';
+import { Arena, MAPS } from './arena.js?v=20261116032055';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116032055';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116032055';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116032055';
+import * as net from './net.js?v=20261116032055';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116032055';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116032055';
+import { makeKillFx } from './killfx.js?v=20261116032055';
+import { makeGrapple } from './grapple.js?v=20261116032055';
+import { initShop } from './shop.js?v=20261116032055';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116032055';
+import { portal } from './portal.js?v=20261116032055';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116032055';
+import { makePost } from './post.js?v=20261116032055';
 
 // ---------- settings ----------
 const store = {
@@ -863,7 +863,7 @@ function overviewFrom(p, out) {
 // ---------- spawning ----------
 // Pagoda Falls: everyone comes in on the outer ring (rock spires and terraces) and rushes the pagoda
 function spawnList() {
-  if (arena.runMode) { const near = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && p.z > -35 && p.z < 2; }); if (near.length) return near; } // (Branch Run: back in on a branch near the action)
+  if (arena.runMode) { const near = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && p.z > -85 && p.z < -28; }); if (near.length) return near; } // (Branch Run: back in on a tree still well ahead, with its whole ride to come; on a branch near the action)
   const kinds = { pagoda: ['spire', 'terrace'], colosseum: ['rim'], bamboo: ['pad'] }[arena.mapId]; // (Colosseum: its high rim)
   if (!kinds) return arena.spawns;
   const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && !p.busy && kinds.includes(p.kind); });
