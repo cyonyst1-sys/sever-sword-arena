@@ -5,8 +5,8 @@
 // whoever is on it; a new one is hung back on 10 s later.
 import * as THREE from 'three';
 import { drift } from './maps2.js';
-import { glow, aurora } from './look.js?v=20261116051652';
-import { cloudHeaps } from './scenery.js?v=20261116051652';
+import { glow, aurora } from './look.js?v=20261116051957';
+import { cloudHeaps } from './scenery.js?v=20261116051957';
 
 const TAU = Math.PI * 2, N = 6, R = 14, DISH = 1.9, ARM = 25, L = 22, HUB = 40, MAXOFF = 2; // platforms, radius, dish depth, crown arm, chain, crown height, extra swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
@@ -100,7 +100,7 @@ export function buildTilt(A, T) {
     p.pivot.set(ca * ARM, HUB - 0.6, sa * ARM);
     const out = Math.sin(lw) * L, x = p.pivot.x + ca * out + p.off.x, z = p.pivot.z + sa * out + p.off.z;
     const drop = Math.sqrt(Math.max(1, L * L - out * out - p.off.x * p.off.x - p.off.z * p.off.z)), y = p.pivot.y - drop;
-    p.prev = { x: p.x, y: p.y, z: p.z }; p.x = x; p.z = z; p.y = y;
+    p.prev = { x: p.x, y: p.y, z: p.z, a: p.a ?? a }; p.x = x; p.z = z; p.y = y; p.a = a;
     const bank = Math.min(0.8, lw * 1.25); p.ca = ca; p.sa = sa; p.tb = Math.tan(bank); p.cb = Math.cos(bank);
     p.group.position.set(x, y, z); p.group.rotation.order = 'YZX'; p.group.rotation.set(0, -a, bank); // (each platform turns with the ride, banked outward)
     const c = p.disc; c.x = x; c.z = z; c.y0 = y - 0.8; c.y1 = y;
@@ -170,7 +170,11 @@ export function buildTilt(A, T) {
       if (p.down) continue;
       place(p);
       for (const f of p.riders) if (mine(f)) {
-        if (f.onGround) { f.pos.x += p.x - p.prev.x; f.pos.z += p.z - p.prev.z; f.pos.y += p.y - p.prev.y; f.onDeck = p; } // ride along
+        if (f.onGround || f.dashT > 0) { // ride along, planted on the boards: carried with the deck and turned with it as it swings round the mast (a dash across it too)
+          const da = p.a - p.prev.a, c = Math.cos(da), s = Math.sin(da), dx = f.pos.x - p.prev.x, dz = f.pos.z - p.prev.z;
+          f.pos.x = p.x + dx * c - dz * s; f.pos.z = p.z + dx * s + dz * c; f.pos.y += p.y - p.prev.y;
+          if (f.onGround) { const h = p.disc.hf(f.pos.x, f.pos.z); if (h > -1e8) f.pos.y = h; } // (feet on the surface as it banks)
+          f.onDeck = p; }
         else if (f.onDeck === p) { f.vel.x += (p.x - p.prev.x) / dt; f.vel.z += (p.z - p.prev.z) / dt; f.onDeck = null; } // (jump off: keep the deck's speed)
       }
     }
