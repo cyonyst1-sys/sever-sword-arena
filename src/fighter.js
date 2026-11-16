@@ -2,8 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261116182538';
-import { item, cleanLook } from './cosmetics.js?v=20261116182538';
+import { buildBody, poseBody } from './body.js?v=20261116183752';
+import { item, cleanLook } from './cosmetics.js?v=20261116183752';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -182,6 +182,7 @@ function bladeGeo(id) {
 }
 const GEO = {
   cyl: new THREE.CylinderGeometry(1, 1, 1, 14, 1),
+  tasset: lathe([[0.98, -0.49], [1.02, -0.2], [1.1, 0.2], [1.2, 0.46], [1.12, 0.49]], 14), // a thigh plate: snug at the hip, flaring toward the knee
   taper: lathe([[0.86, -0.49], [1.0, -0.36], [1.05, -0.1], [0.92, 0.22], [0.76, 0.42], [0.62, 0.49]], 10), // limbs: a rounded, slightly muscled shape, narrower at the far end
   chest: torso(),
   // limbs, each from the near joint (y = -0.5) to the far one (0.5), with the muscle where it really sits
@@ -274,11 +275,11 @@ export class Fighter {
     const gi = cloth(horde ? HORDE_COLOR : O ? O.gi : color), trim = cloth(horde ? 0x8e1717 : O ? O.trim : color, O ? 1 : 0.55, O && O.glow || 0), pants = horde ? M.dark : cloth(O ? O.pants : 0x2c2f3a);
     // armour, in the outfit's colours: lacquered plates for the shoulders, chest and skirt; steel splints for the bracers and greaves
     const tc = horde ? 0x8e1717 : O ? O.trim : color, gc = horde ? HORDE_COLOR : O ? O.gi : color;
-    const lamPad = armor(tc, 'lamellar', 2, 1, 1.25), lamSkirt = armor(tc, 'lamellar', 5, 1.5, 1.1), lamDou = armor(gc, 'lamellar', 4, 2.5, 0.85), splint = armor(horde ? 0x6a6a72 : 0xc4c8d0, 'splint', 2, 1);
+    const lamPad = armor(tc, 'lamellar', 2, 1, 1.25), lamSkirt = armor(tc, 'lamellar', 5, 0.5, 1.1), lamTas = armor(tc, 'lamellar', 3, 1.5, 1.1), lamDou = armor(gc, 'lamellar', 4, 2.5, 0.85), splint = armor(horde ? 0x6a6a72 : 0xc4c8d0, 'splint', 2, 1);
     const mk = (geo, mat, cap = CAP.flesh) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.userData.cap = cap; this.group.add(m); this.meshes.push(m); return m; };
     this.p = {
       // trunk
-      pelvis: mk(GEO.sph, pants), skirt: mk(GEO.skirt, lamSkirt, CAP.steel), abdomen: mk(GEO.cyl, gi), obi: mk(GEO.cyl, trim), chest: mk(GEO.chest, gi),
+      pelvis: mk(GEO.sph, pants), skirt: mk(GEO.skirt, lamSkirt, CAP.steel), skL: mk(GEO.tasset, lamTas, CAP.steel), skR: mk(GEO.tasset, lamTas, CAP.steel), abdomen: mk(GEO.cyl, gi), obi: mk(GEO.cyl, trim), chest: mk(GEO.chest, gi),
       collar: mk(GEO.round, trim), padL: mk(GEO.round, lamPad, CAP.steel), padR: mk(GEO.round, lamPad, CAP.steel), pad2L: mk(GEO.round, lamPad, CAP.steel), pad2R: mk(GEO.round, lamPad, CAP.steel),
       dou: mk(GEO.chest, lamDou, CAP.steel), buckle: mk(GEO.round, M.gold, CAP.steel), delL: mk(GEO.sphLo, gi), delR: mk(GEO.sphLo, gi),
       // head
@@ -380,7 +381,7 @@ export class Fighter {
     const twist = -Math.sin(ph) * 0.1 * k; // shoulders counter-rotate against the hips
     const sh = (side) => at(0.22 * side * Math.cos(twist), 0.47, -0.22 * side * Math.sin(twist)); // (broad shoulders)
     P.pelvis.position.copy(P0); P.pelvis.scale.set(0.16, 0.1, 0.11); P.pelvis.rotation.set(0, 0, 0);
-    P.skirt.position.set(0, hipY - 0.2, 0.01); P.skirt.scale.set(1, 1, 0.78);
+    P.skirt.position.set(0, hipY - 0.06, 0.005); P.skirt.scale.set(0.8, 0.3, 0.64); // (just a short band at the hips now: the skirt is split in two, a plate on each thigh that moves with the leg)
     seg(P.abdomen, at(0, 0.0, 0), at(0, 0.2, 0), 0.128, 0.74);
     seg(P.obi, at(0, 0.04, 0), at(0, 0.12, 0), 0.134, 0.78); // (a belt that hugs the waist)
     seg(P.chest, at(0, 0.15, 0), at(0, 0.5, 0), 0.17, 0.6); P.chest.rotateY(twist);
@@ -438,7 +439,7 @@ export class Fighter {
       const knee = V();
       ik(hip, foot, THIGH, SHIN, V(0, 0, -1), knee);
       const Jb = this.J; Jb['hip' + side] = hip.clone(); Jb['knee' + side] = knee.clone(); Jb['foot' + side] = foot.clone(); // (joints, for the skinned body)
-      seg(P['th' + side], hip, knee, 0.095); P['kn' + side].position.copy(knee); P['kn' + side].scale.setScalar(0.06);
+      seg(P['th' + side], hip, knee, 0.095); seg(P['sk' + side], hip.clone().lerp(knee, -0.08), hip.clone().lerp(knee, 0.62), 0.112); P['kn' + side].position.copy(knee); P['kn' + side].scale.setScalar(0.06);
       seg(P['sh' + side], knee, foot, 0.07);
       seg(P['ky' + side], _a.lerpVectors(knee, foot, 0.22), _b.lerpVectors(knee, foot, 0.86), 0.072); // shin wraps
       const ft = P['ft' + side];
