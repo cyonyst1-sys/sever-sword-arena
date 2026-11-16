@@ -122,7 +122,9 @@ export function buildLava(A, T) {
         const x = Math.cos(na) * nr, z = Math.sin(na) * nr, ny = Math.min(prev.y + dy, target - 3);
         const gap = Math.hypot(x - prev.x, z - prev.z) - prev.round - R; // (the radius wanders, so check the real gap)
         if (gap < 0.8 || gap > dist * 1.25 + 1 || !fits(x, z, ny, R)) { if (t % 6 === 5) dir = -dir; continue; }
-        made = rock(x, z, ny, R, 'step', r() < 0.4 ? 0.2 + r() * 0.25 : 0, r() * TAU); a = na; rad = nr; // (some lean over, off-camber: 11 to 26 degrees)
+        const ah = Math.atan2(z - prev.z, x - prev.x), u = r(); // the way you come in from the last rock: lean the top to face you (far edge up), or to one side; never away
+        const tdir = ah + (u < 0.5 ? 0 : u < 0.75 ? Math.PI / 2 : -Math.PI / 2) + (r() - 0.5) * 0.5;
+        made = rock(x, z, ny, R, 'step', r() < 0.45 ? 0.2 + r() * 0.25 : 0, tdir); a = na; rad = nr; // (some lean over, off-camber: 11 to 26 degrees)
         if (k === 'swing') { // a rock to swing from, high above the middle of the gap
           const mx = (prev.x + x) / 2, mz = (prev.z + z) / 2, my = Math.max(prev.y, ny) + 11;
           anchor(mx, my, mz);
