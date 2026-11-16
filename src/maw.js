@@ -14,10 +14,10 @@ export function mawY(r) { // the flesh's height at distance r from the middle (o
 
 function fleshTex(T) {
   return T.canvasTex((g, S) => {
-    const r = T.rng(909); g.fillStyle = '#93303c'; g.fillRect(0, 0, S, S);
-    for (let y = 0; y < S; y += 2) { const k = 0.5 + 0.5 * Math.sin(y / S * TAU * 6); g.fillStyle = `rgba(${k > 0.6 ? '255,170,170' : '70,10,25'},${Math.abs(k - 0.5) * 0.35})`; g.fillRect(0, y, S, 2); } // ridges, like the roof of a mouth
+    const r = T.rng(909); g.fillStyle = '#5a0e22'; g.fillRect(0, 0, S, S);
+    for (let y = 0; y < S; y += 2) { const k = 0.5 + 0.5 * Math.sin(y / S * TAU * 10); g.fillStyle = `rgba(${k > 0.7 ? '255,150,170' : '30,0,14'},${Math.abs(k - 0.5) * (k > 0.7 ? 0.55 : 0.6)})`; g.fillRect(0, y, S, 2); } // deep glossy ribs, ring after ring down the throat
     for (let i = 0; i < 26; i++) { // veins
-      let x = r() * S, y = r() * S; g.strokeStyle = `rgba(${70 + r() * 40 | 0},10,${50 + r() * 40 | 0},${0.35 + r() * 0.3})`; g.lineWidth = 1 + r() * 2.5;
+      let x = r() * S, y = r() * S; g.strokeStyle = `rgba(${60 + r() * 40 | 0},10,${70 + r() * 50 | 0},${0.35 + r() * 0.3})`; g.lineWidth = 1 + r() * 2.5;
       g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 9; k++) { x += (r() - 0.5) * 34; y += (r() - 0.3) * 26; g.lineTo(x, y); } g.stroke();
     }
     for (let i = 0; i < 500; i++) { g.fillStyle = `rgba(255,235,235,${r() * 0.35})`; g.fillRect(r() * S, r() * S, 1 + r() * 2, 1); } // wet glints
@@ -43,6 +43,32 @@ function sandTex(T, arches) { // sandstone blocks; with arches: an arcade (dark 
     for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '255,255,255'},${0.1 * r()})`; g.fillRect(r() * S, r() * S, 1 + r() * 2, 1 + r() * 2); }
   }, 512);
 }
+// the stands at night: dark stone blocks; with arches, an arcade lit from inside with violet lamps. glow: the same
+// pattern as a glow map (black but for the lamps and the light spilling from the arches)
+function nightTex(T, arches, glow) {
+  return T.canvasTex((g, S) => {
+    const r = T.rng(arches ? 177 : 178);
+    g.fillStyle = glow ? '#000' : '#24222c'; g.fillRect(0, 0, S, S);
+    if (!glow) { const bh = S / 24; for (let y = 0; y < 24; y++) for (let x = -(y % 2) * 0.5; x < 8; x++) { const v = 66 + r() * 40 | 0; g.fillStyle = `rgb(${v + 6},${v},${v + 10})`; g.fillRect(x * S / 8 + 1, y * bh + 1, S / 8 - 2, bh - 2); } }
+    if (arches) {
+      for (const cx of [S * 0.25, S * 0.75]) { // two arches per tile
+        const w = S * 0.26, top = S * 0.3, bot = S * 0.86;
+        if (!glow) { g.fillStyle = '#3a3644'; g.fillRect(cx - w / 2 - 8, top - w / 2 - 8, w + 16, bot - top + w / 2 + 8); }
+        const gr = g.createRadialGradient(cx, top, 2, cx, top + w * 0.3, w * 0.9);
+        if (glow) { gr.addColorStop(0, 'rgba(200,120,255,0.9)'); gr.addColorStop(0.35, 'rgba(110,40,190,0.45)'); gr.addColorStop(1, 'rgba(30,0,60,0.05)'); }
+        else { gr.addColorStop(0, '#6a3a9a'); gr.addColorStop(0.4, '#2a1440'); gr.addColorStop(1, '#0c0814'); }
+        g.fillStyle = gr; g.beginPath(); g.moveTo(cx - w / 2, bot); g.lineTo(cx - w / 2, top); g.arc(cx, top, w / 2, Math.PI, 0); g.lineTo(cx + w / 2, bot); g.fill();
+        g.fillStyle = glow ? '#f4e0ff' : '#e8d0ff'; g.beginPath(); g.arc(cx, top + 4, 5, 0, TAU); g.fill(); // the lamp
+      }
+      if (!glow) { for (const px of [0, S * 0.5, S]) { g.fillStyle = '#34303e'; g.fillRect(px - 9, S * 0.1, 18, S * 0.8); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(px + 5, S * 0.1, 4, S * 0.8); } // half columns
+        for (const y of [0, S * 0.9]) { g.fillStyle = '#3e3a48'; g.fillRect(0, y, S, S * 0.07); g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(0, y + S * 0.07, S, 4); } } // cornices
+    }
+    if (glow && arches) for (const px of [0, S * 0.5, S]) { const gr = g.createRadialGradient(px, S * 0.52, 2, px, S * 0.56, S * 0.13); gr.addColorStop(0, 'rgba(255,170,80,0.75)'); gr.addColorStop(1, 'rgba(255,90,20,0)'); g.fillStyle = gr; g.fillRect(px - S * 0.14, S * 0.4, S * 0.28, S * 0.32); } // (torchlight on the stone round each torch)
+    if (glow) { for (let i = 0; i < 26; i++) { const x = r() * S, y = r() * S; if (arches && y > S * 0.15 && y < S * 0.86 && (Math.abs(x - S * 0.25) < S * 0.15 || Math.abs(x - S * 0.75) < S * 0.15)) continue; g.fillStyle = 'rgba(190,120,255,0.9)'; g.beginPath(); g.arc(x, y, 1.5 + r() * 1.5, 0, TAU); g.fill(); } return; } // little violet lights all over the stonework
+    for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(0,0,0,${0.1 + r() * 0.15})`; g.fillRect(r() * S, r() * S * 0.5, 2 + r() * 5, 20 + r() * 80); } // soot streaks
+    for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '255,255,255'},${0.08 * r()})`; g.fillRect(r() * S, r() * S, 1 + r() * 2, 1 + r() * 2); }
+  }, 512);
+}
 
 export function buildMaw(A, T) {
   const S = A.scene, r = T.rng(31337), low = A.quality === 'low';
@@ -53,36 +79,68 @@ export function buildMaw(A, T) {
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   const ft = fleshTex(T); ft.repeat.set(14, 5);
   const maw = new THREE.Group(); S.add(maw);
-  const flesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: ft, vertexColors: true, roughness: 0.32, metalness: 0.05, side: THREE.DoubleSide, emissive: 0x2a0408 }));
+  const flesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: ft, bumpMap: ft, bumpScale: 3, vertexColors: true, roughness: 0.18, metalness: 0.12, side: THREE.DoubleSide, emissive: 0x1c0216 }));
   flesh.receiveShadow = true; maw.add(flesh);
-  // ---- rows of teeth, leaning in toward the throat; the inner rows are the ones that gulp
-  const tg = new THREE.ConeGeometry(1, 1, 7); tg.translate(0, 0.5, 0);
-  const tm = new THREE.MeshStandardMaterial({ color: 0xf4ead0, roughness: 0.35, metalness: 0.05, emissive: 0x3a3226 });
+  // ---- rows of spikes, silver and needle-thin, leaning in toward the throat; the inner rows are the ones that gulp
+  const tg = new THREE.ConeGeometry(1, 1, 8); tg.translate(0, 0.5, 0);
+  const tm = new THREE.MeshStandardMaterial({ color: 0xdfe4f0, roughness: 0.22, metalness: 0.65, emissive: 0x1a1a2a });
   const rows = [], mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s = new THREE.Vector3();
-  for (const [R, h, b] of [[38, 7, 1.3], [57, 9, 1.6], [88, 11, 2.0], [118, 13, 2.4], [150, 16, 2.8], [184, 20, 3.3]]) {
+  for (const [R, h, b] of [[24, 6, 0.9], [38, 7, 1.1], [47, 8, 1.2], [57, 9, 1.3], [72, 10, 1.5], [88, 11, 1.7], [103, 12, 1.8], [118, 13, 2.0], [134, 14, 2.2], [150, 16, 2.4], [167, 18, 2.6], [184, 20, 2.8]]) {
     const n = Math.round(TAU * R / (b * 2.5)), im = new THREE.InstancedMesh(tg, tm, n), grp = new THREE.Group();
     for (let i = 0; i < n; i++) {
       const a = (i + r() * 0.3) / n * TAU, hh = h * (0.75 + r() * 0.5), lean = 0.35 + r() * 0.25;
       e.set(0, -a, 0, 'YXZ'); q.setFromEuler(e); // face the middle...
       const tilt = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), lean); // ...then lean in
       q.multiply(tilt);
-      v.set(Math.cos(a) * R, mawY(R) - 1, Math.sin(a) * R); s.set(b, hh, b * 0.8);
+      v.set(Math.cos(a) * R, mawY(R) - 1, Math.sin(a) * R); s.set(b * 0.55, hh * 1.25, b * 0.55);
       mm.compose(v, q, s); im.setMatrixAt(i, mm);
     }
     im.castShadow = !low; grp.add(im); maw.add(grp); rows.push(grp);
   }
   // ---- smog pooled in the throat, at the height where you die
-  const smog = new THREE.Mesh(new THREE.CircleGeometry(50, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x4a2a26, transparent: true, opacity: 0.72, depthWrite: false }));
+  const smog = new THREE.Mesh(new THREE.CircleGeometry(50, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x14061e, transparent: true, opacity: 0.85, depthWrite: false }));
   smog.position.y = A.killY - 2; maw.add(smog);
-  // ---- the stands: stone steps from the lip up to an arcaded sandstone wall, three tiers of arches
+  // ---- rings of glowing violet runes round the throat
+  const runeT = T.canvasTex((g, s) => { const q = T.rng(66); g.fillStyle = '#000'; g.fillRect(0, 0, s, s); g.strokeStyle = '#d9a8ff'; g.lineCap = 'round'; g.shadowColor = '#a050ff'; g.shadowBlur = 8;
+    for (let k = 0; k < 16; k++) { const x0 = k * s / 16 + 6, w = s / 16 - 12; g.lineWidth = 2.5 + q() * 1.5; g.beginPath(); // a glyph: a few strokes in a little box
+      for (let j = 0; j < 4; j++) { const a = [x0 + q() * w, s * 0.2 + q() * s * 0.6], b = [x0 + q() * w, s * 0.2 + q() * s * 0.6]; g.moveTo(a[0], a[1]); if (q() < 0.4) g.arc(a[0], a[1], 3 + q() * 5, 0, TAU); else g.lineTo(b[0], b[1]); } g.stroke(); }
+  }, 512);
+  runeT.repeat.set(5, 1); runeT.wrapT = THREE.ClampToEdgeWrapping;
+  const runeM = new THREE.MeshBasicMaterial({ map: runeT, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, color: 0xd8a0ff, fog: false });
+  for (const [r0, r1] of [[17, 25], [40, 45]]) { const pts = []; for (let k = 0; k <= 4; k++) { const rr = r0 + (r1 - r0) * k / 4; pts.push(new THREE.Vector2(rr - 0.3, mawY(rr) + 0.45)); }
+    const band = new THREE.Mesh(new THREE.LatheGeometry(pts, low ? 48 : 96), runeM); band.renderOrder = 2; maw.add(band); }
+  A.anim.push((t) => { runeM.opacity = 0.75 + 0.25 * Math.sin(t * 1.3); });
+  // ---- the stands: dark stone steps from the lip up to an arcaded wall, three tiers of arches lit violet from inside
   const steps = []; let sr = 193, sy = 22; steps.push(new THREE.Vector2(sr, 16));
   for (let i = 0; i < 16; i++) { steps.push(new THREE.Vector2(sr, sy)); sr += 2.6; steps.push(new THREE.Vector2(sr, sy)); sy += 2.4; }
   steps.push(new THREE.Vector2(sr, sy));
-  const st = sandTex(T, false); st.repeat.set(40, 3);
-  S.add(new THREE.Mesh(new THREE.LatheGeometry(steps, low ? 64 : 120), new THREE.MeshStandardMaterial({ map: st, roughness: 0.9, side: THREE.DoubleSide })));
-  const wt = sandTex(T, true); wt.repeat.set(24, 3);
-  const wallR = sr + 0.5, wallH = 72, wall = new THREE.Mesh(new THREE.CylinderGeometry(wallR, wallR, wallH, low ? 64 : 120, 1, true), new THREE.MeshStandardMaterial({ map: wt, roughness: 0.9, side: THREE.BackSide }));
+  const st = nightTex(T, false); st.repeat.set(40, 3);
+  S.add(new THREE.Mesh(new THREE.LatheGeometry(steps, low ? 64 : 120), new THREE.MeshStandardMaterial({ map: st, roughness: 0.75, side: THREE.DoubleSide })));
+  const wt = nightTex(T, true), wg = nightTex(T, true, true); wt.repeat.set(24, 3); wg.repeat.set(24, 3);
+  const wallR = sr + 0.5, wallH = 72, wall = new THREE.Mesh(new THREE.CylinderGeometry(wallR, wallR, wallH, low ? 64 : 120, 1, true), new THREE.MeshStandardMaterial({ map: wt, bumpMap: wt, bumpScale: 1.5, roughness: 0.8, side: THREE.BackSide, emissive: 0xffffff, emissiveMap: wg, emissiveIntensity: 1.6 }));
   wall.position.y = sy - 2 + wallH / 2; S.add(wall);
+  { // torches burning on the half columns of the lower two tiers, and blood-red banners hanging from the top one
+    const fireT = T.canvasTex((g, s) => { const gr = g.createRadialGradient(s / 2, s * 0.7, 0, s / 2, s * 0.6, s * 0.5); gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.3, 'rgba(255,170,60,0.95)'); gr.addColorStop(0.65, 'rgba(255,80,20,0.4)'); gr.addColorStop(1, 'rgba(200,30,0,0)');
+      g.fillStyle = gr; g.beginPath(); g.moveTo(s / 2, 0); g.bezierCurveTo(s * 0.9, s * 0.5, s * 0.85, s, s / 2, s); g.bezierCurveTo(s * 0.15, s, s * 0.1, s * 0.5, s / 2, 0); g.fill(); }, 128);
+    // (all the flames are one set of points and all the brackets one instanced mesh: two draws for the lot)
+    const fm = new THREE.PointsMaterial({ map: fireT, size: 8, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false }), fp = [];
+    const brk = new THREE.MeshStandardMaterial({ color: 0x18161c, metalness: 0.7, roughness: 0.5 }), brkG = new THREE.CylinderGeometry(0.5, 0.25, 1.4, 8);
+    const tierH = wallH / 3, top = sy - 2 + wallH, brks = new THREE.InstancedMesh(brkG, brk, 144); let nb = 0;
+    for (let j = 0; j < 48; j++) for (const k of [0, 1, 2]) { if ((low && j % 2) || (k === 0 && j % 3 === 0)) continue; // (not behind a banner)
+      const th = j / 48 * TAU, R = wallR - 1.2, y = top - (k + 1) * tierH + tierH * 0.42, x = Math.sin(th) * R, z = Math.cos(th) * R;
+      mm.makeTranslation(x, y - 1.2, z); brks.setMatrixAt(nb++, mm); fp.push(x, y + 1.6, z); }
+    brks.count = nb; S.add(brks);
+    const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); S.add(new THREE.Points(fg, fm));
+    A.anim.push((t) => { fm.size = 8 + Math.sin(t * 9) * 0.6 + Math.sin(t * 23) * 0.4; });
+    const banT = T.canvasTex((g, s) => { g.fillStyle = '#7a0e16'; g.fillRect(0, 0, s, s * 2); const gr = g.createLinearGradient(0, 0, s, 0); gr.addColorStop(0, 'rgba(0,0,0,0.5)'); gr.addColorStop(0.5, 'rgba(255,80,80,0.12)'); gr.addColorStop(1, 'rgba(0,0,0,0.5)'); g.fillStyle = gr; g.fillRect(0, 0, s, s);
+      g.strokeStyle = '#e8c8b0'; g.lineWidth = 6; g.strokeRect(10, 10, s - 20, s - 20); // a pale border, and a sigil: a ring, a blade through it, two horns
+      g.beginPath(); g.arc(s / 2, s * 0.42, s * 0.18, 0, TAU); g.stroke(); g.beginPath(); g.moveTo(s / 2, s * 0.15); g.lineTo(s / 2, s * 0.78); g.stroke();
+      g.beginPath(); g.moveTo(s * 0.26, s * 0.2); g.quadraticCurveTo(s * 0.3, s * 0.4, s * 0.42, s * 0.36); g.moveTo(s * 0.74, s * 0.2); g.quadraticCurveTo(s * 0.7, s * 0.4, s * 0.58, s * 0.36); g.stroke(); }, 256);
+    const banM = new THREE.MeshStandardMaterial({ map: banT, roughness: 0.9, side: THREE.DoubleSide, emissive: 0x2a0306 });
+    for (let j = 0; j < 16; j++) { const th = (j * 3) / 48 * TAU, R = wallR - 0.8, x = Math.sin(th) * R, z = Math.cos(th) * R;
+      const g = new THREE.PlaneGeometry(7, 18, 1, 6), p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getY(i) * 0.4 + j) * 0.25); g.computeVertexNormals(); // (a gentle ripple)
+      const m = new THREE.Mesh(g, banM); m.position.set(x, top - 13, z); m.rotation.y = Math.atan2(-Math.sin(th), -Math.cos(th)); S.add(m); }
+  }
   { // a crumbling top: blocks of uneven height along the rim
     const n = 140, im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ map: st, roughness: 0.9 }), n);
     for (let i = 0; i < n; i++) { const a = i / n * TAU, hh = 2 + r() * 9 * (r() < 0.4 ? 1 : 0.3); mm.compose(v.set(Math.cos(a) * (wallR + 1.5), sy - 2 + wallH + hh / 2, Math.sin(a) * (wallR + 1.5)), q.setFromEuler(e.set(0, -a, 0)), s.set(4, hh, TAU * wallR / n + 0.2)); im.setMatrixAt(i, mm); }
@@ -95,7 +153,7 @@ export function buildMaw(A, T) {
   A.anim.push((t) => {
     const b = 1 + Math.sin(t * 0.7) * 0.012; flesh.scale.set(b, 1, b);
     const u = t - gulp, g = u >= 0 && u < 1.1 ? Math.sin(Math.min(1, u / 1.1) * Math.PI) * (u < 0.25 ? u / 0.25 : 1) : 0;
-    rows.forEach((grp, i) => { const k = 1 - g * (0.22 - i * 0.03) + (b - 1); grp.scale.set(k, 1, k); grp.position.y = g * (5 - i * 0.6); });
+    rows.forEach((grp, i) => { const k = 1 - g * Math.max(0, 0.22 - i * 0.017) + (b - 1); grp.scale.set(k, 1, k); grp.position.y = g * Math.max(0, 5 - i * 0.4); });
   });
   // dying: touching the flesh anywhere, or sinking to the smog in the throat
   A.killAt = (p) => Math.max(A.killY, mawY(Math.hypot(p.x, p.z)) + 0.4);
@@ -108,14 +166,17 @@ const DROP = 6, SPIKE = 26; // how far the arm curls down before its elbow (m), 
 // long, skinny, needle-sharp limb (with thorns along it) angles down toward the fighting. Hook one anywhere (the arm
 // or the limb) and it swings toward you and sags under your weight; let go and it springs back and wobbles.
 export function buildTendrils(A, pts) {
-  const tex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
-    g.fillStyle = '#6e2233'; g.fillRect(0, 0, 128, 128);
-    for (let y = 0; y < 128; y += 8) { g.fillStyle = 'rgba(30,5,12,0.35)'; g.fillRect(0, y, 128, 2); g.fillStyle = 'rgba(200,110,120,0.18)'; g.fillRect(0, y + 3, 128, 2); } // ringed like a worm
-    for (let i = 0; i < 30; i++) { const x = (i * 37) % 128, y = (i * 53) % 128; g.fillStyle = 'rgba(230,160,170,0.55)'; g.beginPath(); g.arc(x, y, 3 + (i % 3), 0, TAU); g.fill(); g.fillStyle = 'rgba(60,10,20,0.7)'; g.beginPath(); g.arc(x, y, 1.5, 0, TAU); g.fill(); } // suckers
-    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(2, 18); return t; })();
+  // dark plum hide, ringed like a worm, with rows of glowing violet glyph-marks down it (glow: the marks alone)
+  const mk = (glow) => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = glow ? '#000' : '#3a1238'; g.fillRect(0, 0, 128, 128);
+    if (!glow) for (let y = 0; y < 128; y += 8) { g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(0, y, 128, 2); g.fillStyle = 'rgba(170,90,200,0.2)'; g.fillRect(0, y + 3, 128, 2); }
+    g.strokeStyle = glow ? '#e0a8ff' : '#b070e0'; g.lineWidth = 2; g.lineCap = 'round';
+    for (let y = 10; y < 128; y += 42) for (const x0 of [20]) { g.beginPath(); for (let j = 0; j < 2; j++) { const x = x0 + j * 16 + ((y * 7 + j * 13) % 6); g.moveTo(x, y); g.lineTo(x + ((j + y) % 3 - 1) * 4, y + 7); if ((j + y) % 2) { g.moveTo(x - 3, y + 3); g.lineTo(x + 3, y + 3); } } g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(2, 18); return t; };
+  const tex = mk(false), glowTex = mk(true);
   // the limb: dark glossy chitin, a knobbly joint, pale bone thorns, and a needle tip
-  const chitin = new THREE.MeshStandardMaterial({ color: 0x2a0a12, roughness: 0.25, metalness: 0.25, emissive: 0x120206 });
-  const bone = new THREE.MeshStandardMaterial({ color: 0xeadfca, roughness: 0.35 });
+  const chitin = new THREE.MeshStandardMaterial({ color: 0x1c0a20, roughness: 0.25, metalness: 0.25, emissive: 0x120206 });
+  const bone = new THREE.MeshStandardMaterial({ color: 0xdfe4f0, roughness: 0.22, metalness: 0.6 });
   const limbGeo = new THREE.CylinderGeometry(0.05, 0.95, SPIKE, 10, 6).translate(0, SPIKE / 2, 0); // (thick at the elbow, y = 0, tapering to a needle at y = SPIKE; aimed each frame)
   const thornGeo = new THREE.ConeGeometry(0.28, 2.4, 6).translate(0, 1.2, 0);
   const jointGeo = new THREE.SphereGeometry(1.9, 14, 10);
@@ -124,7 +185,7 @@ export function buildTendrils(A, pts) {
     const by = mawY(Math.hypot(x, z)) - 2, top = 70 + ((i * 7) % 5) * 4, H = top - by, R0 = 2.5;
     const geo = new THREE.CylinderGeometry(1.7, R0, H, 14, 48, false); geo.translate(0, H / 2, 0);
     const uB = { value: new THREE.Vector2() }, uS = { value: 0 };
-    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05, emissive: 0x220308 });
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.25, metalness: 0.15, emissive: 0xffffff, emissiveMap: glowTex, emissiveIntensity: 1.0 });
     mat.onBeforeCompile = (sh) => { sh.uniforms.uB = uB; sh.uniforms.uS = uS; sh.uniforms.uH = { value: H };
       // bend the straight tube along its curve (rising, sweeping in, curling down a little to the elbow, sagging under
       // weight); each ring of the tube turned square to the curve so it stays round, normals turned with it
@@ -140,7 +201,7 @@ export function buildTendrils(A, pts) {
     const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; m.frustumCulled = false; A.scene.add(m); // (always drawn: it's bent in the shader, so its own bounds would hide it wrongly)
     // the elbow and the limb (moved and aimed every frame)
     const limb = new THREE.Group(); A.scene.add(limb);
-    const joint = new THREE.Mesh(jointGeo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05, emissive: 0x220308 })); joint.scale.set(1, 0.85, 1); limb.add(joint);
+    const joint = new THREE.Mesh(jointGeo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.25, metalness: 0.15, emissive: 0xffffff, emissiveMap: glowTex, emissiveIntensity: 1.0 })); joint.scale.set(1, 0.85, 1); limb.add(joint);
     const lm = new THREE.Mesh(limbGeo, chitin); lm.castShadow = A.quality !== 'low'; limb.add(lm);
     for (let k = 0; k < 5; k++) { // thorns along the limb, raking back up toward the joint
       const u = 0.2 + k * 0.15, th = new THREE.Mesh(thornGeo, bone), a = k * 2.2;

@@ -138,7 +138,7 @@ function slopeTex(S, r, th) { // for the maps' own far mountain cones: forest at
 }
 
 export function addScenery(A) {
-  if (A.mapId === 'transport' || A.mapId === 'comet' || A.mapId === 'lava' || A.mapId === 'run' || A.mapId === 'grove') return; // (space, or inside a crater: no mountains or clouds)
+  if (A.mapId === 'colosseum' || A.mapId === 'transport' || A.mapId === 'comet' || A.mapId === 'lava' || A.mapId === 'run' || A.mapId === 'grove') return; // (space, or inside a crater: no mountains or clouds)
   const th = THEMES[A.mapId] || THEMES.spire, S = A.scene, low = A.quality === 'low', r = rng(777 + A.mapId.length * 31);
   const haze = A.realScene.fog ? A.realScene.fog.color.clone() : C(0xa9cbe6), W = low ? 1024 : 2048, k = W / 2048;
   // two ranges: a tall hazy one far back, a nearer forested one in front

@@ -3,7 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116044348';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116045416';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -323,14 +323,87 @@ export function buildIsles(A, T) {
 // ================= Sky Spires: the coliseum bowl =================
 // A round arena floor in the middle, then rings of round platforms stepping up and out like the seats of a
 // coliseum. Everyone starts on the high rim and swings down on the stone columns between the rings.
+// the Colosseum's materials: wet blue-grey cobbles with moss in the joints, dark slate slabs, and braziers of blue fire
+function coloLook(A, T) {
+  // Wet cobbles. Every stone is its own: its own tint, mottling, cracks and pits. Three maps drawn from one layout:
+  // colour; height (each stone domed, pitted, the joints sunk); and gloss (the stones rain-slick, each a little
+  // different, the mossy joints dull). They mirror the night round them: sky, moon, violet lamps and torchlight.
+  const SZ = A.quality === 'low' ? 512 : 1024, N = 10;
+  const stones = (() => { const q = T.rng(404), c = SZ / N, out = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const gap = c * (0.07 + q() * 0.05), w = c - gap - q() * c * 0.06, h = c - gap - q() * c * 0.06;
+      out.push({ x: x * c + (y % 2) * c * 0.5 + gap / 2 + (q() - 0.5) * c * 0.04, y: y * c + gap / 2 + (q() - 0.5) * c * 0.04, w, h, rad: c * (0.12 + q() * 0.14), v: 82 + q() * 62, hue: q(), gloss: q(), seed: (q() * 1e6) | 0 }); }
+    return out; })();
+  const eachStone = (g, fn) => { for (const st of stones) for (const ox of [0, -SZ]) { g.save(); g.translate(ox, 0); g.beginPath(); g.roundRect ? g.roundRect(st.x, st.y, st.w, st.h, st.rad) : g.rect(st.x, st.y, st.w, st.h); g.clip(); fn(st, T.rng(st.seed)); g.restore(); } }; // (drawn twice: the offset rows wrap round the tile's edge)
+  const colT = T.canvasTex((g, s) => { const q = T.rng(405); g.fillStyle = '#15171a'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(${60 + q() * 40 | 0},${95 + q() * 55 | 0},38,${0.3 + q() * 0.45})`; g.beginPath(); g.arc(q() * s, q() * s, s / 400 + q() * s / 130, 0, TAU); g.fill(); } // moss in the joints
+    eachStone(g, (st, r) => { const v = st.v, k = st.hue, R = v + (k < 0.3 ? -10 : k > 0.8 ? 10 : -4), G = v + (k < 0.3 ? 2 : k > 0.8 ? 2 : 0), B = v + (k < 0.3 ? 16 : k > 0.8 ? -6 : 12); // slate blue, a few greener or warmer
+      g.fillStyle = `rgb(${R | 0},${G | 0},${B | 0})`; g.fillRect(st.x, st.y, st.w, st.h);
+      for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '210,220,240'},${0.05 + r() * 0.13})`; g.beginPath(); g.ellipse(st.x + r() * st.w, st.y + r() * st.h, 2 + r() * st.w * 0.22, 2 + r() * st.h * 0.14, r() * 3, 0, TAU); g.fill(); } // mottling
+      if (r() < 0.45) { g.strokeStyle = `rgba(10,10,14,${0.4 + r() * 0.3})`; g.lineWidth = 1 + r() * 1.5; let x = st.x + r() * st.w, y = st.y; g.beginPath(); g.moveTo(x, y); while (y < st.y + st.h) { x += (r() - 0.5) * st.w * 0.3; y += st.h * 0.2; g.lineTo(x, y); } g.stroke(); } // a crack
+      if (r() < 0.3) { g.fillStyle = `rgba(70,${110 + r() * 40 | 0},45,${0.25 + r() * 0.3})`; g.beginPath(); g.ellipse(st.x + (r() < 0.5 ? 0 : st.w), st.y + r() * st.h, st.w * 0.25, st.h * 0.3, 0, 0, TAU); g.fill(); } // moss creeping over an edge
+      const e = g.createRadialGradient(st.x + st.w / 2, st.y + st.h / 2, Math.min(st.w, st.h) * 0.25, st.x + st.w / 2, st.y + st.h / 2, Math.max(st.w, st.h) * 0.75); e.addColorStop(0, 'rgba(0,0,0,0)'); e.addColorStop(1, 'rgba(0,0,0,0.5)'); g.fillStyle = e; g.fillRect(st.x, st.y, st.w, st.h); // worn darker at the edges
+    }); }, SZ);
+  const hgtT = T.canvasTex((g, s) => { g.fillStyle = '#000'; g.fillRect(0, 0, s, s);
+    eachStone(g, (st, r) => { const cx = st.x + st.w * (0.4 + r() * 0.2), cy = st.y + st.h * (0.4 + r() * 0.2), d = g.createRadialGradient(cx, cy, 1, cx, cy, Math.max(st.w, st.h) * 0.72); d.addColorStop(0, '#fff'); d.addColorStop(0.55, '#c8c8c8'); d.addColorStop(1, '#3a3a3a'); g.fillStyle = d; g.fillRect(st.x, st.y, st.w, st.h); // domed
+      for (let i = 0; i < 9; i++) { g.fillStyle = `rgba(0,0,0,${0.15 + r() * 0.3})`; g.beginPath(); g.arc(st.x + r() * st.w, st.y + r() * st.h, 1 + r() * st.w * 0.07, 0, TAU); g.fill(); } // pits and chips
+      for (let i = 0; i < 5; i++) { g.fillStyle = `rgba(255,255,255,${0.06 + r() * 0.1})`; g.beginPath(); g.ellipse(st.x + r() * st.w, st.y + r() * st.h, st.w * 0.2, st.h * 0.08, r() * 3, 0, TAU); g.fill(); } }); }, SZ); // low ridges
+  hgtT.colorSpace = THREE.NoColorSpace;
+  const glsT = T.canvasTex((g, s) => { const q = T.rng(406); g.fillStyle = 'rgb(0,150,0)'; g.fillRect(0, 0, s, s); // (green = roughness: joints dull...)
+    for (let i = 0; i < 60; i++) { g.fillStyle = 'rgb(0,14,0)'; g.beginPath(); g.ellipse(q() * s, q() * s, s * (0.01 + q() * 0.03), s * (0.008 + q() * 0.02), q() * 3, 0, TAU); g.fill(); } // ...but for little puddles standing in them
+    eachStone(g, (st, r) => { const v = 14 + st.gloss * 46 | 0; g.fillStyle = `rgb(0,${v},0)`; g.fillRect(st.x, st.y, st.w, st.h); // each stone slick, some more than others
+      for (let i = 0; i < 6; i++) { g.fillStyle = `rgba(0,${r() < 0.5 ? 8 : 90},0,${0.25 + r() * 0.3})`; g.beginPath(); g.ellipse(st.x + r() * st.w, st.y + r() * st.h, st.w * (0.1 + r() * 0.25), st.h * (0.06 + r() * 0.15), r() * 3, 0, TAU); g.fill(); } }); }, SZ); // wetter and drier patches on it
+  glsT.colorSpace = THREE.NoColorSpace;
+  const envT = T.canvasTex((g, s) => { const q = T.rng(407), h = s; // what the wet stone mirrors (an all-round view: sky above, the lit arcade round the horizon, the maw below)
+    const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#161e40'); sky.addColorStop(0.36, '#2c3462'); sky.addColorStop(0.44, '#2a2240'); sky.addColorStop(0.56, '#3a1024'); sky.addColorStop(1, '#14040c'); g.fillStyle = sky; g.fillRect(0, 0, s, h);
+    const blob = (x, y, R, c) => { const d = g.createRadialGradient(x, y, 0, x, y, R); d.addColorStop(0, c); d.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = d; g.fillRect(x - R, y - R, R * 2, R * 2); };
+    blob(s * 0.3, h * 0.16, s * 0.09, 'rgba(235,240,255,1)'); blob(s * 0.3, h * 0.16, s * 0.22, 'rgba(150,170,255,0.5)'); // the moon and its halo
+    for (let i = 0; i < 48; i++) { const x = (i + 0.5) / 48 * s; for (const y of [0.37, 0.41, 0.45]) blob(x, h * y, s * 0.012, 'rgba(210,130,255,0.95)'); if (i % 2) blob(x + s / 96, h * 0.43, s * 0.01, 'rgba(255,170,70,0.95)'); } // violet lamps in the arches, torches between
+    for (let i = 0; i < 14; i++) blob(q() * s, h * (0.47 + q() * 0.06), s * 0.014, 'rgba(120,190,255,0.9)'); // the braziers' blue fire
+  }, 512);
+  envT.mapping = THREE.EquirectangularReflectionMapping; envT.wrapS = THREE.RepeatWrapping; envT.wrapT = THREE.ClampToEdgeWrapping;
+  const cobble = (n) => { const maps = [colT, hgtT, glsT].map((t) => { const c = t.clone(); c.repeat.set(n, n); c.needsUpdate = true; return c; });
+    return new THREE.MeshStandardMaterial({ map: maps[0], bumpMap: maps[1], bumpScale: 3.2, roughnessMap: maps[2], roughness: 1, metalness: 0.0, envMap: envT, envMapIntensity: 1.25 }); };
+  const slabT = T.canvasTex((g, s) => { const q = T.rng(17); g.fillStyle = '#5a5866'; g.fillRect(0, 0, s, s);
+    for (let y = 0; y < s; y += 3) { g.fillStyle = `rgba(${q() < 0.5 ? '0,0,0' : '150,150,170'},${q() * 0.12})`; g.fillRect(0, y, s, 2); } // chisel lines round the edge
+    for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(q() * s, 0, 2, s); }
+    T.speckle(g, s, q, 2000, 0.2); }, 256);
+  slabT.repeat.set(8, 1);
+  const slab = new THREE.MeshStandardMaterial({ map: slabT, bumpMap: slabT, bumpScale: 1, roughness: 0.55, metalness: 0.1, color: 0xffffff });
+  const underT = T.canvasTex((g, s) => { const q = T.rng(23); g.fillStyle = '#3c3a48'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 90; i++) { g.strokeStyle = `rgba(${q() < 0.5 ? '0,0,0' : '90,85,110'},${0.2 + q() * 0.3})`; g.lineWidth = 1 + q() * 3; const x = q() * s; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (q() - 0.5) * 30, s); g.stroke(); } // rough-hewn grooves down the cone
+    T.speckle(g, s, q, 2500, 0.2); }, 256);
+  underT.repeat.set(4, 2);
+  const underside = new THREE.MeshStandardMaterial({ map: underT, bumpMap: underT, bumpScale: 2, roughness: 0.7, metalness: 0.05, color: 0xffffff });
+  // blue fire: a soft tongue of flame (two sprites, flickering), in a black iron bowl on a short stand
+  const fireT = T.canvasTex((g, s) => { const gr = g.createRadialGradient(s / 2, s * 0.72, 0, s / 2, s * 0.6, s * 0.5); gr.addColorStop(0, 'rgba(235,250,255,1)'); gr.addColorStop(0.25, 'rgba(110,190,255,0.9)'); gr.addColorStop(0.6, 'rgba(40,90,255,0.35)'); gr.addColorStop(1, 'rgba(20,40,200,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(s / 2, 0); g.bezierCurveTo(s * 0.85, s * 0.45, s * 0.85, s, s / 2, s); g.bezierCurveTo(s * 0.15, s, s * 0.15, s * 0.45, s / 2, 0); g.fill(); }, 128);
+  const fireM = new THREE.SpriteMaterial({ map: fireT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffffff, toneMapped: false });
+  const iron = new THREE.MeshStandardMaterial({ color: 0x1a1a22, roughness: 0.4, metalness: 0.8 });
+  const brazG = new THREE.LatheGeometry([[0, 0], [0.2, 0], [0.09, 0.14], [0.08, 0.85], [0.28, 0.9], [0.56, 1.3], [0.46, 1.3], [0, 1.12]].map(([x, y]) => new THREE.Vector2(x, y)), 12); // (foot, stem and bowl in one piece)
+  const flames = [];
+  A.anim.push((t) => { for (let i = 0; i < flames.length; i++) { const k = t * 9 + i * 1.7; flames[i].scale.set(1.7 + Math.sin(k) * 0.18 + Math.sin(k * 2.3) * 0.1, 3.0 + Math.sin(k * 1.3) * 0.45, 1); } });
+  const brazier = (p, o) => {
+    const d = Math.hypot(o.x, o.z) || 1, x = o.x + o.x / d * (o.R - 1.0), z = o.z + o.z / d * (o.R - 1.0); // (at the back edge, away from the middle)
+    const bw = new THREE.Mesh(brazG, iron); prop(A, p, bw, x, o.y, z);
+    const f = new THREE.Sprite(fireM); f.position.set(x, o.y + 2.5, z); A.scene.add(f); p.meshes.push(f); flames.push(f);
+  };
+  return { cobble: cobble(2.2), cobbleBig: cobble(6.5), slab, underside, brazier };
+}
 function disc(A, o) {
   const p = { kind: o.kind, x: o.x, z: o.z, y: o.y, w: o.R * 2, d: o.R * 2, ang: 0, round: o.R, i: A.plats.length, meshes: [], boxes: [], ramps: [], rays: [] };
   A.plats.push(p); A.tag = p;
-  A.addDisc(o.x, o.z, o.R, o.y - 0.4, o.y, A.mats.floor, 48); // the walking surface
-  A.addDisc(o.x, o.z, o.R - 0.25, o.y - 2.4, o.y - 0.4, A.mats.stone, 40); // its stone rim
+  const C = A.colo; // (the Colosseum's own look: wet cobbles on a stack of dark stone slabs over a stone cone)
+  A.addDisc(o.x, o.z, o.R, o.y - 0.4, o.y, C ? (o.R > 10 ? C.cobbleBig : C.cobble) : A.mats.floor, 48); // the walking surface
+  A.addDisc(o.x, o.z, o.R - 0.25, o.y - 2.4, o.y - 0.4, C ? C.slab : A.mats.stone, 40); // its stone rim
   A.tag = null;
-  const h = 6 + o.R * 0.9, cone = new THREE.Mesh(new THREE.ConeGeometry(o.R * 0.85, h, 12, 3), A.mats.rock);
-  cone.rotation.x = Math.PI; prop(A, p, cone, o.x, o.y - 2.4 - h / 2, o.z);
+  if (C) { // stacked slabs under the top, like a pile of millstones, each a slightly different width (one mesh)
+    const pts = []; for (let k = 0; k < 4; k++) { const y = -0.41 - k * 0.47, R = o.R + 0.14 - k * 0.1 + Math.sin(k * 2.7 + o.x) * 0.06; pts.push(new THREE.Vector2(R - 0.4, y), new THREE.Vector2(R, y - 0.04), new THREE.Vector2(R - 0.06, y - 0.42), new THREE.Vector2(R - 0.4, y - 0.46)); }
+    const g = new THREE.LatheGeometry(pts.reverse(), 40).toNonIndexed(); g.computeVertexNormals(); // (crisp edges between the slabs)
+    const sl = new THREE.Mesh(g, C.slab); sl.castShadow = sl.receiveShadow = true; prop(A, p, sl, o.x, o.y, o.z);
+  }
+  const h = 6 + o.R * 0.9, cone = new THREE.Mesh(new THREE.ConeGeometry(o.R * (C ? 0.97 : 0.85), h * (C ? 1.25 : 1), C ? 24 : 12, 3), C ? C.underside : A.mats.rock);
+  cone.rotation.x = Math.PI; prop(A, p, cone, o.x, o.y - 2.4 - h * (C ? 1.25 : 1) / 2, o.z);
+  if (C && o.kind !== 'hub') C.brazier(p, o); // a brazier of blue fire at the back of the platform
   A.node('P' + p.i, o.x, o.y, o.z).plat = p.i;
   const sp = new THREE.Vector3(o.x, o.y, o.z); sp.plat = p.i; A.spawns.push(sp);
   return p;
@@ -338,7 +411,10 @@ function disc(A, o) {
 export function buildBowl(A, T) {
   const S = A.scene;
   A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -45;
-  A.setSky({ top: 0x5d8fc4, mid: 0xe6d3b3, bot: 0xd9b98a, fog: 0xdcc6a2, near: 110, far: 420, hemiSky: 0xd8ecff, hemiGround: 0x5a4a38, hemi: 0.85, sunColor: 0xfff0d8, sun: 2.0, sunOff: new THREE.Vector3(30, 50, 18) });
+  A.setSky({ top: 0x0a1238, mid: 0x26306e, bot: 0x12081c, fog: 0x1c1236, near: 130, far: 520, hemiSky: 0xaab8ff, hemiGround: 0x7a2040, hemi: 1.9, sunColor: 0xc4d0ff, sun: 2.6, sunOff: new THREE.Vector3(30, 50, 18) }); // (night: moonlight, purple haze)
+  A.colo = coloLook(A, T);
+  { const r = T.rng(5150), n = 1400, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const u = r() * TAU, v = Math.acos(1 - r() * 0.9); pos[i * 3] = Math.sin(v) * Math.cos(u) * 480; pos[i * 3 + 1] = Math.cos(v) * 480; pos[i * 3 + 2] = Math.sin(v) * Math.sin(u) * 480; } // (stars over the night)
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); S.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xc8d0ff, size: 1.4, sizeAttenuation: false, fog: false }))); }
   buildMaw(A, T); // the giant creature's mouth below and the colosseum's stands around it
   // the arena floor (lowest), then three rings, each higher and further out
   const hub = disc(A, { x: 0, z: 0, y: 0, R: 18, kind: 'hub' });
