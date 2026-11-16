@@ -84,7 +84,7 @@ export function buildGrove(A, T) {
 
   // ---- the backdrop: more of these trees fading into the haze, and the sun low in the orange sky
   { const far = new THREE.MeshStandardMaterial({ color: 0x4a3a34, roughness: 1 }), farLeaf = new THREE.MeshStandardMaterial({ color: 0x5a6a4a, roughness: 1, flatShading: true });
-    for (let k = 0; k < 40; k++) { const a = r() * TAU, d = 95 + r() * 90, x = Math.cos(a) * d, z = Math.sin(a) * d, h = 14 + r() * 14;
+    for (let k = 0; k < 40; k++) { const a = r() * TAU, d = 95 + r() * 90, x = Math.cos(a) * d, z = Math.sin(a) * d, h = 6 + r() * 44;
       const t0 = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.6, h, 8), far); t0.scale.y = 1 + 40 / h; t0.position.set(x, (h - 40) / 2, z); S.add(t0); // (rising out of the mist)
       for (let j = 0; j < 4; j++) { const pd = new THREE.Mesh(new THREE.SphereGeometry(3 + r() * 2, 10, 6), farLeaf); pd.scale.y = 0.4; pd.position.set(x + (r() - 0.5) * 9, h * (0.6 + r() * 0.5), z + (r() - 0.5) * 9); S.add(pd); } } }
 
@@ -94,7 +94,7 @@ export function buildGrove(A, T) {
     let n = 0; const got = [];
     for (let t = 0; t < 4000 && n < N; t++) { const a = r() * TAU, d = 34 + r() * 66, x = Math.cos(a) * d, z = Math.sin(a) * d + 8;
       if ((Math.abs(x) < 36 && Math.abs(z - 8) < 74) || got.some(([u, v]) => Math.hypot(u - x, v - z) < 11)) continue; // (clear of the fighting, and of each other)
-      got.push([x, z]); const h = 12 + r() * 20, w = 1.6 + r() * 1.4;
+      got.push([x, z]); const h = 2 + r() * r() * 58, w = 1.3 + h * 0.04 + r() * 1.0; // (all heights: from just clear of the mist to towering over the rows)
       mt.compose(ps.set(x, -40, z), q, sc.set(w, h + 40, w)); tr.setMatrixAt(n, mt);
       for (let j = 0; j < PN; j++) { const R = 3 + r() * 2.6; mt.compose(ps.set(x + (j ? (r() - 0.5) * 11 : 0), j ? h * (0.5 + r() * 0.45) : h + 0.6, z + (j ? (r() - 0.5) * 11 : 0)), q, sc.set(R, R * 0.4, R)); pd.setMatrixAt(n * PN + j, mt); }
       n++; }
