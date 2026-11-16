@@ -2,8 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261115233212';
-import { item, cleanLook } from './cosmetics.js?v=20261115233212';
+import { buildBody, poseBody } from './body.js?v=20261116000258';
+import { item, cleanLook } from './cosmetics.js?v=20261116000258';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -40,7 +40,8 @@ const M = {
   blade: new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.18, metalness: 0.9 }),
   gold: new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.35, metalness: 0.8 }),
   grip: new THREE.MeshStandardMaterial({ color: 0x2a1d14, roughness: 0.9 }),
-  eye: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 }),
+  eye: new THREE.MeshStandardMaterial({ color: 0xf2eee6, roughness: 0.25 }), // (the whites)
+  iris: new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.2 }),
   oni: new THREE.MeshStandardMaterial({ color: 0x8e1717, roughness: 0.5, emissive: 0x220000 }),
   saya: new THREE.MeshStandardMaterial({ color: 0x1c1416, roughness: 0.3, metalness: 0.2 }), // lacquered scabbard
 };
@@ -85,6 +86,44 @@ function torso() {
   }
   g.computeVertexNormals(); return g;
 }
+// a sculpted head (unit size, stretched into place like the rest; forward is -z): a skull longer front to back, a brow
+// ridge, eye sockets, cheekbones, a nose with a bridge and a tip, a groove for the mouth, a jaw narrowing to a chin
+function headGeo() {
+  const g = new THREE.SphereGeometry(1, 40, 30), p = g.attributes.position;
+  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const gs = (x, y, cx, cy, sx, sy) => Math.exp(-(((x - cx) / sx) ** 2) - (((y - cy) / sy) ** 2));
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const fr = ss(-0.2, -0.85, z); // how much this point faces forward
+    if (z > 0) z *= 1.08; // the back of the skull
+    if (y > -0.2) x *= 0.94; // flatter at the temples
+    const low = ss(-0.15, -0.85, y); // the lower face: the jaw narrows toward the chin and the chin comes down and forward
+    x *= 1 - 0.3 * low * (0.4 + 0.6 * fr); y -= 0.16 * low * (0.3 + 0.7 * fr); z -= 0.07 * gs(x, y, 0, -0.95, 0.35, 0.18) * fr;
+    if (z < 0) {
+      z -= 0.07 * gs(x, y, 0, 0.22, 0.6, 0.07) * fr; // brow ridge
+      z += 0.1 * (gs(x, y, -0.36, 0.05, 0.17, 0.12) + gs(x, y, 0.36, 0.05, 0.17, 0.12)) * fr; // eye sockets
+      x *= 1 + 0.06 * (gs(x, y, -0.55, -0.15, 0.2, 0.15) + gs(x, y, 0.55, -0.15, 0.2, 0.15)); // cheekbones
+      const nose = y < 0.16 && y > -0.36 ? (0.08 + 0.28 * ss(0.12, -0.22, y)) * (1 - ss(-0.24, -0.34, y)) : 0, nw = 0.1 + 0.07 * ss(-0.05, -0.24, y);
+      z -= nose * Math.exp(-((x / nw) ** 2)) * fr; // the nose: a narrow bridge growing out to a broader tip
+      z += 0.05 * gs(x, y, 0, -0.5, 0.26, 0.03) * fr; // the line of the mouth
+      z -= 0.025 * gs(x, y, 0, -0.43, 0.22, 0.05) * fr; // upper lip
+    }
+    p.setXYZ(i, x, y, z);
+  }
+  g.computeVertexNormals(); return g;
+}
+// hair that follows the skull and stops at a hairline (low at the back, up at the forehead) instead of a ball on top
+function hairGeo() {
+  const g = new THREE.SphereGeometry(1, 32, 24), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const line = -0.62 + 0.95 * Math.min(1, Math.max(0, (-z + 1) / 2)) ** 1.4 - 0.25 * Math.abs(x) * (z < 0 ? 1 : 0); // the hairline: forehead high, back low
+    if (z > 0) z *= 1.1;
+    const t = Math.min(1, Math.max(0, (y - line + 0.08) / 0.1)), k = 0.66 + (0.34 + 0.04 * Math.sin(x * 9 + z * 7)) * t * t * (3 - 2 * t); // (below the line it tucks well inside the head; above it, a little texture)
+    p.setXYZ(i, x * k * 0.96, y * k, z * k);
+  }
+  g.computeVertexNormals(); return g;
+}
 const GEO = {
   cyl: new THREE.CylinderGeometry(1, 1, 1, 14, 1),
   taper: lathe([[0.86, -0.49], [1.0, -0.36], [1.05, -0.1], [0.92, 0.22], [0.76, 0.42], [0.62, 0.49]], 10), // limbs: a rounded, slightly muscled shape, narrower at the far end
@@ -95,6 +134,7 @@ const GEO = {
   thigh: lathe([[1.0, -0.49], [1.1, -0.3], [1.05, -0.05], [0.9, 0.2], [0.74, 0.4], [0.68, 0.49]], 12),
   calf: lathe([[0.78, -0.49], [0.98, -0.32], [1.12, -0.18], [0.95, 0.05], [0.7, 0.3], [0.52, 0.49]], 12), // the calf high, a slim ankle
   neck: lathe([[1.7, -0.49], [1.25, -0.3], [1.0, -0.05], [0.95, 0.49]], 12), // flaring into the trapezius
+  headS: headGeo(), hairS: hairGeo(),
   sph: new THREE.SphereGeometry(1, 16, 11),
   sphLo: new THREE.SphereGeometry(1, 9, 6), // small round parts (ears, joints): fewer triangles to cut
   box: new THREE.BoxGeometry(1, 1, 1),
@@ -182,10 +222,10 @@ export class Fighter {
       pelvis: mk(GEO.sph, pants), skirt: mk(GEO.skirt, pants), abdomen: mk(GEO.cyl, gi), obi: mk(GEO.cyl, trim), chest: mk(GEO.chest, gi),
       collar: mk(GEO.round, trim), padL: mk(GEO.round, trim), padR: mk(GEO.round, trim), delL: mk(GEO.sphLo, gi), delR: mk(GEO.sphLo, gi),
       // head
-      neck: mk(GEO.neck, M.skinShade), head: mk(GEO.sph, M.skin), jaw: mk(GEO.sph, M.skin), nose: mk(GEO.round, M.skinShade),
-      earL: mk(GEO.sphLo, M.skinShade), earR: mk(GEO.sphLo, M.skinShade), eyeL: mk(GEO.round, M.eye), eyeR: mk(GEO.round, M.eye),
+      neck: mk(GEO.neck, M.skinShade), head: mk(GEO.headS, M.skin), jaw: mk(GEO.sph, M.skin), nose: mk(GEO.round, M.skinShade),
+      earL: mk(GEO.sphLo, M.skinShade), earR: mk(GEO.sphLo, M.skinShade), eyeL: mk(GEO.sph, M.eye), eyeR: mk(GEO.sph, M.eye),
       browL: mk(GEO.box, M.hair), browR: mk(GEO.box, M.hair),
-      hair: mk(GEO.sph, M.hair), band: mk(GEO.cyl, horde ? M.oni : gi), knot: mk(GEO.sphLo, M.hair), mask: horde ? mk(GEO.round, M.oni) : null,
+      hair: mk(GEO.hairS, M.hair), band: mk(GEO.cyl, horde ? M.oni : gi), knot: mk(GEO.sphLo, M.hair), mask: horde ? mk(GEO.round, M.oni) : null,
       // arms
       uaL: mk(GEO.arm, gi), elL: mk(GEO.sphLo, M.skin), faL: mk(GEO.fore, M.skin), hL: mk(GEO.round, M.skin),
       uaR: mk(GEO.arm, gi), elR: mk(GEO.sphLo, M.skin), faR: mk(GEO.fore, M.skin), hR: mk(GEO.round, M.skin),
@@ -235,7 +275,8 @@ export class Fighter {
       this.body = buildBody(this, mats); Object.assign(this, keep);
       this.body.userData.cap = CAP.flesh; this.body.userData.mis = mats.map(regMat); this.body.userData.mi = this.body.userData.mis[0];
       this.group.add(this.body); this.meshes.push(this.body);
-      for (const n of ['pelvis', 'abdomen', 'chest', 'neck', 'uaL', 'uaR', 'faL', 'faR', 'elL', 'elR', 'thL', 'thR', 'shL', 'shR', 'knL', 'knR', 'delL', 'delR']) { const m = this.p[n]; if (m) { this.group.remove(m); this.meshes = this.meshes.filter((x) => x !== m); } }
+      for (const e of [this.p.eyeL, this.p.eyeR]) { const ir = new THREE.Mesh(GEO.sph, M.iris); ir.position.z = -0.78; ir.scale.set(0.55, 0.95, 0.32); e.add(ir); } // (an iris and pupil in each eye)
+      for (const n of ['jaw', 'nose', 'pelvis', 'abdomen', 'chest', 'neck', 'uaL', 'uaR', 'faL', 'faR', 'elL', 'elR', 'thL', 'thR', 'shL', 'shR', 'knL', 'knR', 'delL', 'delR']) { const m = this.p[n]; if (m) { this.group.remove(m); this.meshes = this.meshes.filter((x) => x !== m); } }
       this.pose(0); }
   }
 
@@ -305,13 +346,13 @@ export class Fighter {
     P.jaw.position.copy(H(0, -0.07, -0.02)); P.jaw.scale.set(0.078, 0.058, 0.082); headRot(P.jaw);
     P.nose.position.copy(H(0, -0.01, -0.112)); P.nose.scale.set(0.024, 0.042, 0.03); headRot(P.nose);
     P.earL.position.copy(H(-0.1, 0, 0.005)); P.earR.position.copy(H(0.1, 0, 0.005));
-    P.earL.scale.set(0.018, 0.034, 0.024); P.earR.scale.set(0.018, 0.034, 0.024);
-    P.eyeL.position.copy(H(-0.04, 0.018, -0.1)); P.eyeR.position.copy(H(0.04, 0.018, -0.1));
-    P.eyeL.scale.set(0.03, 0.014, 0.02); P.eyeR.scale.set(0.03, 0.014, 0.02); headRot(P.eyeL); headRot(P.eyeR);
-    P.browL.position.copy(H(-0.042, 0.045, -0.1)); P.browR.position.copy(H(0.042, 0.045, -0.1));
-    P.browL.scale.set(0.038, 0.01, 0.02); P.browR.scale.set(0.038, 0.01, 0.02); headRot(P.browL); headRot(P.browR);
-    P.hair.position.copy(H(0, 0.04, 0.014)); P.hair.scale.set(0.106, 0.1, 0.118); headRot(P.hair);
-    P.band.position.copy(H(0, 0.035, 0.0)); P.band.scale.set(0.104, 0.03, 0.116); headRot(P.band);
+    P.earL.scale.set(0.013, 0.03, 0.02); P.earR.scale.set(0.013, 0.03, 0.02);
+    P.eyeL.position.copy(H(-0.034, 0.006, -0.087)); P.eyeR.position.copy(H(0.034, 0.006, -0.087)); // (set in the sockets)
+    P.eyeL.scale.set(0.0135, 0.0068, 0.01); P.eyeR.scale.set(0.0135, 0.0068, 0.01); headRot(P.eyeL); headRot(P.eyeR);
+    P.browL.position.copy(H(-0.035, 0.03, -0.104)); P.browR.position.copy(H(0.035, 0.03, -0.104));
+    P.browL.scale.set(0.03, 0.006, 0.012); P.browR.scale.set(0.03, 0.006, 0.012); headRot(P.browL); headRot(P.browR); P.browL.rotateZ(-0.14); P.browR.rotateZ(0.14);
+    P.hair.position.copy(H(0, 0.003, 0.003)); P.hair.scale.set(0.105, 0.127, 0.117); headRot(P.hair); // (follows the skull, down to a hairline)
+    P.band.position.copy(H(0, 0.052, 0.004)); P.band.scale.set(0.104, 0.03, 0.116); headRot(P.band);
     P.knot.position.copy(H(0, 0.12, 0.07)); P.knot.scale.setScalar(0.04);
     if (P.mask) { P.mask.position.copy(H(0, -0.04, -0.095)); P.mask.scale.set(0.15, 0.08, 0.04); headRot(P.mask); }
     for (const a of this.acc) { a.m.position.copy(H(a.p[0], a.p[1], a.p[2])); a.m.scale.set(a.s[0], a.s[1], a.s[2]); a.m.rotation.set(hp + a.r[0], a.r[1], a.r[2]); }
