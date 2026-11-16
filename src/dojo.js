@@ -6,7 +6,7 @@
 // Vertical: a four-tier dojo tower with stairs spiralling up it, two-storey houses, rooftop bridges, watchtowers
 // and floating shrine islands around the town.
 import * as THREE from 'three';
-import { regMat } from './fighter.js?v=20261116182126';
+import { regMat } from './fighter.js?v=20261116182538';
 import { deck, prop, bridge, stalk, drift, farRing } from './maps2.js';
 
 const TAU = Math.PI * 2, CELL = 6;
@@ -47,7 +47,7 @@ function kindMats(T) {
     straw: { mat: std(0xffffff, { map: straw, roughness: 1 }), piece: plain(0xc9a651, 1), cap: plain(0xe2c574, 1), tint: [0.85, 1.05] },
     cloth: { mat: std(0xffffff, { roughness: 0.9 }), piece: plain(0xa02c2c), cap: plain(0xc04848), tint: [0.8, 1], color: 0xb33030 },
     // (Glass Skyline) window glass shatters; steel frames are only for swinging from and standing on; drywall gives way like paper
-    glass: { mat: std(0xffffff, { transparent: true, opacity: 0.46, roughness: 0.06, metalness: 0.25, emissive: 0x2a86e0, emissiveIntensity: 0.9, depthWrite: false }), piece: regMat(std(0xbfe4ff, { transparent: true, opacity: 0.5, roughness: 0.05, metalness: 0.3 })), cap: regMat(std(0xdff2ff, { transparent: true, opacity: 0.6, roughness: 0.05 })), tint: [0.85, 1], color: 0x6fb2ea },
+    glass: { mat: std(0xffffff, { transparent: true, opacity: 0.46, roughness: 0.06, metalness: 0.25, emissive: 0x1d4a70, emissiveIntensity: 0.7, depthWrite: false }), piece: regMat(std(0xbfe4ff, { transparent: true, opacity: 0.5, roughness: 0.05, metalness: 0.3 })), cap: regMat(std(0xdff2ff, { transparent: true, opacity: 0.6, roughness: 0.05 })), tint: [0.85, 1], color: 0x6fb2ea },
     steel: { mat: std(0xffffff, { roughness: 0.55, metalness: 0.35 }), piece: plain(0xb5532d), cap: plain(0x999999), tint: [0.85, 1], color: 0xc0582e },
     bamboo: { mat: std(0xffffff, { map: poles, roughness: 0.6 }), piece: plain(0x7fa648, 0.6), cap: plain(0xe6e2b0, 0.7), tint: [0.85, 1.08] },
     drywall: { mat: std(0xffffff, { roughness: 0.95 }), piece: plain(0xe2ddd3), cap: plain(0xf2efe8), tint: [0.9, 1], color: 0xe8e3da },
