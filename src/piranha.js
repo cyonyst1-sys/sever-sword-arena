@@ -1,7 +1,7 @@
 // Great Canopy: fall too low and a giant piranha bursts out of the swamp, jaws wide, snaps you up and dives back in.
 // Purely visual (every client plays it locally when it sees a fall death on that map).
 import * as THREE from 'three';
-import { bladeMesh } from './foundry.js?v=20261116032055';
+import { bladeMesh } from './foundry.js?v=20261116032838';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.15, ...o });
