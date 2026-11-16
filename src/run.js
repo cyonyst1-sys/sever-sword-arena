@@ -41,6 +41,22 @@ export function buildRun(A, T) {
   // ---- the trees: a pool of N, each a whole Great Canopy tree (a huge trunk beside the lane with its limbs: oval bark
   // logs climbing and dipping segment by segment, with knots at the joints, side arms and big curled leaves you can run
   // across), built once in its own space and then carried toward you, the next tree due taking the place of one gone by
+  // Great Canopy's vine: a liana texture, and a wiggle bent in on the GPU
+  const vineTex = T.canvasTex((g, S2) => {
+    const rr = T.rng(91); g.fillStyle = '#4a5a2a'; g.fillRect(0, 0, S2, S2);
+    for (let i = -S2; i < S2 * 2; i += 9) { const v = 60 + rr() * 50 | 0; g.strokeStyle = `rgb(${v + 20},${v + 30},${v * 0.5 | 0})`; g.lineWidth = 3 + rr() * 4; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + S2 * 0.6, S2); g.stroke(); }
+    for (let i = 0; i < 200; i++) { g.fillStyle = `rgba(30,40,15,${0.2 + rr() * 0.3})`; g.fillRect(rr() * S2, rr() * S2, 1 + rr() * 2, 4 + rr() * 10); }
+    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(110,160,60,${0.25 + rr() * 0.3})`; g.beginPath(); g.arc(rr() * S2, rr() * S2, 2 + rr() * 6, 0, TAU); g.fill(); }
+  }, 128);
+  const vineM = new THREE.MeshStandardMaterial({ roughness: 0.8, map: vineTex });
+  vineM.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <uv_vertex>', ['#include <uv_vertex>', '#ifdef USE_INSTANCING', 'vMapUv.y = (instanceMatrix * vec4(position, 1.0)).y / 2.6;', '#endif'].join('\n'))
+      .replace('#include <project_vertex>', ['vec4 lp = instanceMatrix * vec4(transformed, 1.0); vec3 ic = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; float ph = ic.x * 1.7 + ic.z * 2.3;',
+        'lp.x += 0.42 * sin(lp.y * 0.33 + ph) + 0.18 * sin(lp.y * 0.81 + ph * 0.7); lp.z += 0.42 * cos(lp.y * 0.27 + ph * 1.3) + 0.18 * cos(lp.y * 0.9 + ph);',
+        'vec4 mvPosition = viewMatrix * modelMatrix * lp; gl_Position = projectionMatrix * mvPosition;'].join('\n'));
+  };
+  vineM.customProgramCacheKey = () => 'runvine';
+  const vineGeo = new THREE.CylinderGeometry(1, 1, 1, 5, 40, true);
   const leafM3 = new THREE.MeshStandardMaterial({ color: 0x4f8f3a, roughness: 0.7, side: THREE.DoubleSide }), veinM = new THREE.MeshStandardMaterial({ color: 0x9ccf74, roughness: 0.7 });
   const trees = [], allPlats = [];
   const mkTree = (slot) => {
@@ -129,6 +145,19 @@ export function buildRun(A, T) {
     if (q() < 0.85) arm(-1, -36, 6, 'lip'); // forward: a launch spur, its lip about 30 m ahead of the trunk
     arm(1, -6, 22, 'catch'); // back: a catch arm, its end about 18 m behind the trunk
     for (let n = 0, want = 1 + (q() * 2 | 0); n < want; n++) arm(n % 2 ? 1 : -1, -34, 24, 'path'); // paths: long, rolling arms running along the way you travel, to run down
+    // vines: Great Canopy's twisting lianas, hanging from the roof down into the mist all through the tree (a little
+    // denser and a touch thinner), kept clear of its branches; hook them to swing
+    { const list = [];
+      for (let gx = -LANE - 6; gx <= LANE + 6; gx += 3.3) for (let gz = -26; gz <= 26; gz += 3.3) {
+        const x = gx + (q() - 0.5) * 2.6, z = gz + (q() - 0.5) * 2.6;
+        if (q() < 0.12 || Math.abs(x - tx) < tR + 2) continue;
+        if (segs.some((s) => { const dx = s.b.x - s.a.x, dz = s.b.z - s.a.z, u = Math.max(0, Math.min(1, ((x - s.a.x) * dx + (z - s.a.z) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(s.a.x + dx * u - x, s.a.z + dz * u - z) < s.w / 2 + 1.1; })) continue; // (not through a branch)
+        list.push([x, z, 0.1 + q() * 0.06]);
+      }
+      const im = new THREE.InstancedMesh(vineGeo, vineM, Math.max(1, list.length)), mm = new THREE.Matrix4(), one = new THREE.Quaternion();
+      list.forEach(([x, z, rad], i) => { mm.compose(new THREE.Vector3(x, 15, z), one, new THREE.Vector3(rad, 110, rad)); im.setMatrixAt(i, mm);
+        for (let y = -38; y < 66; y += 13) { const b = { x0: x - 0.5, x1: x + 0.5, y0: y, y1: y + 13, z0: z - 0.5, z1: z + 0.5 }; b.l = { y0: b.y0, y1: b.y1, z0: b.z0, z1: b.z1 }; A.rayBoxes.push(b); tree.rays.push(b); } });
+      im.frustumCulled = false; tree.group.add(im); }
     return tree;
   };
   for (let i = 0; i < N; i++) trees.push(mkTree(i));
@@ -156,7 +185,10 @@ export function buildRun(A, T) {
     dt = Math.min(0.05, dt || 0);
     const riders = [];
     for (const f of fighters) if (mine(f)) for (const t of trees) if (standing(f, t)) { riders.push([f, t, t.k, t.oz, t.oy]); break; }
+    const hooks = []; // (a grapple hooked into a tree moves with it)
+    for (const f of fighters) { const h = f.hook; if (!h || h.enemy) continue; for (const t of trees) if (Math.abs(h.p.z - t.oz) < 36 && t.rays.some((b) => h.p.x > b.x0 - 1 && h.p.x < b.x1 + 1 && h.p.y > b.y0 - 1 && h.p.y < b.y1 + 1 && h.p.z > b.z0 - 1 && h.p.z < b.z1 + 1)) { hooks.push([h, t, t.k, t.oz, t.oy]); break; } }
     Z = clock() * V; assign(Z);
+    for (const [h, t, k, z, y] of hooks) if (t.k === k) { const dz = t.oz - z, dy = t.oy - y; h.p.z += dz; h.p.y += dy; if (h.via) { h.via.z += dz; h.via.y += dy; } }
     for (const [f, t, k, z, y] of riders) if (t.k === k) { f.pos.z += t.oz - z; f.pos.y += t.oy - y; f.runOn = true; f.runTree = t; } // (ride along)
     for (const f of fighters) if (mine(f) && f.runOn && !f.onGround && !riders.some((rr) => rr[0] === f)) { if (f.vel.y > 2) f.vel.z += V; f.runOn = false; f.runTree = null; } // (jump off: keep the tree's speed; just stepping off adds nothing)
     for (const f of fighters) if (mine(f) && f.isBot && f.alive && f.pos.z < -55) f.pos.z += Math.min(6, (-50 - f.pos.z) * 0.3) * dt; // (bots that run on too far ahead get eased back so the fight stays together; never a player, never anyone standing on a tree)
