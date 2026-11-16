@@ -5,15 +5,15 @@
 // whoever is on it; a new one is hung back on 10 s later.
 import * as THREE from 'three';
 import { drift } from './maps2.js';
-import { cloudHeaps } from './scenery.js?v=20261115220338';
+import { cloudHeaps } from './scenery.js?v=20261115221010';
 
-const TAU = Math.PI * 2, N = 6, R = 14, DISH = 1.9, ARM = 27, L = 22, HUB = 40, MAXOFF = 2; // platforms, radius, dish depth, crown arm, chain, crown height, extra swing
+const TAU = Math.PI * 2, N = 6, R = 14, DISH = 1.9, ARM = 25, L = 22, HUB = 40, MAXOFF = 2; // platforms, radius, dish depth, crown arm, chain, crown height, extra swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
 // how far the crown has turned at wall-clock time t (the same on every player's screen), how fast it's turning, and how
 // far out the platforms swing: it speeds up and slows down over a minute, swinging further out when it's faster
-const W0 = 0.14, W1 = 0.06, PER = 60;
+const W0 = 0.24, W1 = 0.08, PER = 60;
 const spin = (t) => W0 * t + W1 * PER / TAU * Math.sin(TAU * t / PER), rate = (t) => W0 + W1 * Math.cos(TAU * t / PER);
-const lean = (w) => 0.14 + (w - (W0 - W1)) / (2 * W1) * 0.22; // radians out from straight down: about 8° to 21°
+const lean = (w) => 0.26 + (w - (W0 - W1)) / (2 * W1) * 0.36; // radians out from straight down: about 15° to 36°
 
 export function buildTilt(A, T) {
   const S = A.scene, r = T.rng(8181);
@@ -151,7 +151,10 @@ export function buildTilt(A, T) {
     for (const p of decks) {
       if (p.down) continue;
       place(p);
-      for (const f of p.riders) if (mine(f) && f.onGround) { f.pos.x += p.x - p.prev.x; f.pos.z += p.z - p.prev.z; f.pos.y += p.y - p.prev.y; } // ride along
+      for (const f of p.riders) if (mine(f)) {
+        if (f.onGround) { f.pos.x += p.x - p.prev.x; f.pos.z += p.z - p.prev.z; f.pos.y += p.y - p.prev.y; f.onDeck = p; } // ride along
+        else if (f.onDeck === p) { f.vel.x += (p.x - p.prev.x) / dt; f.vel.z += (p.z - p.prev.z) / dt; f.onDeck = null; } // (jump off: keep the deck's speed)
+      }
     }
   };
   for (const p of decks) { place(p); p.prev = { x: p.x, y: p.y, z: p.z }; }
