@@ -3,7 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116045416';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116050315';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -336,7 +336,7 @@ function coloLook(A, T) {
   const eachStone = (g, fn) => { for (const st of stones) for (const ox of [0, -SZ]) { g.save(); g.translate(ox, 0); g.beginPath(); g.roundRect ? g.roundRect(st.x, st.y, st.w, st.h, st.rad) : g.rect(st.x, st.y, st.w, st.h); g.clip(); fn(st, T.rng(st.seed)); g.restore(); } }; // (drawn twice: the offset rows wrap round the tile's edge)
   const colT = T.canvasTex((g, s) => { const q = T.rng(405); g.fillStyle = '#15171a'; g.fillRect(0, 0, s, s);
     for (let i = 0; i < 700; i++) { g.fillStyle = `rgba(${60 + q() * 40 | 0},${95 + q() * 55 | 0},38,${0.3 + q() * 0.45})`; g.beginPath(); g.arc(q() * s, q() * s, s / 400 + q() * s / 130, 0, TAU); g.fill(); } // moss in the joints
-    eachStone(g, (st, r) => { const v = st.v, k = st.hue, R = v + (k < 0.3 ? -10 : k > 0.8 ? 10 : -4), G = v + (k < 0.3 ? 2 : k > 0.8 ? 2 : 0), B = v + (k < 0.3 ? 16 : k > 0.8 ? -6 : 12); // slate blue, a few greener or warmer
+    eachStone(g, (st, r) => { const v = st.v, k = st.hue, R = v + (k < 0.3 ? -6 : k > 0.8 ? 12 : 2), G = v + (k < 0.3 ? 2 : k > 0.8 ? 4 : 2), B = v + (k < 0.3 ? 12 : k > 0.8 ? -6 : 6); // slate blue, a few greener or warmer
       g.fillStyle = `rgb(${R | 0},${G | 0},${B | 0})`; g.fillRect(st.x, st.y, st.w, st.h);
       for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '0,0,0' : '210,220,240'},${0.05 + r() * 0.13})`; g.beginPath(); g.ellipse(st.x + r() * st.w, st.y + r() * st.h, 2 + r() * st.w * 0.22, 2 + r() * st.h * 0.14, r() * 3, 0, TAU); g.fill(); } // mottling
       if (r() < 0.45) { g.strokeStyle = `rgba(10,10,14,${0.4 + r() * 0.3})`; g.lineWidth = 1 + r() * 1.5; let x = st.x + r() * st.w, y = st.y; g.beginPath(); g.moveTo(x, y); while (y < st.y + st.h) { x += (r() - 0.5) * st.w * 0.3; y += st.h * 0.2; g.lineTo(x, y); } g.stroke(); } // a crack
@@ -362,32 +362,35 @@ function coloLook(A, T) {
   }, 512);
   envT.mapping = THREE.EquirectangularReflectionMapping; envT.wrapS = THREE.RepeatWrapping; envT.wrapT = THREE.ClampToEdgeWrapping;
   const cobble = (n) => { const maps = [colT, hgtT, glsT].map((t) => { const c = t.clone(); c.repeat.set(n, n); c.needsUpdate = true; return c; });
-    return new THREE.MeshStandardMaterial({ map: maps[0], bumpMap: maps[1], bumpScale: 3.2, roughnessMap: maps[2], roughness: 1, metalness: 0.0, envMap: envT, envMapIntensity: 1.25 }); };
+    return new THREE.MeshStandardMaterial({ map: maps[0], bumpMap: maps[1], bumpScale: 3.2, roughnessMap: maps[2], roughness: 1, metalness: 0.0, envMap: envT, envMapIntensity: 1.05 }); };
   const slabT = T.canvasTex((g, s) => { const q = T.rng(17); g.fillStyle = '#5a5866'; g.fillRect(0, 0, s, s);
     for (let y = 0; y < s; y += 3) { g.fillStyle = `rgba(${q() < 0.5 ? '0,0,0' : '150,150,170'},${q() * 0.12})`; g.fillRect(0, y, s, 2); } // chisel lines round the edge
     for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(q() * s, 0, 2, s); }
     T.speckle(g, s, q, 2000, 0.2); }, 256);
   slabT.repeat.set(8, 1);
-  const slab = new THREE.MeshStandardMaterial({ map: slabT, bumpMap: slabT, bumpScale: 1, roughness: 0.55, metalness: 0.1, color: 0xffffff });
+  const slab = new THREE.MeshStandardMaterial({ map: slabT, bumpMap: slabT, bumpScale: 1, roughness: 0.3, metalness: 0.35, color: 0xffffff, envMap: envT, envMapIntensity: 1.0 }); // (rain-wet, catching the light on every edge)
   const underT = T.canvasTex((g, s) => { const q = T.rng(23); g.fillStyle = '#3c3a48'; g.fillRect(0, 0, s, s);
     for (let i = 0; i < 90; i++) { g.strokeStyle = `rgba(${q() < 0.5 ? '0,0,0' : '90,85,110'},${0.2 + q() * 0.3})`; g.lineWidth = 1 + q() * 3; const x = q() * s; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + (q() - 0.5) * 30, s); g.stroke(); } // rough-hewn grooves down the cone
     T.speckle(g, s, q, 2500, 0.2); }, 256);
   underT.repeat.set(4, 2);
-  const underside = new THREE.MeshStandardMaterial({ map: underT, bumpMap: underT, bumpScale: 2, roughness: 0.7, metalness: 0.05, color: 0xffffff });
+  const underside = new THREE.MeshStandardMaterial({ map: underT, bumpMap: underT, bumpScale: 2, roughness: 0.5, metalness: 0.15, color: 0xffffff, envMap: envT, envMapIntensity: 0.6 });
   // blue fire: a soft tongue of flame (two sprites, flickering), in a black iron bowl on a short stand
-  const fireT = T.canvasTex((g, s) => { const gr = g.createRadialGradient(s / 2, s * 0.72, 0, s / 2, s * 0.6, s * 0.5); gr.addColorStop(0, 'rgba(235,250,255,1)'); gr.addColorStop(0.25, 'rgba(110,190,255,0.9)'); gr.addColorStop(0.6, 'rgba(40,90,255,0.35)'); gr.addColorStop(1, 'rgba(20,40,200,0)');
+  const fireT = T.canvasTex((g, s) => { const hl = g.createRadialGradient(s / 2, s * 0.6, 0, s / 2, s * 0.6, s * 0.5); hl.addColorStop(0, 'rgba(70,130,255,0.34)'); hl.addColorStop(1, 'rgba(30,60,255,0)'); g.fillStyle = hl; g.fillRect(0, 0, s, s); // (a wide soft halo: its light in the mist)
+    g.translate(s * 0.25, s * 0.2); g.scale(0.5, 0.6); const gr = g.createRadialGradient(s / 2, s * 0.72, 0, s / 2, s * 0.6, s * 0.5); gr.addColorStop(0, 'rgba(235,250,255,1)'); gr.addColorStop(0.25, 'rgba(110,190,255,0.9)'); gr.addColorStop(0.6, 'rgba(40,90,255,0.35)'); gr.addColorStop(1, 'rgba(20,40,200,0)');
     g.fillStyle = gr; g.beginPath(); g.moveTo(s / 2, 0); g.bezierCurveTo(s * 0.85, s * 0.45, s * 0.85, s, s / 2, s); g.bezierCurveTo(s * 0.15, s, s * 0.15, s * 0.45, s / 2, 0); g.fill(); }, 128);
   const fireM = new THREE.SpriteMaterial({ map: fireT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffffff, toneMapped: false });
   const iron = new THREE.MeshStandardMaterial({ color: 0x1a1a22, roughness: 0.4, metalness: 0.8 });
   const brazG = new THREE.LatheGeometry([[0, 0], [0.2, 0], [0.09, 0.14], [0.08, 0.85], [0.28, 0.9], [0.56, 1.3], [0.46, 1.3], [0, 1.12]].map(([x, y]) => new THREE.Vector2(x, y)), 12); // (foot, stem and bowl in one piece)
-  const flames = [];
-  A.anim.push((t) => { for (let i = 0; i < flames.length; i++) { const k = t * 9 + i * 1.7; flames[i].scale.set(1.7 + Math.sin(k) * 0.18 + Math.sin(k * 2.3) * 0.1, 3.0 + Math.sin(k * 1.3) * 0.45, 1); } });
+  const flames = [], poolG = new THREE.CircleGeometry(1, 40).rotateX(-Math.PI / 2);
+  const poolM = new THREE.MeshBasicMaterial({ map: T.canvasTex((g, s) => { const d = g.createRadialGradient(s * 0.86, s / 2, 0, s * 0.86, s / 2, s * 0.62); d.addColorStop(0, 'rgba(150,200,255,1)'); d.addColorStop(0.3, 'rgba(60,120,255,0.5)'); d.addColorStop(1, 'rgba(20,40,255,0)'); g.fillStyle = d; g.fillRect(0, 0, s, s); }, 128), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 });
+  A.anim.push((t) => { for (let i = 0; i < flames.length; i++) { const k = t * 9 + i * 1.7; flames[i].scale.set(3.6 + Math.sin(k) * 0.4 + Math.sin(k * 2.3) * 0.2, 5.2 + Math.sin(k * 1.3) * 0.8, 1); } poolM.opacity = 0.5 + Math.sin(t * 11) * 0.05 + Math.sin(t * 5.3) * 0.05; });
   const brazier = (p, o) => {
     const d = Math.hypot(o.x, o.z) || 1, x = o.x + o.x / d * (o.R - 1.0), z = o.z + o.z / d * (o.R - 1.0); // (at the back edge, away from the middle)
     const bw = new THREE.Mesh(brazG, iron); prop(A, p, bw, x, o.y, z);
-    const f = new THREE.Sprite(fireM); f.position.set(x, o.y + 2.5, z); A.scene.add(f); p.meshes.push(f); flames.push(f);
+    const f = new THREE.Sprite(fireM); f.position.set(x, o.y + 2.6, z); A.scene.add(f); p.meshes.push(f); flames.push(f);
+    const pl = new THREE.Mesh(poolG, poolM); pl.scale.setScalar(o.R - 0.12); pl.rotation.y = -Math.atan2(o.z, o.x); pl.renderOrder = 1; prop(A, p, pl, o.x, o.y + 0.03, o.z); pl.castShadow = false; // (its blue light pooling on the wet stones)
   };
-  return { cobble: cobble(2.2), cobbleBig: cobble(6.5), slab, underside, brazier };
+  return { cobble: cobble(2.2), cobbleBig: cobble(6.5), slab, underside, brazier, env: envT };
 }
 function disc(A, o) {
   const p = { kind: o.kind, x: o.x, z: o.z, y: o.y, w: o.R * 2, d: o.R * 2, ang: 0, round: o.R, i: A.plats.length, meshes: [], boxes: [], ramps: [], rays: [] };
@@ -397,7 +400,7 @@ function disc(A, o) {
   A.addDisc(o.x, o.z, o.R - 0.25, o.y - 2.4, o.y - 0.4, C ? C.slab : A.mats.stone, 40); // its stone rim
   A.tag = null;
   if (C) { // stacked slabs under the top, like a pile of millstones, each a slightly different width (one mesh)
-    const pts = []; for (let k = 0; k < 4; k++) { const y = -0.41 - k * 0.47, R = o.R + 0.14 - k * 0.1 + Math.sin(k * 2.7 + o.x) * 0.06; pts.push(new THREE.Vector2(R - 0.4, y), new THREE.Vector2(R, y - 0.04), new THREE.Vector2(R - 0.06, y - 0.42), new THREE.Vector2(R - 0.4, y - 0.46)); }
+    const pts = []; for (let k = 0; k < 7; k++) { const y = -0.4 - k * 0.285, R = o.R + 0.18 - (k % 2) * 0.15 - k * 0.035 + Math.sin(k * 2.7 + o.x) * 0.05; pts.push(new THREE.Vector2(R - 0.45, y), new THREE.Vector2(R, y - 0.03), new THREE.Vector2(R - 0.03, y - 0.23), new THREE.Vector2(R - 0.45, y - 0.26)); } // (seven thin plates, in and out)
     const g = new THREE.LatheGeometry(pts.reverse(), 40).toNonIndexed(); g.computeVertexNormals(); // (crisp edges between the slabs)
     const sl = new THREE.Mesh(g, C.slab); sl.castShadow = sl.receiveShadow = true; prop(A, p, sl, o.x, o.y, o.z);
   }

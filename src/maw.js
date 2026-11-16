@@ -12,9 +12,13 @@ export function mawY(r) { // the flesh's height at distance r from the middle (o
   return -Infinity;
 }
 
-function fleshTex(T) {
+function fleshTex(T, soft) { // (soft: the folds are sculpted, so no painted ribs: mottled wet tissue with fine wrinkles running along the folds)
   return T.canvasTex((g, S) => {
-    const r = T.rng(909); g.fillStyle = '#5a0e22'; g.fillRect(0, 0, S, S);
+    const r = T.rng(909); g.fillStyle = soft ? '#a8243c' : '#5a0e22'; g.fillRect(0, 0, S, S);
+    if (soft) {
+      for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '30,0,20' : '190,50,80'},${0.08 + r() * 0.14})`; g.beginPath(); g.ellipse(r() * S, r() * S, 10 + r() * 50, 4 + r() * 14, 0, 0, TAU); g.fill(); } // mottling
+      for (let i = 0; i < 220; i++) { const y = r() * S, x = r() * S, w = 20 + r() * 120; g.strokeStyle = `rgba(${r() < 0.6 ? '20,0,10' : '255,170,190'},${0.1 + r() * 0.22})`; g.lineWidth = 0.6 + r() * 1.4; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w / 2, y + (r() - 0.5) * 6, x + w, y + (r() - 0.5) * 4); g.stroke(); } // fine wrinkles
+    } else
     for (let y = 0; y < S; y += 2) { const k = 0.5 + 0.5 * Math.sin(y / S * TAU * 10); g.fillStyle = `rgba(${k > 0.7 ? '255,150,170' : '30,0,14'},${Math.abs(k - 0.5) * (k > 0.7 ? 0.55 : 0.6)})`; g.fillRect(0, y, S, 2); } // deep glossy ribs, ring after ring down the throat
     for (let i = 0; i < 26; i++) { // veins
       let x = r() * S, y = r() * S; g.strokeStyle = `rgba(${60 + r() * 40 | 0},10,${70 + r() * 50 | 0},${0.35 + r() * 0.3})`; g.lineWidth = 1 + r() * 2.5;
@@ -48,15 +52,15 @@ function sandTex(T, arches) { // sandstone blocks; with arches: an arcade (dark 
 function nightTex(T, arches, glow) {
   return T.canvasTex((g, S) => {
     const r = T.rng(arches ? 177 : 178);
-    g.fillStyle = glow ? '#000' : '#24222c'; g.fillRect(0, 0, S, S);
-    if (!glow) { const bh = S / 24; for (let y = 0; y < 24; y++) for (let x = -(y % 2) * 0.5; x < 8; x++) { const v = 66 + r() * 40 | 0; g.fillStyle = `rgb(${v + 6},${v},${v + 10})`; g.fillRect(x * S / 8 + 1, y * bh + 1, S / 8 - 2, bh - 2); } }
+    g.fillStyle = glow ? '#15121a' : '#24222c'; g.fillRect(0, 0, S, S); // (glow: the stone itself shows faintly, as if lit by all the fires)
+    if (!glow) { const bh = S / 24; for (let y = 0; y < 24; y++) for (let x = -(y % 2) * 0.5; x < 8; x++) { const v = 84 + r() * 48 | 0; g.fillStyle = `rgb(${v + 8},${v},${v + 6})`; g.fillRect(x * S / 8 + 1, y * bh + 1, S / 8 - 2, bh - 2); } }
     if (arches) {
       for (const cx of [S * 0.25, S * 0.75]) { // two arches per tile
         const w = S * 0.26, top = S * 0.3, bot = S * 0.86;
         if (!glow) { g.fillStyle = '#3a3644'; g.fillRect(cx - w / 2 - 8, top - w / 2 - 8, w + 16, bot - top + w / 2 + 8); }
-        const gr = g.createRadialGradient(cx, top, 2, cx, top + w * 0.3, w * 0.9);
-        if (glow) { gr.addColorStop(0, 'rgba(200,120,255,0.9)'); gr.addColorStop(0.35, 'rgba(110,40,190,0.45)'); gr.addColorStop(1, 'rgba(30,0,60,0.05)'); }
-        else { gr.addColorStop(0, '#6a3a9a'); gr.addColorStop(0.4, '#2a1440'); gr.addColorStop(1, '#0c0814'); }
+        const gr = g.createRadialGradient(cx, top, 2, cx, top + w * 0.15, w * 0.75); // (a dark recess with one violet lamp hanging in its crown)
+        if (glow) { gr.addColorStop(0, 'rgba(220,150,255,0.95)'); gr.addColorStop(0.3, 'rgba(120,50,200,0.4)'); gr.addColorStop(1, 'rgba(20,0,40,0)'); }
+        else { gr.addColorStop(0, '#5a3486'); gr.addColorStop(0.4, '#22123a'); gr.addColorStop(1, '#0a0612'); }
         g.fillStyle = gr; g.beginPath(); g.moveTo(cx - w / 2, bot); g.lineTo(cx - w / 2, top); g.arc(cx, top, w / 2, Math.PI, 0); g.lineTo(cx + w / 2, bot); g.fill();
         g.fillStyle = glow ? '#f4e0ff' : '#e8d0ff'; g.beginPath(); g.arc(cx, top + 4, 5, 0, TAU); g.fill(); // the lamp
       }
@@ -72,18 +76,45 @@ function nightTex(T, arches, glow) {
 
 export function buildMaw(A, T) {
   const S = A.scene, r = T.rng(31337), low = A.quality === 'low';
-  // ---- the maw: one lathed surface, dark down the throat
-  const geo = new THREE.LatheGeometry(PROF.map(([x, y]) => new THREE.Vector2(x, y)), low ? 64 : 120);
+  // ---- the maw: one lathed surface, sculpted into thick wet folds, ring after ring down to the throat (dark down there).
+  // The folds are real shape, not paint: the profile is cut fine and every point pushed in or out along the surface, a
+  // crease then a crown every few metres, wandering a little as they go round. Creases are shaded darker.
+  const env = (A.colo && A.colo.env) || null, seg = low ? 64 : 96;
+  const prof = [], arc = [], nrm = [];
+  { let s = 0;
+    for (let i = 1; i < PROF.length; i++) { const [r0, y0] = PROF[i - 1], [r1, y1] = PROF[i], L = Math.hypot(r1 - r0, y1 - y0), n = low ? 1 : Math.max(1, Math.round(L / 0.8));
+      for (let k = i === 1 ? 0 : 1; k <= n; k++) { const t = k / n; prof.push(new THREE.Vector2(r0 + (r1 - r0) * t, y0 + (y1 - y0) * t)); arc.push(s + L * t); nrm.push([-(y1 - y0) / L, (r1 - r0) / L]); }
+      s += L; } }
+  const geo = new THREE.LatheGeometry(prof, seg), nP = prof.length;
   const pos = geo.attributes.position, col = new Float32Array(pos.count * 3);
-  for (let i = 0; i < pos.count; i++) { const k = Math.min(1, Math.max(0.06, (pos.getY(i) + 92) / 52)); col[i * 3] = col[i * 3 + 1] = col[i * 3 + 2] = k; }
+  for (let idx = 0; idx < pos.count; idx++) {
+    const j = idx % nP, phi = ((idx / nP) | 0) / seg * TAU, s = arc[j]; let f = 1;
+    if (!low) { const wob = 0.13 * Math.sin(phi * 6 + s * 0.07) + 0.08 * Math.sin(phi * 13 - s * 0.11);
+      f = Math.pow(Math.abs(Math.sin(Math.PI * (s / 5.6 + wob))), 0.5); // (0 down in a crease, 1 on the crown of a fold)
+      const d = (j === 0 ? 0 : 0.5 + 1.3 * Math.min(1, s / 60)) * (f - 0.62), pr = Math.max(0.2, prof[j].x + nrm[j][0] * d);
+      pos.setXYZ(idx, pr * Math.sin(phi), prof[j].y + nrm[j][1] * d, pr * Math.cos(phi)); }
+    const k = Math.min(1, Math.max(0.06, (prof[j].y + 92) / 52)), c = low ? 1 : 0.16 + 0.84 * Math.pow(f, 1.6); col[idx * 3] = k * c; col[idx * 3 + 1] = k * c * c * 0.9; col[idx * 3 + 2] = k * Math.pow(c, 1.5); // (creases near black, deep red sides, crowns paler and pinker where the light catches)
+  }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const ft = fleshTex(T); ft.repeat.set(14, 5);
+  geo.computeVertexNormals();
+  { const nr = geo.attributes.normal, last = seg * nP; for (let j = 0; j < nP; j++) nr.setXYZ(last + j, nr.getX(j), nr.getY(j), nr.getZ(j)); } // (no seam where the ring closes)
+  const ft = fleshTex(T, !low); ft.repeat.set(low ? 14 : 22, low ? 5 : 36);
   const maw = new THREE.Group(); S.add(maw);
-  const flesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: ft, bumpMap: ft, bumpScale: 3, vertexColors: true, roughness: 0.18, metalness: 0.12, side: THREE.DoubleSide, emissive: 0x1c0216 }));
+  const flesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: ft, bumpMap: ft, bumpScale: low ? 3 : 1.6, vertexColors: true, roughness: 0.15, metalness: 0.1, side: THREE.DoubleSide, emissive: 0x1c0216, envMap: env, envMapIntensity: 1.1 }));
   flesh.receiveShadow = true; maw.add(flesh);
-  // ---- rows of spikes, silver and needle-thin, leaning in toward the throat; the inner rows are the ones that gulp
-  const tg = new THREE.ConeGeometry(1, 1, 8); tg.translate(0, 0.5, 0);
-  const tm = new THREE.MeshStandardMaterial({ color: 0xdfe4f0, roughness: 0.22, metalness: 0.65, emissive: 0x1a1a2a });
+  // ---- rows of spikes, chrome and needle-thin, leaning in toward the throat; the inner rows are the ones that gulp
+  const tg = new THREE.ConeGeometry(1, 1, 10); tg.translate(0, 0.5, 0);
+  const tm = new THREE.MeshStandardMaterial({ color: 0xf2f4fa, roughness: 0.22, metalness: 0.6, emissive: 0x34343e, envMap: env, envMapIntensity: 2.2 });
+  // they wiggle: each spike sways and writhes like a feeler, rooted at its base and bending more toward its tip, every
+  // one on its own rhythm (done in the shader, so thousands of them cost nothing extra)
+  const uT = { value: 0 }; A.anim.push((t) => { uT.value = t; });
+  tm.onBeforeCompile = (sh) => { sh.uniforms.uT = uT; sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    #ifdef USE_INSTANCING
+      float wph = instanceMatrix[3].x * 0.37 + instanceMatrix[3].z * 0.23, wb = position.y * position.y;
+      transformed.x += wb * (sin(uT * 1.7 + wph) * 1.5 + sin(uT * 3.3 + wph * 1.7) * 0.7);
+      transformed.z += wb * (cos(uT * 1.4 + wph * 1.3) * 1.5 + sin(uT * 2.9 + wph * 0.6) * 0.7);
+    #endif`); };
+  tm.customProgramCacheKey = () => 'mawspike';
   const rows = [], mm = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s = new THREE.Vector3();
   for (const [R, h, b] of [[24, 6, 0.9], [38, 7, 1.1], [47, 8, 1.2], [57, 9, 1.3], [72, 10, 1.5], [88, 11, 1.7], [103, 12, 1.8], [118, 13, 2.0], [134, 14, 2.2], [150, 16, 2.4], [167, 18, 2.6], [184, 20, 2.8]]) {
     const n = Math.round(TAU * R / (b * 2.5)), im = new THREE.InstancedMesh(tg, tm, n), grp = new THREE.Group();
@@ -107,9 +138,27 @@ export function buildMaw(A, T) {
   }, 512);
   runeT.repeat.set(5, 1); runeT.wrapT = THREE.ClampToEdgeWrapping;
   const runeM = new THREE.MeshBasicMaterial({ map: runeT, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, color: 0xd8a0ff, fog: false });
-  for (const [r0, r1] of [[17, 25], [40, 45]]) { const pts = []; for (let k = 0; k <= 4; k++) { const rr = r0 + (r1 - r0) * k / 4; pts.push(new THREE.Vector2(rr - 0.3, mawY(rr) + 0.45)); }
+  for (const [r0, r1] of [[51.5, 59], [17, 25]]) { const pts = []; for (let k = 0; k <= 4; k++) { const rr = r0 + (r1 - r0) * k / 4; pts.push(new THREE.Vector2(rr - 0.8, mawY(rr) + 1.6)); } // (one round the lip of the pit, above the smog; one deep in the throat)
     const band = new THREE.Mesh(new THREE.LatheGeometry(pts, low ? 48 : 96), runeM); band.renderOrder = 2; maw.add(band); }
   A.anim.push((t) => { runeM.opacity = 0.75 + 0.25 * Math.sin(t * 1.3); });
+  // ---- light and air: a violet glow welling up out of the pit, cold blue light hanging over the arena floor, and
+  // blue mist lying against the foot of the stands (two soft bands of haze that turn slowly)
+  const soft = (inner, c0, c1) => T.canvasTex((g, s) => { const d = g.createRadialGradient(s / 2, s / 2, s * inner, s / 2, s / 2, s / 2); d.addColorStop(0, c0); d.addColorStop(0.75, c1); d.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = d; g.fillRect(0, 0, s, s); }, 256);
+  const add = (map, color, opacity, side = THREE.DoubleSide) => new THREE.MeshBasicMaterial({ map, color, opacity, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side, toneMapped: false });
+  const pitGlow = new THREE.Mesh(new THREE.CircleGeometry(56, 48).rotateX(-Math.PI / 2), add(soft(0.12, 'rgba(60,10,120,0.0)', 'rgba(170,70,255,0.9)'), 0xffffff, 0.28)); pitGlow.position.y = A.killY - 1.5; maw.add(pitGlow); // (dark in the middle, glowing round its rim)
+  if (!low) {
+    const pit = new THREE.PointLight(0xa040ff, 380, 200, 1.5); pit.position.set(0, -60, 0); S.add(pit);
+    const cold = new THREE.PointLight(0x4a8cff, 320, 95, 1.6); cold.position.set(0, 17, 0); S.add(cold);
+    const mistT = T.canvasTex((g, s) => { const q = T.rng(88); g.fillStyle = '#000'; g.fillRect(0, 0, s, s);
+      for (let i = 0; i < 90; i++) { const x = q() * s, y = s * (0.45 + q() * 0.55), R = s * (0.08 + q() * 0.16); for (const ox of [-s, 0, s]) { const d = g.createRadialGradient(x + ox, y, 0, x + ox, y, R); d.addColorStop(0, `rgba(255,255,255,${0.1 + q() * 0.14})`); d.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = d; g.fillRect(x + ox - R, y - R, R * 2, R * 2); } } // drifts of it, thick low down
+      const f = g.createLinearGradient(0, 0, 0, s); f.addColorStop(0, 'rgba(0,0,0,1)'); f.addColorStop(0.5, 'rgba(0,0,0,0.3)'); f.addColorStop(0.9, 'rgba(0,0,0,0)'); f.addColorStop(1, 'rgba(0,0,0,0.6)'); g.fillStyle = f; g.fillRect(0, 0, s, s); }, 512); // (fading out upward)
+    const bands = [];
+    for (const [R, y0, y1, c, o, rep] of [[189, 6, 84, 0x3f74ff, 0.55, 5], [128, -34, 30, 0x6a4cff, 0.3, 4]]) {
+      const tx = mistT.clone(); tx.repeat.set(rep, 1); tx.needsUpdate = true;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(R, R, y1 - y0, 64, 1, true), add(tx, c, o, THREE.BackSide)); m.position.y = (y0 + y1) / 2; m.renderOrder = 3; S.add(m); bands.push(tx);
+    }
+    A.anim.push((t) => { bands[0].offset.x = t * 0.004; bands[1].offset.x = -t * 0.006; });
+  }
   // ---- the stands: dark stone steps from the lip up to an arcaded wall, three tiers of arches lit violet from inside
   const steps = []; let sr = 193, sy = 22; steps.push(new THREE.Vector2(sr, 16));
   for (let i = 0; i < 16; i++) { steps.push(new THREE.Vector2(sr, sy)); sr += 2.6; steps.push(new THREE.Vector2(sr, sy)); sy += 2.4; }
@@ -175,8 +224,8 @@ export function buildTendrils(A, pts) {
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(2, 18); return t; };
   const tex = mk(false), glowTex = mk(true);
   // the limb: dark glossy chitin, a knobbly joint, pale bone thorns, and a needle tip
-  const chitin = new THREE.MeshStandardMaterial({ color: 0x1c0a20, roughness: 0.25, metalness: 0.25, emissive: 0x120206 });
-  const bone = new THREE.MeshStandardMaterial({ color: 0xdfe4f0, roughness: 0.22, metalness: 0.6 });
+  const chitin = new THREE.MeshStandardMaterial({ color: 0x1c0a20, roughness: 0.15, metalness: 0.6, emissive: 0x120206, envMap: (A.colo && A.colo.env) || null, envMapIntensity: 1.2 });
+  const bone = new THREE.MeshStandardMaterial({ color: 0xf2f4fa, roughness: 0.22, metalness: 0.6, emissive: 0x34343e, envMap: (A.colo && A.colo.env) || null, envMapIntensity: 2.2 });
   const limbGeo = new THREE.CylinderGeometry(0.05, 0.95, SPIKE, 10, 6).translate(0, SPIKE / 2, 0); // (thick at the elbow, y = 0, tapering to a needle at y = SPIKE; aimed each frame)
   const thornGeo = new THREE.ConeGeometry(0.28, 2.4, 6).translate(0, 1.2, 0);
   const jointGeo = new THREE.SphereGeometry(1.9, 14, 10);
@@ -185,7 +234,7 @@ export function buildTendrils(A, pts) {
     const by = mawY(Math.hypot(x, z)) - 2, top = 70 + ((i * 7) % 5) * 4, H = top - by, R0 = 2.5;
     const geo = new THREE.CylinderGeometry(1.7, R0, H, 14, 48, false); geo.translate(0, H / 2, 0);
     const uB = { value: new THREE.Vector2() }, uS = { value: 0 };
-    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.25, metalness: 0.15, emissive: 0xffffff, emissiveMap: glowTex, emissiveIntensity: 1.0 });
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.16, metalness: 0.3, emissive: 0xffffff, emissiveMap: glowTex, emissiveIntensity: 1.0, envMap: (A.colo && A.colo.env) || null, envMapIntensity: 1.0 });
     mat.onBeforeCompile = (sh) => { sh.uniforms.uB = uB; sh.uniforms.uS = uS; sh.uniforms.uH = { value: H };
       // bend the straight tube along its curve (rising, sweeping in, curling down a little to the elbow, sagging under
       // weight); each ring of the tube turned square to the curve so it stays round, normals turned with it
@@ -201,7 +250,7 @@ export function buildTendrils(A, pts) {
     const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; m.frustumCulled = false; A.scene.add(m); // (always drawn: it's bent in the shader, so its own bounds would hide it wrongly)
     // the elbow and the limb (moved and aimed every frame)
     const limb = new THREE.Group(); A.scene.add(limb);
-    const joint = new THREE.Mesh(jointGeo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.25, metalness: 0.15, emissive: 0xffffff, emissiveMap: glowTex, emissiveIntensity: 1.0 })); joint.scale.set(1, 0.85, 1); limb.add(joint);
+    const joint = new THREE.Mesh(jointGeo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.16, metalness: 0.3, emissive: 0xffffff, emissiveMap: glowTex, emissiveIntensity: 1.0, envMap: (A.colo && A.colo.env) || null, envMapIntensity: 1.0 })); joint.scale.set(1, 0.85, 1); limb.add(joint);
     const lm = new THREE.Mesh(limbGeo, chitin); lm.castShadow = A.quality !== 'low'; limb.add(lm);
     for (let k = 0; k < 5; k++) { // thorns along the limb, raking back up toward the joint
       const u = 0.2 + k * 0.15, th = new THREE.Mesh(thornGeo, bone), a = k * 2.2;
