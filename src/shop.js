@@ -1,16 +1,16 @@
 // The shop screen: browse by category, try things on a turning, swinging preview fighter, buy and equip.
 import * as THREE from 'three';
-import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116000535';
-import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261116000535';
-import { makeKillFx } from './killfx.js?v=20261116000535';
-import { makeGrapple } from './grapple.js?v=20261116000535';
-import { CATEGORIES, CATALOG, item, profile, owns, buy, equip, UPGRADES, UP_MAX, UP_PRICES, buyUpgrade, upText } from './cosmetics.js?v=20261116000535';
+import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116001528';
+import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261116001528';
+import { makeKillFx } from './killfx.js?v=20261116001528';
+import { makeGrapple } from './grapple.js?v=20261116001528';
+import { CATEGORIES, CATALOG, item, profile, owns, buy, equip, UPGRADES, UP_MAX, UP_PRICES, buyUpgrade, upText } from './cosmetics.js?v=20261116001528';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
 export function initShop({ show, onClose }) {
-  let cat = 'mask', sel = profile.equip.mask, open = false, f = null, lookKey = '', raf = 0, last = 0, t0 = 0;
+  let cat = 'upgrade', sel = UPGRADES[0].id, open = false, f = null, lookKey = '', raf = 0, last = 0, t0 = 0;
 
   // ---- preview scene (its own small renderer, only running while the shop is open)
   const canvas = $('shopCanvas');
@@ -51,7 +51,8 @@ export function initShop({ show, onClose }) {
 
   // ---- UI
   function renderTabs() {
-    $('shopTabs').innerHTML = CATEGORIES.map((c) => `<button data-c="${c.id}" class="${c.id === cat ? 'on' : ''}">${c.name}</button>`).join('');
+    const tab = (c) => `<button data-c="${c.id}" class="${c.id === cat ? 'on' : ''}">${c.name}</button>`; // upgrades first, on their own; then the looks
+    $('shopTabs').innerHTML = `<div class="tabGroup up"><span>Upgrades</span>${tab({ id: 'upgrade', name: 'Upgrades' })}</div><div class="tabGroup"><span>Looks</span>${CATEGORIES.filter((c) => c.id !== 'upgrade').map(tab).join('')}</div>`;
   }
   function renderGrid() {
     if (cat === 'upgrade') { // permanent stat boosts: five pips each, the bonus you have now, the price of the next level
