@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116034714';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116034714';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116034714';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116034714';
-import * as net from './net.js?v=20261116034714';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116034714';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116034714';
-import { makeKillFx } from './killfx.js?v=20261116034714';
-import { makeGrapple } from './grapple.js?v=20261116034714';
-import { initShop } from './shop.js?v=20261116034714';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116034714';
-import { portal } from './portal.js?v=20261116034714';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116034714';
-import { makePost } from './post.js?v=20261116034714';
+import { Arena, MAPS } from './arena.js?v=20261116035154';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116035154';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116035154';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116035154';
+import * as net from './net.js?v=20261116035154';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116035154';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116035154';
+import { makeKillFx } from './killfx.js?v=20261116035154';
+import { makeGrapple } from './grapple.js?v=20261116035154';
+import { initShop } from './shop.js?v=20261116035154';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116035154';
+import { portal } from './portal.js?v=20261116035154';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116035154';
+import { makePost } from './post.js?v=20261116035154';
 
 // ---------- settings ----------
 const store = {
@@ -1865,7 +1865,7 @@ $('hostMode').value = $('mode').value; showBlurb();
 $('playSolo').onclick = () => startSolo($('mode').value);
 $('toMp').onclick = () => { ensureAudio(); show('mp'); net.dirStart(onRooms); };
 $('quickBtn').onclick = quickMatch;
-if (net.available()) net.dirStart(onRooms); // the live-games count on the menu
+if (net.available()) net.dirStart(onRooms); else setTimeout(() => renderHomeRooms([]), 0); // the live-games count and list on the menu
 $('mpBack').onclick = () => { if (!S.online) net.dirStop(); show('home'); };
 let settingsBack = 'home';
 $('toSettings').onclick = () => { settingsBack = 'home'; openSettings(); };
@@ -1901,7 +1901,7 @@ $('lobbyUp').onchange = () => { if (!S.host) return; S.noUp = !$('lobbyUp').chec
 // ---------- quick match: join the busiest open quick room, or start one (random mode and map, bots fill it) ----------
 const QUICK_MODES = ['ffa', 'team', 'koth', 'jugg', 'hunt'], QUICK_GAP = 10;
 let liveRooms = [], roomsAt = 0, quickBusy = false;
-function onRooms(rooms) { liveRooms = rooms; roomsAt = Date.now(); renderRooms(rooms); renderLive(); }
+function onRooms(rooms) { liveRooms = rooms; roomsAt = Date.now(); renderRooms(rooms); renderLive(); renderHomeRooms(rooms); }
 function renderLive() {
   const el = $('liveCount'); if (!el) return;
   const n = liveRooms.reduce((s, r) => s + r.n, 0), g = liveRooms.length;
@@ -1936,6 +1936,19 @@ async function quickMatch() {
   quickBusy = false; $('quickBtn').disabled = false; $('quickBtn').textContent = 'Quick Match';
 }
 
+function renderHomeRooms(rooms) { // the home screen's list of open online games, under Create Online Match
+  const el = $('homeRooms'); if (!el) return;
+  if (!net.available()) { el.innerHTML = '<div class="empty">Online play is not available here.</div>'; return; }
+  if (!roomsAt) { el.innerHTML = '<div class="empty">Looking for live games…</div>'; return; }
+  if (!rooms.length) { el.innerHTML = '<div class="empty">No open games right now. Create one, or try Online Quick Match.</div>'; return; }
+  el.innerHTML = '';
+  for (const r of rooms) {
+    const d = document.createElement('div'); d.className = 'roomRow';
+    d.innerHTML = `<img src="${thumb(MAPS[r.map] ? r.map : 'spire')}" alt=""><div class="rt"><b>${esc(r.name)}</b><span>${esc(MODES[r.game]?.name || 'Free-for-all')} · ${esc(MAPS[r.map]?.name || 'Sky Spires')} · ${r.n}/${r.max}${r.st === 'playing' ? ' · playing' : ''}</span></div>`;
+    const b = document.createElement('button'); b.className = 'primary'; b.textContent = 'Join'; b.onclick = () => { ensureAudio(); joinRoom(r.code); }; d.appendChild(b);
+    el.appendChild(d);
+  }
+}
 function renderRooms(rooms) {
   const el = $('rooms');
   if (!rooms.length) { el.innerHTML = '<div class="empty">No open rooms right now. Host one!</div>'; return; }
