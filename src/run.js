@@ -44,7 +44,7 @@ export function buildRun(A, T) {
   const leafM3 = new THREE.MeshStandardMaterial({ color: 0x4f8f3a, roughness: 0.7, side: THREE.DoubleSide }), veinM = new THREE.MeshStandardMaterial({ color: 0x9ccf74, roughness: 0.7 });
   const trees = [], allPlats = [];
   const mkTree = (slot) => {
-    const q = T.rng(900 + slot * 37), side = slot % 2 ? 1 : -1, tree = { slot, side, group: new THREE.Group(), plats: [], ramps: [], rays: [], k: null, oz: 0, oy: 0 };
+    const q = T.rng(900 + slot * 37), side = slot % 2 ? 1 : -1, tree = { slot, side, group: new THREE.Group(), plats: [], ramps: [], rays: [], ends: [], k: null, oz: 0, oy: 0 };
     S.add(tree.group);
     const tx = side * (LANE + 4), tR = 3.4 + q() * 1.6;
     { const g = new THREE.CylinderGeometry(tR * 0.85, tR * 1.2, 160, 18, 8), gp = g.attributes.position; for (let i = 0; i < gp.count; i++) { const s = 1 + (q() - 0.5) * 0.12; gp.setX(i, gp.getX(i) * s); gp.setZ(i, gp.getZ(i) * s); }
@@ -58,6 +58,7 @@ export function buildRun(A, T) {
     const branch = (a, b, wA, wB) => {
       const width = (wA + wB) / 2, dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz), ang = Math.atan2(dz, dx);
       const p = addPlat({ kind: 'branch', x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, y: (a.y + b.y) / 2, ya: a.y, yb: b.y, w: L, d: width, ang });
+      tree.ends.push({ x: b.x, y: b.y, z: b.z, w: wB });
       ramp(p, a.x, a.z, b.x, b.z, a.y, b.y, width, Math.min(a.y, b.y) - 1.2);
       const OV = 1.8, R = width * 0.39, Ra = wA * 0.39, Rb = wB * 0.39, k = Math.hypot(L, b.y - a.y) / L;
       const a3 = new THREE.Vector3(a.x, a.y - Ra * (k - 0.15), a.z), b3 = new THREE.Vector3(b.x, b.y - Rb * (k - 0.15), b.z), dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
@@ -106,6 +107,19 @@ export function buildRun(A, T) {
     };
     const toLane = side > 0 ? Math.PI : 0, ys = [0, 4.5, 9, 13.5];
     { const a = toLane + (q() - 0.5) * 0.5; grow({ x: tx + Math.cos(a) * tR * 0.7, y: 4 + q() * 4, z: Math.sin(a) * tR * 0.7 }, a, 5 + (q() * 2 | 0), 0); } // (one long limb, pointing in across the lane)
+    // launch spurs: an arm reaching well forward toward the next tree coming, kicking up at its end like a ramp, to run
+    // up and dash off; and a catch arm reaching back toward the tree behind, for those dashing in to land on
+    const inRun = (P, z0, z1) => Math.abs(P.x) < LANE + 5 && P.z > z0 && P.z < z1;
+    const arm = (dir, z0, z1, lipUp) => { for (let tries = 0; tries < 14; tries++) {
+      const st = tree.ends.filter((e) => (dir < 0 ? e.z < 4 && e.y > 7 && e.y < 16 : e.z > -4 && e.y > 2 && e.y < 10)).sort(() => q() - 0.5)[0]; if (!st) return null; // (catch arms low, launch spurs high: you drop onto the next tree)
+      const a = dir * Math.PI / 2 + (q() - 0.5) * 0.5, pts = [st]; let P = st;
+      for (let s = 0; s < 3; s++) { const L = 7 + q() * 2.5, last = s === 2, n = { x: P.x + Math.cos(a) * L, y: P.y + (lipUp ? (last ? 2.4 + q() * 1.2 : (q() - 0.5) * 1.2) : 0.9 + q() * 0.7), z: P.z + Math.sin(a) * L }; if (!inRun(n, z0, z1)) break; pts.push(n); P = n; } // (a catch arm rises gently out toward you: landing on it, you run downhill)
+      if (pts.length < 3) continue;
+      let p = null; for (let s = 1; s < pts.length; s++) p = branch(pts[s - 1], pts[s], s === 1 ? Math.max(2.6, st.w) : 2.8, s === pts.length - 1 ? 2.3 : 2.8);
+      if (lipUp) p.launch = true; else if (q() < 0.6) { const end = pts[pts.length - 1], len = 11 + q() * 3; leaf({ x: end.x + Math.cos(a) * len * 0.45, z: end.z + Math.sin(a) * len * 0.45 }, len, 7 + q() * 2, a, end.y + 0.3); }
+      return p; } return null; };
+    if (q() < 0.85) arm(-1, -36, 6, true); // forward: a launch spur, its lip about 30 m ahead of the trunk
+    arm(1, -6, 22, false); // back: a catch arm, its end about 18 m behind the trunk
     return tree;
   };
   for (let i = 0; i < N; i++) trees.push(mkTree(i));

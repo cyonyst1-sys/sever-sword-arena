@@ -1261,6 +1261,7 @@ function botThink(b, dt) {
       const tx = nb.x, tz = nb.z, ddx = tx - b.pos.x, ddz = tz - b.pos.z, l = Math.hypot(ddx, ddz) || 1, w = { x: ddx / l, z: ddz / l };
       if (!b.onGround && !b.hook) return { wish: w, jump: b.vel.y < 1 && b.pos.y < nb.y + 1 && (b.airJumps || 0) < 2 && Math.random() < 0.5, sprint: false };
       const front = cur && cur.tree ? b.pos.z - (cur.z - Math.abs(Math.sin(cur.ang || 0)) * cur.w / 2 - 1) : 0; // (how far the bot is from the front end of what it's standing on)
+      if (cur && cur.launch && b.onGround && b.pos.y > cur.yb - 0.8 && nb.tree !== cur.tree && tryDash(b, new THREE.Vector3(ddx / l, 0.35, ddz / l))) return { wish: w, jump: false, sprint: false }; // (at the lip of a launch spur: dash off it for the next tree)
       if (b.onGround && front < 1.6 && (!cur || !cur.tree || nb.tree !== cur.tree || nb.y > b.pos.y + 1.5)) { b.yaw = Math.atan2(-ddx, -ddz); return { wish: w, jump: true, sprint: true }; }
     }
   }
