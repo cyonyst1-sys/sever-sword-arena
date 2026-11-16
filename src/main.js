@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115224725';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115224725';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115224725';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115224725';
-import * as net from './net.js?v=20261115224725';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115224725';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115224725';
-import { makeKillFx } from './killfx.js?v=20261115224725';
-import { makeGrapple } from './grapple.js?v=20261115224725';
-import { initShop } from './shop.js?v=20261115224725';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115224725';
-import { portal } from './portal.js?v=20261115224725';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115224725';
-import { makePost } from './post.js?v=20261115224725';
+import { Arena, MAPS } from './arena.js?v=20261115225357';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115225357';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115225357';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115225357';
+import * as net from './net.js?v=20261115225357';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115225357';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115225357';
+import { makeKillFx } from './killfx.js?v=20261115225357';
+import { makeGrapple } from './grapple.js?v=20261115225357';
+import { initShop } from './shop.js?v=20261115225357';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115225357';
+import { portal } from './portal.js?v=20261115225357';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115225357';
+import { makePost } from './post.js?v=20261115225357';
 
 // ---------- settings ----------
 const store = {
@@ -245,6 +245,28 @@ function tryDash(f, dir) {
 }
 // the walkable surface of platform p at (x, z): its floor, a dish's curve or a mesa's rolling top
 function surfY(p, x, z) { const t = arena.platTop(p, { x, z }), g = arena.groundHeight(x, z, t + 4); return g > t - 6 ? g : t; }
+// Lava Climb: the ring of light round an arena (or the summit) keeps a fighter out until they've stood on every rock of
+// the stretch below it. Returns the barrier shutting f out, or null.
+function barrierFor(f, q = f.pos) {
+  if (!arena.barriers) return null;
+  for (const b of arena.barriers) if (q.y > b.y0 && q.y < b.y1 + 1 && Math.hypot(q.x - b.x, q.z - b.z) < b.R + RAD + 0.2 && !b.rocks.every((i) => f.touched && f.touched.has(i))) return b;
+  return null;
+}
+// the next place f should head on the way up: the next rock in order on the stretch they're on (or one they skipped),
+// then the arena at its top; on into the next stretch from there. null on the last stretch's summit.
+function nextRock(f) {
+  if (!arena.barriers) return null;
+  const has = (j) => f.touched && f.touched.has(j);
+  for (const b of arena.barriers) {
+    if (b.y1 < f.pos.y - 2) continue;
+    const order = [...b.rocks, b.top], cur = order.indexOf(f.plat);
+    if (cur === order.length - 1) continue; // (standing in this stretch's arena: on to the next)
+    const miss = b.rocks.find((j) => !has(j));
+    if (miss != null && order.indexOf(miss) <= cur + 1) return arena.plats[miss];
+    return arena.plats[order[cur + 1]];
+  }
+  return null;
+}
 // Lava Climb: the gate over each checkpoint arena stays shut for a fighter until they've eliminated enough (1, 2, then 3
 // in all); with only two left standing every gate opens (it's a race). Returns the gate holding f back, or null.
 function gateFor(f) {
@@ -308,6 +330,7 @@ function fireHook(f, origin, dir) {
   f.hookCd = 0.25;
   if (!h) { sfx.hookFire(f.pos); return false; }
   { const g = gateFor(f); if (g && h.point.y > g.y - 0.2) { sfx.hookFire(f.pos); return false; } } // (a shut gate: nothing above it can be hooked)
+  if (barrierFor(f, h.point)) { sfx.hookFire(f.pos); return false; } // (a shut arena: nothing inside it can be hooked)
   const lh = lipHook(f, h.point); if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead)
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const L = h.point.distanceTo(chest);
@@ -417,6 +440,10 @@ function stepFighter(f, dt, wish, sprint, jump) {
     const py = f.pos.y; f.pos.addScaledVector(f.vel, dt / n);
     if (arena.brk) crash(f);
     f.onGround = arena.collide(f.pos, f.vel, RAD, HGT, (k ? f.onGround : was) && f.dashT <= 0 && !f.hook, py);
+  }
+  if (arena.barriers) { // Lava Climb: rocks stood on; a shut arena's ring pushes you back out
+    if (f.onGround) { const pu = platUnder(f.pos); if (pu) (f.touched ||= new Set()).add(pu.i); }
+    const b = barrierFor(f); if (b) { const dx = f.pos.x - b.x, dz = f.pos.z - b.z, d = Math.hypot(dx, dz) || 1, R = b.R + RAD + 0.2; f.pos.x = b.x + dx / d * R; f.pos.z = b.z + dz / d * R; const vn = (f.vel.x * dx + f.vel.z * dz) / d; if (vn < 0) { f.vel.x -= dx / d * vn * 1.6; f.vel.z -= dz / d * vn * 1.6; } if (f.hook && barrierFor(f, f.hook.p)) f.hook = null; f.mantle = null; }
   }
   { const g = gateFor(f); if (g && f.pos.y + HGT > g.y) { f.pos.y = g.y - HGT; if (f.vel.y > 0) f.vel.y = -1; if (f.hook && f.hook.p.y > g.y - 0.2) f.hook = null; f.mantle = null; } } // (a shut gate: a ceiling)
   if (f.hook && !f.hook.enemy) { // rope can't stretch
@@ -848,6 +875,7 @@ function spawnPoint(f) {
   return best.clone();
 }
 function spawn(f, p, yaw) {
+  f.touched = new Set(); // (Lava Climb: the course rocks they've stood on)
   f.pos.copy(p); f.vel.set(0, 0, 0); f.yaw = yaw; f.pitch = 0; f.alive = true; f.prot = 1.5; f.hook = null; f.dashT = 0;
   f.bladeLen = bladeFor(rosterGet(f.id)?.streak) * upm(f, 'blade'); // come back with the blade your streak earns (the starting one after a death)
   f.stam = 100; f.s.x = GUARD.x; f.s.y = GUARD.y; f.noCut = true; f.anim = null; f.respawnAt = Infinity; f.onGround = true; f.stagger = 0;
@@ -1220,6 +1248,11 @@ function botThink(b, dt) {
   b.pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(dy, Math.max(0.5, dh))));
   // grappling hook
   const g = botGrapple(b, t, D, dt, dx, dy, dz, dh);
+  const tpl = S.mode === 'lava' && t.fake && t.plat != null ? arena.plats[t.plat] : null, rr = tpl ? Math.max(0, tpl.round - 1.5) : 0;
+  if (tpl && !g && b.onGround && !b.hook && dy > 2.8 && dh - rr < 16 && (b.hookCd || 0) <= 0) { // Lava Climb: a rock (or the arena) high overhead: hook the near edge of its top and reel up and over
+    const aim = new THREE.Vector3(t.pos.x - dx / (dh || 1) * rr, t.pos.y - 0.2, t.pos.z - dz / (dh || 1) * rr);
+    if (botFireHook(b, aim, 4, 'climb', true)) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
+  }
   if (g) return g;
   // two bots on different platforms hunting each other: one holds its ground and lets the other come
   // (also: a bot that just arrived on a platform holds it for a few seconds instead of leaving straight away)
@@ -1628,6 +1661,7 @@ function modeTick(dt) {
 function botObjective(b) {
   if (S.mode === 'lava' && arena.summitPos) { // Lava Climb: up to the summit, unless a shut gate is in the way (then: fight)
     if (gateFor(b)) return null;
+    const nr = nextRock(b); if (nr) return { pos: new THREE.Vector3(nr.x, nr.y, nr.z), plat: nr.i, engage: b.target && b.target.alive && !b.target.isBot ? 3 : 0, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null }; // (every rock in turn)
     const sp = arena.plats.find((p) => p.kind === 'summit');
     const e = b.target, eng = e && e.alive && !e.isBot ? 3 : 0; // (on the course, bots leave each other be: they fight at the gates, and fight you back)
     return { pos: arena.summitPos, plat: sp ? sp.i : null, engage: eng, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null };
@@ -2032,11 +2066,14 @@ function updateHud(dt) {
     $('topbar').innerHTML = `Lava Climb · ${alive} alive · your kills: ${k} · <span style="color:var(--gold)">reach the summit</span>`;
     if (me && me.alive) {
       const g = gateFor(me);
+      const nb = arena.barriers.find((b) => b.y1 > me.pos.y - 2), left = nb ? nb.rocks.filter((i) => !(me.touched && me.touched.has(i))).length : 0;
       if (g && me.pos.y > g.floor - 1) status = `<span style="color:var(--red)">GATE SHUT · eliminate ${g.need - k} more to open it</span>`;
+      else if (left) status = `Stand on every rock: <b>${left}</b> left before the ${nb.k < 3 ? 'next arena' : 'summit'} lets you in`;
       else if (now() - (S.matchStart || 0) < LAVA_GRACE) status = `CLIMB! Swords are sheathed for ${Math.ceil(LAVA_GRACE - (now() - S.matchStart))} s`;
       else if (below < 7) status = '<span style="color:var(--red)">THE LAVA IS RIGHT BELOW YOU · climb!</span>';
       else if (below < 16) status = 'The lava is rising: keep climbing';
     }
+    if (arena.markTouched && me) arena.markTouched(me.touched || new Set());
     if (arena.gateVis && me) { const next = arena.gates.find((g) => g.y > me.pos.y - 1); arena.gates.forEach((g, i) => { arena.gateVis(i, (rosterGet(S.myId)?.k || 0) >= g.need || alive <= 2); g.show = g === next; }); } // (only the next gate up is drawn)
   } else if (S.mode === 'lbs') {
     const alive = [...fighters.values()].filter((f) => f.alive).length;
