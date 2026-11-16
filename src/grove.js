@@ -51,7 +51,7 @@ export function buildGrove(A, T) {
 
   // ---- the trees: two rows, close together, facing each other across the gap. Big, ancient and gnarled: each has a
   // broad crown pad on top, a big pad low down (the floor of the fight), and more pads all round on its crooked limbs
-  const ROW = 12, BASE = -40, trees = [], all = [];
+  const ROW = 15, BASE = -40, trees = [], all = [];
   const free = (px, pz, py, R) => all.every((q) => Math.hypot(q.x - px, q.z - pz) > q.round + R + 0.8 || Math.abs(q.y - py) > 5);
   const pad = (px, pz, py, R) => { const p = addPad(px, pz, py, R); all.push(p); return p; };
   for (const side of [-1, 1]) for (let k = 0; k < 4; k++) {
