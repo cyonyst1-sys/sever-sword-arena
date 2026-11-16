@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116015720';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116015720';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116015720';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116015720';
-import * as net from './net.js?v=20261116015720';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116015720';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116015720';
-import { makeKillFx } from './killfx.js?v=20261116015720';
-import { makeGrapple } from './grapple.js?v=20261116015720';
-import { initShop } from './shop.js?v=20261116015720';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116015720';
-import { portal } from './portal.js?v=20261116015720';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116015720';
-import { makePost } from './post.js?v=20261116015720';
+import { Arena, MAPS } from './arena.js?v=20261116020219';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116020219';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116020219';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116020219';
+import * as net from './net.js?v=20261116020219';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116020219';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116020219';
+import { makeKillFx } from './killfx.js?v=20261116020219';
+import { makeGrapple } from './grapple.js?v=20261116020219';
+import { initShop } from './shop.js?v=20261116020219';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116020219';
+import { portal } from './portal.js?v=20261116020219';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116020219';
+import { makePost } from './post.js?v=20261116020219';
 
 // ---------- settings ----------
 const store = {
@@ -1254,7 +1254,7 @@ function botThink(b, dt) {
   // grappling hook
   const g = botGrapple(b, t, D, dt, dx, dy, dz, dh);
   const tpl = S.mode === 'lava' && t.fake && t.plat != null ? arena.plats[t.plat] : null, rr = tpl ? Math.max(0, tpl.round - 1.5) : 0;
-  if (tpl && !g && b.onGround && !b.hook && dy > 2.8 && dh - rr < 16 && (b.hookCd || 0) <= 0) { // Lava Climb: a rock (or the arena) high overhead: hook the near edge of its top and reel up and over
+  if (tpl && !g && b.onGround && !b.hook && b.plat !== t.plat && (dy > 2.8 || dh - rr > 6) && dy > -3 && dh - rr < 34 && (b.hookCd || 0) <= 0) { // (high above, or across a wide gap) // Lava Climb: a rock (or the arena) high overhead: hook the near edge of its top and reel up and over
     const aim = new THREE.Vector3(t.pos.x - dx / (dh || 1) * rr, t.pos.y - 0.2, t.pos.z - dz / (dh || 1) * rr);
     if (botFireHook(b, aim, 4, 'climb', true)) return { wish: { x: 0, z: 0 }, jump: true, sprint: false };
   }

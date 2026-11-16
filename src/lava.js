@@ -6,10 +6,10 @@ import * as THREE from 'three';
 
 const TAU = Math.PI * 2, WALL = 47;
 export const LAVA = {
-  floors: [0, 36, 80, 124], // the base, then the three checkpoint arenas
-  summit: 168, need: [1, 2, 3], gateUp: 10, arenaR: 15,
+  floors: [0, 126, 280, 434], // the base, then the three checkpoint arenas
+  summit: 588, need: [1, 2, 3], gateUp: 10, arenaR: 15,
   /** Height of the lava t seconds into the match: a few seconds' grace, then rising faster and faster. */
-  y(t) { const s = Math.max(0, t - 10); return -8 + s * 0.85 + s * s * 0.0045; }, // (the first arena goes under about 50 s in, the summit about 2 min 15 s)
+  y(t) { const s = Math.max(0, t - 10); return -8 + s * 1.415 + s * s * 0.000823; }, // (the first arena goes under about 1 min 40 s in, the summit about 6 min)
 };
 
 export function buildLava(A, T) {
@@ -42,13 +42,13 @@ export function buildLava(A, T) {
 
   // ---- the crater wall: a rough cylinder all round (solid, but you can't hook it: the course is the way up)
   {
-    const H = 280, g = new THREE.CylinderGeometry(WALL + 1, WALL + 7, H, 96, 40, true), p = g.attributes.position;
+    const H = 720, g = new THREE.CylinderGeometry(WALL + 1, WALL + 7, H, 96, 40, true), p = g.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x), k = 1 + 0.035 * Math.sin(a * 7 + y * 0.05) + 0.025 * Math.sin(a * 17 - y * 0.11) + 0.015 * Math.sin(a * 41 + y * 0.3); p.setX(i, x * k); p.setZ(i, z * k); }
     g.computeVertexNormals();
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: wallTex, roughness: 1, side: THREE.BackSide, color: 0xe8d0c0, bumpMap: wallTex, bumpScale: 2, emissive: 0x2a0c04 }));
     m.position.y = H / 2 - 40; m.receiveShadow = true; S.add(m);
     for (let k = 0; k < 40; k++) { const a = k / 40 * TAU, a2 = (k + 1) / 40 * TAU, x0 = Math.cos(a) * (WALL + 1.5), z0 = Math.sin(a) * (WALL + 1.5), x1 = Math.cos(a2) * (WALL + 1.5), z1 = Math.sin(a2) * (WALL + 1.5);
-      A.boxes.push({ x0: Math.min(x0, x1) - 1.5, x1: Math.max(x0, x1) + 1.5, y0: -60, y1: 240, z0: Math.min(z0, z1) - 1.5, z1: Math.max(z0, z1) + 1.5, noHook: true }); }
+      A.boxes.push({ x0: Math.min(x0, x1) - 1.5, x1: Math.max(x0, x1) + 1.5, y0: -60, y1: 700, z0: Math.min(z0, z1) - 1.5, z1: Math.max(z0, z1) + 1.5, noHook: true }); }
   }
 
   // ---- floating basalt: a hex-ish column top, glowing cracks, a jagged root hanging underneath
@@ -95,7 +95,7 @@ export function buildLava(A, T) {
   const summit = rock(0, 0, LAVA.summit, 7.5, 'summit');
 
   // ---- the course between them: a climbing spiral of steps of four kinds
-  const KINDS = [['hop', 0.25], ['dash', 0.2], ['climb', 0.35], ['swing', 0.2]]; // (big steps: few rocks, each one counts)
+  const KINDS = [['hop', 0.15], ['climb', 0.45], ['swing', 0.4]]; // (rocks here and there, far apart: grapple points in the gaps between them)
   const pick = () => { let u = r(); for (const [k, w] of KINDS) { if ((u -= w) < 0) return k; } return 'hop'; };
   const fits = (x, z, y, R) => Math.hypot(x, z) + R < WALL - 3 && plats.every((p) => Math.abs(p.y - y) > 5.5 || Math.hypot(p.x - x, p.z - z) > p.round + R + 3);
   let a = r() * TAU, dir = 1, prev = floors[0];
@@ -114,9 +114,9 @@ export function buildLava(A, T) {
       let kind = pick(), made = null;
       for (let t = 0; t < 30 && !made; t++) {
         const k = t > 20 ? 'hop' : kind;
-        const dy = k === 'hop' ? 2 + r() * 1.5 : k === 'dash' ? r() * 1.5 : k === 'climb' ? 10 + r() * 4 : -1 + r() * 4;
-        const dist = k === 'hop' ? 3.5 + r() * 2.5 : k === 'dash' ? 8 + r() * 3 : k === 'climb' ? 2 + r() * 2.5 : 16 + r() * 6; // (the gap, edge to edge)
-        const R = k === 'swing' ? 5 + r() * 1.5 : k === 'dash' ? 4 + r() * 2 : 4 + r() * 3;
+        const dy = k === 'hop' ? 2 + r() * 1.5 : k === 'climb' ? 14 + r() * 8 : 3 + r() * 7;
+        const dist = k === 'hop' ? 4 + r() * 3 : k === 'climb' ? 4 + r() * 5 : 16 + r() * 10; // (the gap, edge to edge)
+        const R = k === 'swing' ? 5 + r() * 1.5 : 4.5 + r() * 2.5;
         const nr = Math.max(16, Math.min(36, rad + (r() - 0.5) * 14)); // (wandering in and out: no neat spiral)
         const na = a + dir * (dist + prev.round + R) / ((rad + nr) / 2);
         const x = Math.cos(na) * nr, z = Math.sin(na) * nr, ny = Math.min(prev.y + dy, target - 3);
@@ -125,8 +125,12 @@ export function buildLava(A, T) {
         const ah = Math.atan2(z - prev.z, x - prev.x), u = r(); // the way you come in from the last rock: lean the top to face you (far edge up), or to one side; never away
         const tdir = ah + (u < 0.5 ? 0 : u < 0.75 ? Math.PI / 2 : -Math.PI / 2) + (r() - 0.5) * 0.5;
         made = rock(x, z, ny, R, 'step', r() < 0.45 ? 0.2 + r() * 0.25 : 0, tdir); a = na; rad = nr; // (some lean over, off-camber: 11 to 26 degrees)
+        if (k === 'climb') { // a grapple point part way up the climb, off to one side: hook it, swing up, hook the rock
+          const sd = r() < 0.5 ? 1 : -1, ox = -(z - prev.z), oz = x - prev.x, ol = Math.hypot(ox, oz) || 1, mx = (prev.x + x) / 2 + ox / ol * sd * (4 + r() * 3), mz = (prev.z + z) / 2 + oz / ol * sd * (4 + r() * 3);
+          if (Math.hypot(mx, mz) < WALL - 4) anchor(mx, prev.y + (ny - prev.y) * (0.55 + r() * 0.2), mz);
+        }
         if (k === 'swing') { // a rock to swing from, high above the middle of the gap
-          const mx = (prev.x + x) / 2, mz = (prev.z + z) / 2, my = Math.max(prev.y, ny) + 11;
+          const mx = (prev.x + x) / 2, mz = (prev.z + z) / 2, my = Math.max(prev.y, ny) + 14;
           anchor(mx, my, mz);
         }
         A.link('P' + prev.i, 'P' + made.i, 'swing'); // (every step is a jump, dash or swing: never a walk)
