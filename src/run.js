@@ -128,15 +128,15 @@ export function buildRun(A, T) {
   assign(Z);
 
   // ---- each frame: move the trees, carry whoever stands on one along with it
-  const standing = (f, t) => f.alive && f.onGround && f.pos.z > t.oz - 18 && f.pos.z < t.oz + 18 && t.ramps.some((r0) => { const h = A.rampWalk(r0, f.pos.x, f.pos.z); return h !== null && Math.abs(f.pos.y - h) < 0.6; });
+  const standing = (f, t) => f.alive && Math.abs(f.pos.z - t.oz) < 34 && (f.onGround || (f.runTree === t && f.vel.y <= 1.5)) && t.ramps.some((r0) => { const h = A.rampWalk(r0, f.pos.x, f.pos.z); return h !== null && Math.abs(f.pos.y - h) < (f.onGround ? 0.6 : 1.0); }); // (a moment off the ground on a bumpy limb still counts)
   A.tickTilt = (fighters, mine, dt) => {
     dt = Math.min(0.05, dt || 0);
     const riders = [];
     for (const f of fighters) if (mine(f)) for (const t of trees) if (standing(f, t)) { riders.push([f, t, t.k, t.oz, t.oy]); break; }
     Z = clock() * V; assign(Z);
-    for (const [f, t, k, z, y] of riders) if (t.k === k) { f.pos.z += t.oz - z; f.pos.y += t.oy - y; f.runOn = true; } // (ride along)
-    for (const f of fighters) if (mine(f) && f.runOn && !f.onGround) { f.vel.z += V; f.runOn = false; } // (leap off: keep the tree's speed)
-    for (const f of fighters) if (mine(f) && f.alive && f.pos.z < -30) f.pos.z += Math.min(8, (-30 - f.pos.z) * 0.3) * dt; // (get too far ahead and the forest's current eases you back: the fight stays together)
+    for (const [f, t, k, z, y] of riders) if (t.k === k) { f.pos.z += t.oz - z; f.pos.y += t.oy - y; f.runOn = true; f.runTree = t; } // (ride along)
+    for (const f of fighters) if (mine(f) && f.runOn && !f.onGround && !riders.some((rr) => rr[0] === f)) { if (f.vel.y > 2) f.vel.z += V; f.runOn = false; f.runTree = null; } // (jump off: keep the tree's speed; just stepping off adds nothing)
+    for (const f of fighters) if (mine(f) && f.isBot && f.alive && !f.runOn && f.pos.z < -50) f.pos.z += Math.min(6, (-50 - f.pos.z) * 0.3) * dt; // (bots that run on too far ahead get eased back so the fight stays together; never a player, never anyone standing on a tree)
   };
   A.fallText = () => 'fell into the forest'; A.fallBy = () => 'Fell into the forest';
   A.killAt = (q) => (q.z > 50 ? 1e9 : A.killY); // (left behind: the forest swallows you)
