@@ -19,6 +19,7 @@ export const CATEGORIES = [
   { id: 'trail', name: 'Trails' },
   { id: 'kill', name: 'Kill Effects' },
   { id: 'grapple', name: 'Grapples' },
+  { id: 'shape', name: 'Sword Shapes' },
   { id: 'upgrade', name: 'Upgrades' },
 ];
 
@@ -185,8 +186,184 @@ export const CATALOG = {
   ],
 };
 
-export const DEFAULT_LOOK = { mask: 'none', hat: 'none', outfit: 'default', sword: 'katana', trail: 'classic', kill: 'blood', grapple: 'rope' };
+export const DEFAULT_LOOK = { mask: 'none', hat: 'none', outfit: 'default', sword: 'katana', shape: 'straight', trail: 'classic', kill: 'blood', grapple: 'rope' };
 export const item = (cat, id) => CATALOG[cat].find((x) => x.id === id) || CATALOG[cat][0];
+
+// ---------- the expansion: more of everything, and a new top tier (Legendary) in every tab ----------
+/** Rarity by price: Common, Rare, Epic, Legendary. */
+export const tierOf = (price) => (price >= 1500 ? 'legendary' : price >= 800 ? 'epic' : price >= 300 ? 'rare' : 'common');
+// a horn that curves: a thick base cone and a thinner tip cone bent further over (side s = 1 or -1)
+const horn = (m, x, y, z, s, len, lean, curl, w = 0.022) => [
+  ['cone', m, [x * s, y, z], [w, len * 0.55, w], [0.15, 0, -lean * s]],
+  ['cone', m, [(x + Math.sin(lean) * len * 0.5) * s, y + Math.cos(lean) * len * 0.48, z + 0.01], [w * 0.62, len * 0.55, w * 0.62], [0.15 + curl * 0.3, 0, -(lean + curl) * s]],
+];
+const fang = (m, x, y, z, len, up = false, w = 0.009) => ['cone', m, [x, y, z], [w, len, w], [up ? 0 : PI, 0, 0]];
+const glow = (c, i = 2.6) => mat(c, { e: c, ei: i });
+const LACQ = (c) => mat(c, { r: 0.28, m: 0.15 });
+
+// ---- more detail on the original masks
+const add = (cat, id, parts) => item(cat, id).parts.push(...parts);
+add('mask', 'wrap', [['box', mat(0x0e0e12), [0, -0.028, -0.124], [0.12, 0.005, 0.004]], ...pair((s) => ['box', mat(0x1b1b22, { r: 0.9 }), [0.03 * s, -0.04, 0.13], [0.018, 0.08, 0.006], [0.5, 0, 0.3 * s]])]);
+add('mask', 'menpo', [...pair((s) => ['box', GOLD, [0.03 * s, -0.09, -0.13], [0.03, 0.006, 0.006], [0, 0, 0.5 * s]]), ...pair((s) => fang(IVORY, 0.018 * s, -0.098, -0.128, 0.018)), ['box', mat(0x1a1b20, { m: 0.7 }), [0, -0.16, -0.05], [0.09, 0.03, 0.05]]]);
+add('mask', 'tengu', [...pair((s) => ['box', IVORY, [0.045 * s, 0.062, -0.13], [0.05, 0.016, 0.01], [0, 0, 0.35 * s]]), ...pair((s) => ['box', BLACK, [0.035 * s, -0.09, -0.128], [0.05, 0.01, 0.006], [0, 0, -0.5 * s]]), ['cyl', GOLD, [0, 0.085, -0.127], [0.014, 0.004, 0.014], [PI / 2, 0, 0]]]);
+add('mask', 'oni', [...pair((s) => fang(IVORY, 0.03 * s, -0.096, -0.128, 0.03, true)), ...pair((s) => ['box', GOLD, [0.04 * s, 0.05, -0.128], [0.05, 0.012, 0.006], [0, 0, 0.3 * s]]), ...pair((s) => ['sph', BLACK, [0.012 * s, -0.03, -0.13], [0.008, 0.006, 0.004]])]);
+add('mask', 'kitsune', [...[-1, 1].flatMap((s) => [0, 1, 2].map((k) => ['box', BLACK, [0.05 * s, -0.04 - k * 0.012, -0.128], [0.05, 0.002, 0.002], [0, 0, (0.15 - k * 0.15) * s]])), ['box', mat(0xd7262e), [0, -0.075, -0.127], [0.03, 0.006, 0.004]], ['cone', mat(0xd7262e), [0, 0.07, -0.126], [0.012, 0.03, 0.004]]]);
+add('mask', 'skull', [...[-3, -2, -1, 0, 1, 2, 3].map((k) => ['box', IVORY, [k * 0.012, -0.075, -0.127], [0.008, 0.016, 0.006]]), ['box', BLACK, [0.03, 0.06, -0.125], [0.004, 0.04, 0.004], [0, 0, 0.5]], ['box', BLACK, [0.04, 0.03, -0.125], [0.004, 0.03, 0.004], [0, 0, -0.4]]]);
+add('mask', 'hannya', [...pair((s) => ['cone', GOLD, [0.1 * s, 0.24, -0.04], [0.012, 0.08, 0.012], [0.6, 0, -1.0 * s]]), ...pair((s) => fang(IVORY, 0.03 * s, -0.08, -0.131, 0.028, true))]);
+add('mask', 'void', [...pair((s) => ['box', glow(0x5fe3ff, 2), [0.055 * s, -0.04, -0.127], [0.004, 0.08, 0.004], [0, 0, 0.35 * s]]), ['cyl', glow(0x5fe3ff, 2), [0, 0.07, -0.127], [0.016, 0.003, 0.016], [PI / 2, 0, 0]]]);
+
+// ---- new masks: scarier, more horns, fangs
+const FACE = ['nose', 'eyeL', 'eyeR', 'browL', 'browR'];
+CATALOG.mask.push(
+  { id: 'crowtengu', name: 'Crow Tengu', price: 900, sw: 0x15151a, hide: FACE, parts: [
+    ['box', LACQ(0x15151a), [0, 0, -0.1], [0.155, 0.185, 0.05]],
+    ['cone', LACQ(0x22222a), [0, 0.0, -0.18], [0.03, 0.13, 0.026], [-PI / 2 - 0.12, 0, 0]], ['cone', GOLD, [0, -0.03, -0.165], [0.022, 0.09, 0.016], [-PI / 2 + 0.1, 0, 0]], // a crow's beak
+    ...pair((s) => ['box', glow(0xff2a2a), [0.04 * s, 0.03, -0.127], [0.03, 0.012, 0.006], [0, 0, -0.3 * s]]),
+    ...pair((s) => ['cone', LACQ(0x15151a), [0.085 * s, 0.03, -0.06], [0.02, 0.09, 0.008], [0, 0, -1.2 * s]]), ...pair((s) => ['cone', LACQ(0x15151a), [0.085 * s, -0.02, -0.06], [0.018, 0.08, 0.008], [0, 0, -1.6 * s]]), // feathers
+  ] },
+  { id: 'bloodoni', name: 'Blood Oni', price: 1100, sw: 0x8a0a10, hide: FACE, parts: [
+    ['box', LACQ(0x8a0a10), [0, -0.005, -0.1], [0.165, 0.195, 0.05]],
+    ['cone', IVORY, [0, 0.14, -0.08], [0.02, 0.1, 0.02], [0.15, 0, 0]], ...[1, -1].flatMap((s) => horn(IVORY, 0.06, 0.12, -0.08, s, 0.11, 0.4, 0.3)),
+    ...pair((s) => ['box', glow(0xffd23a), [0.038 * s, 0.022, -0.127], [0.036, 0.016, 0.006], [0, 0, -0.3 * s]]),
+    ['box', BLACK, [0, -0.06, -0.127], [0.09, 0.03, 0.006]], ...[-1, 1].flatMap((s) => [fang(IVORY, 0.03 * s, -0.045, -0.13, 0.028), fang(IVORY, 0.02 * s, -0.075, -0.13, 0.03, true)]),
+  ] },
+  { id: 'tusk', name: 'Tusk Demon', price: 1300, sw: 0x2a4a2a, hide: FACE, parts: [
+    ['box', LACQ(0x2a4a2a), [0, -0.005, -0.1], [0.165, 0.2, 0.05]],
+    ...[1, -1].flatMap((s) => horn(mat(0x1a1a1a, { r: 0.4 }), 0.055, 0.12, -0.07, s, 0.08, 0.5, 0.2, 0.016)),
+    ...pair((s) => ['box', glow(0xff3a1a), [0.04 * s, 0.025, -0.127], [0.038, 0.014, 0.006], [0, 0, -0.35 * s]]),
+    ...[1, -1].flatMap((s) => horn(IVORY, 0.05, -0.1, -0.13, s, 0.12, -0.3, -0.5, 0.016)), // tusks curling up out of the jaw
+    ['box', BLACK, [0, -0.065, -0.127], [0.1, 0.02, 0.006]],
+  ] },
+  { id: 'oniking', name: 'Oni King', price: 1800, sw: 0xd9ad3c, hide: FACE, parts: [
+    ['box', LACQ(0x1a0a0a), [0, -0.005, -0.1], [0.17, 0.2, 0.052]],
+    ...[1, -1].flatMap((s) => horn(GOLD, 0.06, 0.12, -0.07, s, 0.17, 0.45, 0.45, 0.026)), ...[1, -1].flatMap((s) => horn(IVORY, 0.07, 0.07, -0.1, s, 0.08, 1.1, 0.3, 0.014)), // two great horns and two small
+    ...pair((s) => ['box', GOLD, [0.042 * s, 0.05, -0.13], [0.055, 0.014, 0.008], [0, 0, 0.35 * s]]),
+    ...pair((s) => ['box', glow(0xff7a1a, 3), [0.04 * s, 0.024, -0.128], [0.036, 0.016, 0.006], [0, 0, -0.3 * s]]),
+    ['box', mat(0x6a0a0e), [0, -0.062, -0.128], [0.1, 0.035, 0.006]], ...[-2, -1, 1, 2].map((k) => fang(GOLD, k * 0.017, -0.046, -0.131, 0.024)), ...pair((s) => fang(GOLD, 0.032 * s, -0.08, -0.131, 0.034, true, 0.011)),
+  ] },
+  { id: 'dreadhannya', name: 'Dread Hannya', price: 2200, sw: 0xf0e8d8, hide: FACE, parts: [
+    ['box', mat(0xf0e8d8, { r: 0.35 }), [0, 0, -0.1], [0.165, 0.2, 0.05]],
+    ...[1, -1].flatMap((s) => horn(GOLD, 0.06, 0.12, -0.06, s, 0.24, 0.35, 0.75, 0.024)), // long, sweeping horns
+    ...pair((s) => ['box', BLACK, [0.04 * s, 0.024, -0.127], [0.04, 0.02, 0.006], [0, 0, -0.35 * s]]), ...pair((s) => ['sph', glow(0xff2020, 3.5), [0.04 * s, 0.024, -0.131], [0.008, 0.008, 0.004]]),
+    ['box', mat(0x7a0a10), [0, -0.064, -0.127], [0.11, 0.04, 0.006]], ...[-3, -2, -1, 0, 1, 2, 3].map((k) => fang(IVORY, k * 0.014, -0.045, -0.13, k % 3 === 0 ? 0.03 : 0.016)),
+    ...pair((s) => ['box', GOLD, [0.06 * s, -0.02, -0.126], [0.004, 0.05, 0.004], [0, 0, 0.4 * s]]),
+  ] },
+  { id: 'wraith', name: 'Hollow Wraith', price: 2600, sw: 0x0a0a0e, hide: FACE, parts: [
+    ['box', mat(0x050507, { r: 0.9 }), [0, 0, -0.1], [0.16, 0.21, 0.05]],
+    ...pair((s) => ['box', glow(0xeaf6ff, 4), [0.04 * s, 0.02, -0.127], [0.04, 0.008, 0.006], [0, 0, -0.4 * s]]),
+    ...[-4, -3, -2, -1, 0, 1, 2, 3, 4].map((k) => fang(mat(0xd8d0c0, { r: 0.4 }), k * 0.012, -0.05, -0.128, 0.03 + (k % 2) * 0.015)),
+    ...pair((s) => ['cone', mat(0x050507), [0.06 * s, -0.14, -0.08], [0.02, 0.09, 0.02], [PI, 0, 0.2 * s]]), ['cone', mat(0x050507), [0, -0.15, -0.09], [0.022, 0.1, 0.022], [PI, 0, 0]], // tattered at the chin
+  ] },
+);
+
+// ---- new headwear, including whole heads
+const WHOLE = ['hair', 'knot', 'band', 'earL', 'earR', ...FACE];
+CATALOG.hat.push(
+  { id: 'wolf', name: 'Wolf Pelt', price: 1000, sw: 0x7a7a80, hide: ['hair', 'knot', 'band'], parts: [
+    ['sph', mat(0x6a6a70, { r: 0.95 }), [0, 0.06, 0.01], [0.122, 0.1, 0.13]],
+    ['round', mat(0x6a6a70, { r: 0.95 }), [0, 0.07, -0.135], [0.07, 0.05, 0.09]], ['sph', BLACK, [0, 0.08, -0.18], [0.016, 0.012, 0.012]], // the wolf's snout over the brow
+    ...pair((s) => ['sph', glow(0xffd23a, 1.5), [0.04 * s, 0.11, -0.12], [0.01, 0.007, 0.006]]),
+    ...pair((s) => ['cone', mat(0x55555a, { r: 0.95 }), [0.06 * s, 0.17, -0.02], [0.028, 0.06, 0.016], [0, 0, -0.2 * s]]),
+    ['cone', mat(0x6a6a70, { r: 0.95 }), [0, -0.05, 0.15], [0.06, 0.2, 0.04], [2.6, 0, 0]], // the pelt down the back
+  ] },
+  { id: 'bonehelm', name: 'Bone Helm', price: 1300, sw: 0xe8dfc8, hide: WHOLE, parts: [
+    ['sph', mat(0xe8dfc8, { r: 0.6 }), [0, 0.01, 0.004], [0.122, 0.145, 0.132]],
+    ...pair((s) => ['sph', BLACK, [0.042 * s, 0.012, -0.112], [0.026, 0.022, 0.02]]), ['cone', BLACK, [0, -0.025, -0.124], [0.012, 0.02, 0.006], [PI, 0, 0]],
+    ...[-3, -2, -1, 0, 1, 2, 3].map((k) => ['box', mat(0xe8dfc8), [k * 0.013, -0.075, -0.115], [0.009, 0.02, 0.008]]),
+    ...[1, -1].flatMap((s) => horn(mat(0xd8cfb8), 0.07, 0.11, 0.0, s, 0.1, 0.8, 0.5, 0.018)),
+  ] },
+  { id: 'onikabuto', name: 'Oni Kabuto', price: 1600, sw: 0x8a0a10, hide: ['hair', 'knot', 'band', 'nose'], parts: [
+    ['sph', mat(0x1a1a1e, { m: 0.75, r: 0.3 }), [0, 0.075, 0.01], [0.124, 0.096, 0.13]],
+    ['box', mat(0x1a1a1e, { m: 0.75, r: 0.3 }), [0, -0.03, 0.1], [0.21, 0.09, 0.05], [0.45, 0, 0]],
+    ['box', LACQ(0x8a0a10), [0, -0.06, -0.1], [0.15, 0.09, 0.05]], ...[-2, -1, 1, 2].map((k) => fang(IVORY, k * 0.02, -0.03, -0.128, 0.022)), // a red face guard with fangs
+    ...[1, -1].flatMap((s) => horn(GOLD, 0.05, 0.13, -0.1, s, 0.2, 0.6, 0.5, 0.012)),
+    ['cyl', GOLD, [0, 0.1, -0.124], [0.026, 0.006, 0.026], [PI / 2, 0, 0]],
+  ] },
+  { id: 'phoenix', name: 'Phoenix Crest', price: 1800, sw: 0xff9a2a, hide: ['knot'], parts: [
+    ['cyl', GOLD, [0, 0.1, 0.005], [0.104, 0.022, 0.114]],
+    ...[-3, -2, -1, 0, 1, 2, 3].map((k) => ['cone', glow(k % 2 ? 0xffd23a : 0xff6a10, 2.4), [k * 0.028, 0.17 + (3 - Math.abs(k)) * 0.012, 0.03], [0.018, 0.12 + (3 - Math.abs(k)) * 0.03, 0.006], [-0.35, 0, -k * 0.18]]), // feathers of flame fanning up and back
+    ['sph', glow(0xff3a1a, 3), [0, 0.11, -0.112], [0.014, 0.014, 0.008]],
+  ] },
+  { id: 'devil', name: 'Devil Head', price: 2200, sw: 0x6a0a0a, hide: WHOLE, parts: [
+    ['sph', mat(0x6a0a0a, { r: 0.45 }), [0, 0.01, 0.004], [0.122, 0.145, 0.132]],
+    ['round', mat(0x6a0a0a, { r: 0.45 }), [0, -0.05, -0.1], [0.1, 0.07, 0.07]], // a snout
+    ...[1, -1].flatMap((s) => horn(mat(0x141010, { r: 0.35 }), 0.07, 0.11, -0.01, s, 0.22, 0.45, 0.75, 0.03)), // great horns rising and curling over
+    ...pair((s) => ['cone', mat(0x6a0a0a, { r: 0.45 }), [0.12 * s, 0.03, 0.02], [0.02, 0.07, 0.012], [0, 0, -1.4 * s]]), // pointed ears
+    ...pair((s) => ['sph', glow(0xffd23a, 3.5), [0.042 * s, 0.03, -0.122], [0.016, 0.01, 0.008]]), ...pair((s) => ['box', BLACK, [0.042 * s, 0.05, -0.124], [0.04, 0.008, 0.008], [0, 0, -0.45 * s]]),
+    ['box', BLACK, [0, -0.08, -0.17], [0.07, 0.01, 0.006]], ...pair((s) => fang(IVORY, 0.025 * s, -0.082, -0.172, 0.03)), ...pair((s) => fang(IVORY, 0.015 * s, -0.08, -0.172, 0.018, true)),
+  ] },
+  { id: 'dragon', name: 'Dragon Head', price: 2800, sw: 0xc8202a, hide: WHOLE, parts: [
+    ['sph', LACQ(0xc8202a), [0, 0.02, 0.01], [0.13, 0.13, 0.14]],
+    ['round', LACQ(0xc8202a), [0, -0.01, -0.13], [0.11, 0.07, 0.15]], ['round', LACQ(0xa01820), [0, -0.075, -0.12], [0.1, 0.035, 0.14], [0.12, 0, 0]], // a long snout and its jaw
+    ...[-3, -2, -1, 1, 2, 3].map((k) => fang(IVORY, k * 0.014, -0.055, -0.19, 0.022)),
+    ...pair((s) => ['sph', GOLD, [0.03 * s, 0.03, -0.2], [0.014, 0.012, 0.012]]), // nostrils
+    ...pair((s) => ['sph', mat(0xffd23a, { e: 0xffa000, ei: 1.5 }), [0.06 * s, 0.07, -0.08], [0.028, 0.026, 0.02]]), ...pair((s) => ['sph', BLACK, [0.065 * s, 0.07, -0.098], [0.012, 0.02, 0.006]]), // big eyes
+    ...pair((s) => ['box', GOLD, [0.06 * s, 0.105, -0.085], [0.07, 0.016, 0.02], [0, 0, 0.25 * s]]), // bushy gold brows
+    ...[1, -1].flatMap((s) => horn(GOLD, 0.05, 0.13, 0.02, s, 0.2, 0.35, -0.5, 0.016)), ...pair((s) => ['cone', GOLD, [0.09 * s, 0.24, 0.0], [0.01, 0.07, 0.01], [-0.3, 0, -0.9 * s]]), // antlers, branching
+    ...pair((s) => ['cyl', GOLD, [0.07 * s, -0.04, -0.24], [0.004, 0.2, 0.004], [1.0, 0, 0.6 * s]]), // whiskers
+    ...[-2, -1, 0, 1, 2].map((k) => ['cone', k % 2 ? GOLD : LACQ(0xe8b020), [k * 0.04, 0.05, 0.13], [0.03, 0.16, 0.012], [2.2, 0, -k * 0.25]]), // the mane
+  ] },
+);
+
+// ---- outfits: families, each in several colours; the legendary ones glow along their trim
+const fam = (id, name, price, vs) => vs.map(([v, vn, gi, trim, pants, o = {}]) => ({ id: `${id}-${v}`, name: `${name} · ${vn}`, price, sw: gi === 0x111111 || gi < 0x202020 ? trim : gi, gi, trim, pants, ...o }));
+CATALOG.outfit.push(
+  ...fam('ronin', 'Ronin', 300, [['ash', 'Ash', 0x6b6b6b, 0x2a2a2a, 0x1e1e1e], ['indigo', 'Indigo', 0x2c3a6b, 0xc9c9c9, 0x1a1f33], ['rust', 'Rust', 0x8a4a22, 0x2a1a10, 0x24170e], ['moss', 'Moss', 0x4a5a2a, 0xc9b36b, 0x232a14]]),
+  ...fam('monk', 'Warrior Monk', 350, [['saffron', 'Saffron', 0xe08a1a, 0x7c1018, 0x5a1010], ['maroon', 'Maroon', 0x7c1018, 0xe0a83a, 0x3a0a0e], ['slate', 'Slate', 0x5a6470, 0xe08a1a, 0x2a2f36]]),
+  ...fam('shinobi', 'Shinobi', 450, [['night', 'Night', 0x16161c, 0xc0262c, 0x0e0e12], ['storm', 'Storm', 0x1e2430, 0x4ab0ff, 0x10141c], ['venom', 'Venom', 0x16161c, 0x5af09a, 0x0e0e12], ['dusk', 'Dusk', 0x1a1424, 0xb07aff, 0x0e0b14]]),
+  ...fam('festival', 'Festival', 500, [['koi', 'Koi', 0xf07f1f, 0xffffff, 0x1e3f8a], ['lantern', 'Lantern', 0xd7262e, 0xffc23d, 0x2a1a10], ['wisteria', 'Wisteria', 0xb07aff, 0xf4f1ea, 0x3a2a5a]]),
+  ...fam('lord', 'Samurai Lord', 800, [['gold', 'Gold', 0x1a1a1a, 0xd9ad3c, 0x111111], ['silver', 'Silver', 0x22283a, 0xc9d2dc, 0x141826], ['crimson', 'Crimson', 0x7c1018, 0xd9ad3c, 0x1c1214], ['jade', 'Jade', 0x1f4a34, 0xd9ad3c, 0x10261a]]),
+  ...fam('molten', 'Molten Core', 1800, [['fire', 'Fire', 0x1a1210, 0xff6a10, 0x0e0a08, { glow: 0xff5a00 }], ['blue', 'Blue Flame', 0x0e1220, 0x3a8aff, 0x080a12, { glow: 0x2a6aff }]]),
+  ...fam('spirit', 'Spirit Walker', 2000, [['frost', 'Frost', 0xeef6ff, 0x5fe3ff, 0x8fb0c8, { glow: 0x3ac8ff }], ['jade', 'Jade', 0xeef6ee, 0x5af09a, 0x8fc8a8, { glow: 0x2ad078 }]]),
+  ...fam('voidemp', 'Void Emperor', 2400, [['violet', 'Violet', 0x0b0614, 0x9b51ff, 0x050308, { glow: 0x9b51ff }], ['crimson', 'Crimson', 0x120406, 0xff2a3a, 0x060203, { glow: 0xff1a2a }]]),
+  ...fam('celestial', 'Celestial', 2800, [['dawn', 'Dawn', 0xf4f1ea, 0xffd34d, 0x2a2f5a, { glow: 0xffb000 }], ['night', 'Night', 0x141a3a, 0xffd34d, 0x0a0e22, { glow: 0xffb000 }]]),
+);
+
+// ---- sword shapes (a tab of their own under Swords): the outline of the blade; the finish comes from the sword
+CATALOG.shape = [
+  { id: 'straight', name: 'Straight', price: 0, sw: 0xdfe6ee },
+  { id: 'tachi', name: 'Curved Tachi', price: 250, sw: 0xdfe6ee },
+  { id: 'jian', name: 'Twin-Edged Jian', price: 350, sw: 0xdfe6ee },
+  { id: 'serrated', name: 'Sawtooth', price: 550, sw: 0xdfe6ee },
+  { id: 'scimitar', name: 'Scimitar', price: 650, sw: 0xdfe6ee },
+  { id: 'forked', name: 'Forked Tongue', price: 900, sw: 0xdfe6ee },
+  { id: 'flame', name: 'Flame Kris', price: 1200, sw: 0xdfe6ee },
+  { id: 'crescent', name: 'Crescent Moon', price: 1700, sw: 0xdfe6ee },
+  { id: 'demon', name: 'Demon Fang', price: 2300, sw: 0xdfe6ee },
+  { id: 'wing', name: 'Dragon Wing', price: 2900, sw: 0xdfe6ee },
+];
+CATALOG.sword.push(
+  { id: 'molten', name: 'Molten', price: 1600, sw: 0xff6a10, blade: mat(0x2a0a04, { m: 0.4, r: 0.3, e: 0xff5a00, ei: 2.2 }), guard: 0x1a1a1a, grip: 0x3a1a0a },
+  { id: 'spirit', name: 'Spirit Glass', price: 2000, sw: 0x9ff0ff, blade: mat(0xcff8ff, { m: 0.1, r: 0.05, e: 0x5fe3ff, ei: 2 }), guard: 0xeef6ff, grip: 0x1e3f8a },
+  { id: 'sunsteel', name: 'Sunsteel', price: 2500, sw: 0xffe08a, blade: mat(0xffe8a0, { m: 1, r: 0.15, e: 0xffb000, ei: 1.6 }), guard: 0xffffff, grip: 0x7a5410 },
+);
+
+// ---- trails: a legendary tier, longer and with their own particles (len: how long the trail hangs, in seconds)
+CATALOG.trail.push(
+  { id: 'frost', name: 'Frost', price: 900, sw: 0xbfeaff, a: 0x3aa0ff, b: 0xe8f8ff, px: 'snow', len: 0.16 },
+  { id: 'bloodmoon', name: 'Blood Moon', price: 1000, sw: 0xd61a2a, a: 0x5a0008, b: 0xff2a3a, px: 'ember', len: 0.16 },
+  { id: 'aurora', name: 'Aurora', price: 1600, sw: 0x5af0b0, a: 0xffffff, b: 0xffffff, fx: 'aurora', px: 'star', len: 0.22 },
+  { id: 'dragonfire', name: 'Dragonfire', price: 1900, sw: 0xff5a10, a: 0xff3a00, b: 0xffe080, fx: 'fire', px: 'ember', len: 0.24 },
+  { id: 'voidrift', name: 'Void Rift', price: 2200, sw: 0x7a3aff, a: 0x12001f, b: 0xb070ff, px: 'void', len: 0.26 },
+  { id: 'galaxy', name: 'Galaxy', price: 2800, sw: 0x3a5aff, a: 0xffffff, b: 0xffffff, fx: 'galaxy', px: 'star', len: 0.3 },
+);
+// ---- kill effects (see killfx.js)
+CATALOG.kill.push(
+  { id: 'shatter', name: 'Glass Shatter', price: 900, sw: 0xdff4ff },
+  { id: 'petrify', name: 'Petrify', price: 1100, sw: 0x8a8580 },
+  { id: 'spirit', name: 'Spirit Release', price: 1600, sw: 0x9fe8ff },
+  { id: 'blackhole', name: 'Black Hole', price: 2000, sw: 0x1a0a2a },
+  { id: 'dragonbreath', name: "Dragon's Breath", price: 2500, sw: 0xff5a10 },
+);
+// ---- grapples (see grapple.js)
+CATALOG.grapple.push(
+  { id: 'bone', name: 'Bone Chain', price: 700, sw: 0xe8dfc8, head: 'bonehook' },
+  { id: 'frostchain', name: 'Frost Chain', price: 1100, sw: 0x9fe8ff, head: 'icicle' },
+  { id: 'hellchain', name: 'Hellfire Chain', price: 1500, sw: 0xff5a10, head: 'flamehook' },
+  { id: 'celestial', name: 'Celestial Ribbon', price: 2200, sw: 0xffd34d, head: 'star' },
+  { id: 'serpent', name: 'Serpent', price: 2700, sw: 0x2a8a3a, head: 'snake' },
+);
+for (const c of Object.keys(CATALOG)) CATALOG[c].sort((a, b) => (a.price === 0 ? -1 : b.price === 0 ? 1 : a.price - b.price)); // (cheapest first, the free one at the front)
 /** Keep only real item ids (used on looks arriving over the network). */
 export function cleanLook(look) {
   const out = { ...DEFAULT_LOOK };
@@ -196,7 +373,7 @@ export function cleanLook(look) {
 /** A random look for a bot: most wear a few things, some go plain. */
 export function randomLook() {
   const pick = (c, p) => (Math.random() < p ? CATALOG[c][1 + Math.floor(Math.random() * (CATALOG[c].length - 1))].id : CATALOG[c][0].id);
-  return { mask: pick('mask', 0.5), hat: pick('hat', 0.5), outfit: pick('outfit', 0.35), sword: pick('sword', 0.45), trail: pick('trail', 0.5), kill: pick('kill', 0.35), grapple: pick('grapple', 0.4) };
+  return { mask: pick('mask', 0.5), hat: pick('hat', 0.5), outfit: pick('outfit', 0.35), sword: pick('sword', 0.45), shape: pick('shape', 0.35), trail: pick('trail', 0.5), kill: pick('kill', 0.35), grapple: pick('grapple', 0.4) };
 }
 
 // ---------- your profile: coins, what you own, what you wear (kept in this browser) ----------

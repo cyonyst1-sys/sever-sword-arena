@@ -64,6 +64,24 @@ function makeHead(kind) {
       add(new THREE.ConeGeometry(0.025, 0.18, 5), gold, 0.07 * s, -0.16, 0.07, -0.9, 0.3 * s); // horns sweeping back
       add(new THREE.SphereGeometry(0.022, 6, 4), S({ color: 0xff2a1a, emissive: 0xff2a1a, emissiveIntensity: 2 }), 0.065 * s, -0.04, 0.07);
     }
+  } else if (kind === 'bonehook') {
+    const b = S({ color: 0xe8dfc8, roughness: 0.6 });
+    add(new THREE.CylinderGeometry(0.025, 0.035, 0.2, 6), b, 0, -0.06);
+    for (const s of [1, -1]) add(new THREE.ConeGeometry(0.03, 0.18, 6), b, 0.06 * s, 0.05, 0, 0, s > 0 ? -0.7 : 0.7);
+  } else if (kind === 'icicle') {
+    add(new THREE.OctahedronGeometry(0.1, 0), S({ color: 0xcff4ff, emissive: 0x3aa0ff, emissiveIntensity: 1.2, roughness: 0.05, transparent: true, opacity: 0.85 }), 0, 0.02).scale.set(0.7, 1.8, 0.7);
+  } else if (kind === 'flamehook') {
+    const hotM = S({ color: 0x2a0a04, emissive: 0xff4a00, emissiveIntensity: 1.8, metalness: 0.6, roughness: 0.4 });
+    add(new THREE.CylinderGeometry(0.03, 0.03, 0.28, 6), hotM, 0, -0.1);
+    for (const s of [1, -1]) add(new THREE.TorusGeometry(0.11, 0.026, 6, 12, Math.PI), hotM, 0.11 * s, 0.05, 0, 0, s > 0 ? -Math.PI / 2 : Math.PI / 2);
+    add(new THREE.SphereGeometry(0.16, 8, 6), G(0xff6a10), 0, 0.02);
+  } else if (kind === 'star') {
+    add(new THREE.OctahedronGeometry(0.11, 0), new THREE.MeshBasicMaterial({ color: 0xfff4c0 }));
+    add(new THREE.SphereGeometry(0.22, 10, 8), G(0xffd34d));
+  } else if (kind === 'snake') {
+    const sk = S({ color: 0x1f6a2c, roughness: 0.35 });
+    add(new THREE.SphereGeometry(0.1, 10, 8), sk, 0, -0.02).scale.set(0.9, 1.4, 0.7);
+    for (const s of [1, -1]) { add(new THREE.SphereGeometry(0.018, 6, 4), S({ color: 0xffd23a, emissive: 0xffa000, emissiveIntensity: 1.5 }), 0.05 * s, 0.03, 0.05); add(new THREE.ConeGeometry(0.012, 0.07, 5), S({ color: 0xf2ead8 }), 0.025 * s, 0.1, -0.02, Math.PI, 0); }
   }
   return g;
 }
@@ -196,6 +214,39 @@ export function makeGrapple(scene, st, fx = {}) {
       }
       flush(fins, n);
     };
+  } else if (id === 'bone') { // Bone Chain: a string of vertebrae, each a knobbled bead with a disc between
+    const v = layer(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshStandardMaterial({ color: 0xe8dfc8, roughness: 0.6 }), 260), dsc = layer(new THREE.CylinderGeometry(1, 1, 1, 10), new THREE.MeshStandardMaterial({ color: 0xc8bea8, roughness: 0.7 }), 260);
+    draw = () => {
+      const n = Math.min(260, Math.ceil(L / 0.14));
+      for (let i = 0; i < n; i++) { const u = (i + 0.5) / n; at(u, 0, 0, _r); at(Math.min(1, u + 0.01), 0, 0, _p); _w.subVectors(_p, _r).normalize(); _q.setFromUnitVectors(UP, _w);
+        _mx.compose(_r, _q, _s.set(0.045, 0.05, 0.035)); v.setMatrixAt(i, _mx); at(Math.min(1, u + 0.5 / n), 0, 0, _p); _mx.compose(_p, _q, _s.set(0.03, 0.012, 0.03)); dsc.setMatrixAt(i, _mx); }
+      flush(v, n); flush(dsc, n);
+    };
+  } else if (id === 'frostchain' || id === 'hellchain') { // ice crystals, or red-hot iron links shedding embers
+    const hot = id === 'hellchain';
+    const m = layer(hot ? new THREE.TorusGeometry(0.06, 0.018, 6, 12).scale(0.8, 1.35, 1) : new THREE.OctahedronGeometry(1, 0), hot ? new THREE.MeshStandardMaterial({ color: 0x2a0a04, emissive: 0xff4a00, emissiveIntensity: 1.6, metalness: 0.6, roughness: 0.4 }) : new THREE.MeshStandardMaterial({ color: 0xcff4ff, emissive: 0x3aa0ff, emissiveIntensity: 0.9, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.85 }), 420);
+    const core = layer(tubeGeo, glowM(hot ? 0xff6a10 : 0x7fd8ff, 0.5), 30);
+    draw = (dt) => {
+      const sp = hot ? 0.13 : 0.16, n = Math.min(420, Math.ceil(L / sp));
+      for (let i = 0; i < n; i++) { const u = (i + 0.5) / n; at(u, 0, 0, _r); at(Math.min(1, u + 0.01), 0, 0, _p); _w.subVectors(_p, _r).normalize(); _q.setFromUnitVectors(UP, _w);
+        if (hot) { if (i % 2) _q.premultiply(_q2.setFromAxisAngle(_w, Math.PI / 2)); _mx.compose(_r, _q, _s.set(1, Math.max(1, L / n / 0.13), 1)); }
+        else { _q.premultiply(_q2.setFromAxisAngle(_w, i * 0.7 + t)); _mx.compose(_r, _q, _s.set(0.045, 0.085, 0.045)); }
+        m.setMatrixAt(i, _mx); }
+      flush(m, n); flush(core, strand(core, 0, 31, () => [0, 0], () => 0.012)); core.material.opacity = 0.35 + 0.2 * Math.sin(t * 9);
+      const fx2 = hot ? fx.ember : fx.snow; if (fx2 && Math.random() < dt * 30) { _m.copy(A).lerp(B, Math.random()); fx2.emit(_m.x, _m.y, _m.z, (Math.random() - 0.5) * 0.6, hot ? 1.2 : -0.2, (Math.random() - 0.5) * 0.6, 0.6); }
+    };
+  } else if (id === 'celestial') { // Celestial Ribbon: two gold ribbons twisting round each other, studded with little stars
+    const rib = layer(tubeGeo, glowM(0xffd34d, 0.85), 2 * 59), stars = layer(new THREE.OctahedronGeometry(1, 0), glowM(0xffffff, 0.95), 40);
+    draw = (dt) => {
+      let n = 0; for (let k = 0; k < 2; k++) n = strand(rib, n, 60, (u) => { const a = u * L * 3 + k * Math.PI + t * 3, rr = 0.06 * Math.sin(u * Math.PI) + 0.01; return [Math.cos(a) * rr, Math.sin(a) * rr]; }, () => 0.012); flush(rib, n);
+      const w = Math.min(40, Math.ceil(L / 0.9)); for (let i = 0; i < w; i++) { const u = ((i / w) + t * 0.35) % 1; at(u, 0, 0, _r); const sz = 0.03 * (0.6 + 0.4 * Math.sin(t * 8 + i * 1.7)); _q.setFromAxisAngle(UP, t * 4 + i); _mx.compose(_r, _q, _s.set(sz, sz * 1.4, sz)); stars.setMatrixAt(i, _mx); } flush(stars, w);
+      if (fx.star && Math.random() < dt * 20) { _m.copy(A).lerp(B, Math.random()); fx.star.emit(_m.x, _m.y, _m.z, 0, 0.3, 0, 0.5); }
+    };
+  } else if (id === 'serpent') { // Serpent: a long green snake, banded, slithering from your hand to its fanged head
+    const tex = (() => { const c = document.createElement('canvas'); c.width = 32; c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#1f6a2c'; g.fillRect(0, 0, 32, 64); g.fillStyle = '#0c2a12'; for (let y = 0; y < 64; y += 16) { g.beginPath(); g.moveTo(0, y); g.lineTo(16, y + 8); g.lineTo(32, y); g.lineTo(32, y + 4); g.lineTo(16, y + 12); g.lineTo(0, y + 4); g.fill(); } g.fillStyle = '#d8c060'; g.fillRect(14, 0, 4, 64); const t2 = new THREE.CanvasTexture(c); t2.wrapS = t2.wrapT = THREE.RepeatWrapping; t2.colorSpace = THREE.SRGBColorSpace; return t2; })();
+    const body = layer(new THREE.CylinderGeometry(1, 1, 1, 10, 1, true).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.2 }), 47);
+    const sl = (u) => { const env = Math.sin(u * Math.PI); return [Math.sin(u * L * 1.1 - t * 7) * 0.16 * env, Math.cos(u * L * 0.6 - t * 5) * 0.05 * env]; };
+    draw = () => flush(body, strand(body, 0, 48, sl, (u) => 0.018 + 0.035 * Math.sin(Math.min(1, u * 1.15) * Math.PI * 0.5)));
   } else { // Rope: a twisted two-strand hemp rope, sagging a little
     const m = layer(tubeGeo, new THREE.MeshStandardMaterial({ roughness: 0.95 }), 2 * 59);
     for (let k = 0; k < 2; k++) for (let i = 0; i < 59; i++) m.setColorAt(k * 59 + i, new THREE.Color(k ? 0x6e5230 : 0x9a7a4a));

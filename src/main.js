@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116002413';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116002413';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116002413';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116002413';
-import * as net from './net.js?v=20261116002413';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116002413';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116002413';
-import { makeKillFx } from './killfx.js?v=20261116002413';
-import { makeGrapple } from './grapple.js?v=20261116002413';
-import { initShop } from './shop.js?v=20261116002413';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116002413';
-import { portal } from './portal.js?v=20261116002413';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116002413';
-import { makePost } from './post.js?v=20261116002413';
+import { Arena, MAPS } from './arena.js?v=20261116004221';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116004221';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116004221';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116004221';
+import * as net from './net.js?v=20261116004221';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116004221';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116004221';
+import { makeKillFx } from './killfx.js?v=20261116004221';
+import { makeGrapple } from './grapple.js?v=20261116004221';
+import { initShop } from './shop.js?v=20261116004221';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116004221';
+import { portal } from './portal.js?v=20261116004221';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116004221';
+import { makePost } from './post.js?v=20261116004221';
 
 // ---------- settings ----------
 const store = {
@@ -54,8 +54,11 @@ const trailFx = {
   ember: new Particles(scene, ground, { color: 0xffa040, size: 0.05, gravity: -2, max: 500 }),
   petal: new Particles(scene, ground, { color: 0xffb7d5, size: 0.08, gravity: 2.5, max: 500 }),
   zap: new Particles(scene, ground, { color: 0xbff0ff, size: 0.04, gravity: 0, max: 400 }),
+  star: new Particles(scene, ground, { color: 0xffffff, size: 0.05, gravity: 0, max: 600 }),
+  snow: new Particles(scene, ground, { color: 0xeaf8ff, size: 0.06, gravity: 1.5, max: 500 }),
+  void: new Particles(scene, ground, { color: 0xb07aff, size: 0.06, gravity: -0.5, max: 500 }),
 };
-const grapFx = { smoke: new Particles(scene, ground, { color: 0x1a1020, size: 0.22, gravity: -0.5, max: 400 }), zap: trailFx.zap }; // grapple styles
+const grapFx = { smoke: new Particles(scene, ground, { color: 0x1a1020, size: 0.22, gravity: -0.5, max: 400 }), zap: trailFx.zap, ember: trailFx.ember, snow: trailFx.snow, star: trailFx.star }; // grapple styles
 const pieces = new Pieces(scene, ground, blood); pieces.max = 220;
 // Paper Dojo debris: paper scraps flutter, wood splinters and straw drop
 const debris = {
@@ -2227,8 +2230,8 @@ function tick(rdt, tt) {
       }
       f.prevHand.copy(f.hand); f.prevTip.copy(f.tip);
       f.updateTrail(tt);
-      const tfx = trailFx[f.trailStyle.fx]; // ember, petal and zap trails shed particles off a fast blade
-      if (tfx && f.tipSpeed > 9 && f.trail.length > 1) for (let k = 0; k < 2; k++) { const u = Math.random(), p = _t.copy(f.hand).lerp(f.tip, 0.4 + u * 0.6), j = f.trailStyle.fx === 'zap' ? 5 : 1.5; tfx.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.18 : 0.9); }
+      const tfx = trailFx[f.trailStyle.px || f.trailStyle.fx]; // ember, petal and zap trails shed particles off a fast blade
+      if (tfx && f.tipSpeed > 9 && f.trail.length > 1) for (let k = 0; k < ((f.trailStyle.len || 0) > 0.2 ? 4 : 2); k++) { const u = Math.random(), p = _t.copy(f.hand).lerp(f.tip, 0.4 + u * 0.6), j = f.trailStyle.fx === 'zap' ? 5 : 1.5; tfx.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.18 : 0.9); }
       f.group.visible = f.alive ? !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0) : f.eatenAt > now(); // (a fighter the piranha is about to eat stays in view)
       // rope
       if (f.hook) f.grap.show(f.handL, f.hook.via || f.hook.p, rdt); else f.grap.hide();

@@ -2,8 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261116002413';
-import { item, cleanLook } from './cosmetics.js?v=20261116002413';
+import { buildBody, poseBody } from './body.js?v=20261116004221';
+import { item, cleanLook } from './cosmetics.js?v=20261116004221';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -48,10 +48,10 @@ const M = {
 for (const m of Object.values(M)) regMat(m);
 CAP.flesh.userData.flesh = true; M.skin.userData.flesh = true; M.skinShade.userData.flesh = true;
 const clothCache = new Map();
-function cloth(color, k = 1) {
-  const key = color + ':' + k;
+function cloth(color, k = 1, glow = 0) { // (glow: the trim of a legendary outfit lights up)
+  const key = color + ':' + k + ':' + glow;
   if (!clothCache.has(key)) {
-    const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(k * 1.08), roughness: 0.85, map: WEAVE, bumpMap: WEAVE, bumpScale: 0.9 });
+    const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(k * 1.08), roughness: 0.85, map: WEAVE, bumpMap: WEAVE, bumpScale: 0.9, emissive: glow ? new THREE.Color(glow) : new THREE.Color(0), emissiveIntensity: glow ? 1.6 : 1 });
     regMat(m); clothCache.set(key, m);
   }
   return clothCache.get(key);
@@ -123,6 +123,31 @@ function hairGeo() {
     p.setXYZ(i, x * k * 0.96, y * k, z * k);
   }
   g.computeVertexNormals(); return g;
+}
+// sword shapes: a blade outline (x across the blade, the edge at +x; y from the hilt, -0.5, to the tip, 0.5) pushed
+// out into a thin slab, unit size like the box it replaces, so the sword's width and thickness still scale it
+const bladeCache = {};
+function bladeGeo(id) {
+  if (bladeCache[id]) return bladeCache[id];
+  const n = 40, L = [], Rr = [], ys = Array.from({ length: n + 1 }, (_, i) => -0.5 + i / n);
+  const tipIn = (y, at) => Math.max(0, Math.min(1, (0.5 - y) / (0.5 - at))); // 1 below the tip, closing to 0 at it
+  const edge = (c, h, at = 0.38, tipX = null) => { for (const y of ys) { const k = y > at ? tipIn(y, at) : 1, cc = c(y); L.push([cc - h(y) * (y > at && tipX === 'back' ? 1 : k), y]); Rr.push([cc + h(y) * k, y]); } };
+  const saw = (t) => t - Math.floor(t);
+  const P = (y) => y + 0.5;
+  if (id === 'tachi') edge((y) => -1.2 * P(y) ** 2, () => 0.5, 0.36);
+  else if (id === 'jian') edge(() => 0, (y) => 0.45 - 0.05 * Math.sin(P(y) * Math.PI), 0.32);
+  else if (id === 'serrated') { for (const y of ys) { const k = y > 0.38 ? tipIn(y, 0.38) : 1; L.push([-0.5 * k, y]); Rr.push([(0.5 + (y < 0.36 && y > -0.42 ? 0.32 * saw(P(y) * 16) : 0)) * k, y]); } }
+  else if (id === 'scimitar') edge((y) => -1.6 * P(y) ** 2, (y) => 0.38 + 0.62 * P(y) ** 1.5, 0.42);
+  else if (id === 'forked') { for (const y of ys) { L.push([-0.5, y]); Rr.push([0.5, y]); } L[n][0] = -0.55; Rr[n][0] = 0.55; }
+  else if (id === 'flame') edge((y) => 0.38 * Math.sin(P(y) * Math.PI * 9) * (1 - P(y) * 0.5), () => 0.42, 0.4);
+  else if (id === 'crescent') { for (const y of ys) { const s = Math.sin(Math.PI * P(y)), k = y > 0.42 ? tipIn(y, 0.42) : 1; L.push([(-0.5 - 2.8 * s) * k, y]); Rr.push([(0.5 - 1.0 * s) * k, y]); } }
+  else if (id === 'demon') { for (const y of ys) { const k = y > 0.4 ? tipIn(y, 0.4) : 1; L.push([(-0.7 - (y > -0.35 && y < 0.35 ? 1.0 * saw(P(y) * 6) : 0)) * k, y]); Rr.push([(0.7 + 0.12 * Math.sin(P(y) * 30)) * k, y]); } }
+  else if (id === 'wing') { for (const y of ys) { const s = Math.sin(Math.PI * Math.min(1, P(y) * 1.05)), k = y > 0.45 ? tipIn(y, 0.45) : 1; L.push([-0.4 * k, y]); Rr.push([(0.4 + 2.4 * s ** 0.7 - 0.6 * Math.abs(Math.sin(P(y) * Math.PI * 5)) * s) * k, y]); } }
+  else { for (const y of ys) { L.push([-0.5, y]); Rr.push([y > 0.3 ? 0.5 - (y - 0.3) / 0.2 * 1.0 : 0.5, y]); } } // straight, with an angled tip
+  const pts = [...Rr.map(([x, y]) => new THREE.Vector2(x, y)), ...L.reverse().map(([x, y]) => new THREE.Vector2(x, y))];
+  if (id === 'forked') pts.splice(n + 1, 0, new THREE.Vector2(0, 0.3)); // (a notch splitting the tip in two)
+  const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: 1, bevelEnabled: false }); g.translate(0, 0, -0.5); g.computeVertexNormals();
+  return (bladeCache[id] = g);
 }
 const GEO = {
   cyl: new THREE.CylinderGeometry(1, 1, 1, 14, 1),
@@ -215,7 +240,7 @@ export class Fighter {
     this.group = new THREE.Group();
     this.meshes = [];
     const O = L.outfit.gi !== undefined && !horde ? L.outfit : null;
-    const gi = cloth(horde ? HORDE_COLOR : O ? O.gi : color), trim = cloth(horde ? 0x8e1717 : O ? O.trim : color, O ? 1 : 0.55), pants = horde ? M.dark : cloth(O ? O.pants : 0x2c2f3a);
+    const gi = cloth(horde ? HORDE_COLOR : O ? O.gi : color), trim = cloth(horde ? 0x8e1717 : O ? O.trim : color, O ? 1 : 0.55, O && O.glow || 0), pants = horde ? M.dark : cloth(O ? O.pants : 0x2c2f3a);
     const mk = (geo, mat, cap = CAP.flesh) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.userData.cap = cap; this.group.add(m); this.meshes.push(m); return m; };
     this.p = {
       // trunk
@@ -237,7 +262,7 @@ export class Fighter {
       lapL: mk(GEO.round, trim), lapR: mk(GEO.round, trim), obiK: mk(GEO.round, trim), tailL: mk(GEO.round, trim), tailR: mk(GEO.round, trim),
       wrL: mk(GEO.cyl, M.dark), wrR: mk(GEO.cyl, M.dark), kyL: mk(GEO.taper, horde ? M.dark : cloth(0xd2cab8)), kyR: mk(GEO.taper, horde ? M.dark : cloth(0xd2cab8)),
       saya: mk(GEO.cyl, M.saya, CAP.wood), kojiri: mk(GEO.cyl, M.gold, CAP.steel),
-      grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(GEO.box, L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
+      grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(bladeGeo(item('shape', this.look.shape).id), L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
     };
     // mask and headwear: extra parts worn on the head; some hide what they cover
     this.acc = [];
@@ -259,7 +284,7 @@ export class Fighter {
     }
     // sword trail (world space)
     this.trail = [];
-    const N = 10;
+    const N = 18; // (trail points: the longest legendary trails use them all)
     const tg = new THREE.BufferGeometry();
     tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 2 * 3), 3));
     tg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(N * 2 * 3), 3));
@@ -432,16 +457,19 @@ export class Fighter {
   updateTrail(now) {
     const T = this.trail;
     if (this.alive) T.push({ h: this.hand.clone().lerp(this.tip, 0.3), t: this.tip.clone(), time: now });
-    while (T.length && (now - T[0].time > 0.12 || T.length > 10)) T.shift();
+    while (T.length && (now - T[0].time > (this.trailStyle.len || 0.12) || T.length > 18)) T.shift();
     const pos = this.trailMesh.geometry.attributes.position, col = this.trailMesh.geometry.attributes.color;
     const st = this.trailStyle, A = _tcA.set(st.a), B = _tcB.set(st.b), n = T.length;
     this.tipSpeed = n > 1 ? T[n - 1].t.distanceTo(T[n - 2].t) / Math.max(0.001, T[n - 1].time - T[n - 2].time) : 0;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 18; i++) {
       const e = T[Math.min(i, T.length - 1)] || { h: this.tip, t: this.tip, time: now };
       pos.setXYZ(i * 2, e.h.x, e.h.y, e.h.z); pos.setXYZ(i * 2 + 1, e.t.x, e.t.y, e.t.z);
       let v = 0;
-      if (i > 0 && i < T.length) { const sp = T[i].t.distanceTo(T[i - 1].t) / Math.max(0.001, T[i].time - T[i - 1].time); v = Math.min(1, Math.max(0, (sp - 6) / 14)) * (1 - (now - e.time) / 0.12) * 0.8; }
-      if (st.fx === 'rainbow') { A.setHSL((now * 0.9 + i * 0.07) % 1, 1, 0.45); B.setHSL((now * 0.9 + i * 0.07) % 1, 1, 0.65); }
+      if (i > 0 && i < T.length) { const sp = T[i].t.distanceTo(T[i - 1].t) / Math.max(0.001, T[i].time - T[i - 1].time); v = Math.min(1, Math.max(0, (sp - 6) / 14)) * (1 - (now - e.time) / (st.len || 0.12)) * 0.8; }
+      if (st.fx === 'aurora') { const h = 0.35 + 0.22 * Math.sin(now * 1.6 + i * 0.35); A.setHSL(h, 0.9, 0.35); B.setHSL(h + 0.08, 1, 0.68); } // (greens through cyan to violet, rippling)
+      else if (st.fx === 'galaxy') { A.setHSL((0.62 + 0.18 * Math.sin(now * 2 + i * 0.5)) % 1, 1, 0.3); B.setHSL((now * 0.5 + i * 0.09) % 1, 1, 0.72); if (Math.random() < 0.12) B.setRGB(1, 1, 1); } // (deep blue and violet with every colour sparkling through)
+      else if (st.fx === 'fire') { const fl = 0.75 + Math.random() * 0.45; A.setRGB(1 * fl, 0.25 * fl, 0); B.setRGB(1, 0.85 * fl, 0.4 * fl); }
+      else if (st.fx === 'rainbow') { A.setHSL((now * 0.9 + i * 0.07) % 1, 1, 0.45); B.setHSL((now * 0.9 + i * 0.07) % 1, 1, 0.65); }
       else if (st.fx === 'zap') v *= 0.45 + Math.random() * 0.9; // crackles
       col.setXYZ(i * 2, v * A.r, v * A.g, v * A.b); col.setXYZ(i * 2 + 1, v * B.r, v * B.g, v * B.b);
     }

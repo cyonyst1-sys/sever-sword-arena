@@ -1,10 +1,10 @@
 // The shop screen: browse by category, try things on a turning, swinging preview fighter, buy and equip.
 import * as THREE from 'three';
-import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116002413';
-import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261116002413';
-import { makeKillFx } from './killfx.js?v=20261116002413';
-import { makeGrapple } from './grapple.js?v=20261116002413';
-import { CATEGORIES, CATALOG, item, profile, owns, buy, equip, UPGRADES, UP_MAX, UP_PRICES, buyUpgrade, upText } from './cosmetics.js?v=20261116002413';
+import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116004221';
+import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261116004221';
+import { makeKillFx } from './killfx.js?v=20261116004221';
+import { makeGrapple } from './grapple.js?v=20261116004221';
+import { CATEGORIES, CATALOG, item, profile, owns, buy, equip, UPGRADES, UP_MAX, UP_PRICES, buyUpgrade, upText, tierOf } from './cosmetics.js?v=20261116004221';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
@@ -51,8 +51,8 @@ export function initShop({ show, onClose }) {
 
   // ---- UI
   function renderTabs() {
-    const tab = (c) => `<button data-c="${c.id}" class="${c.id === cat ? 'on' : ''}">${c.name}</button>`; // upgrades first, on their own; then the looks
-    $('shopTabs').innerHTML = `<div class="tabGroup up"><span>Upgrades</span>${tab({ id: 'upgrade', name: 'Upgrades' })}</div><div class="tabGroup"><span>Looks</span>${CATEGORIES.filter((c) => c.id !== 'upgrade').map(tab).join('')}</div>`;
+    const tab = (c) => `<button data-c="${c.id}" class="${c.id === cat || c.on ? 'on' : ''}">${c.name}</button>`; // upgrades first, on their own; then the looks
+    $('shopTabs').innerHTML = `<div class="tabGroup up"><span>Upgrades</span>${tab({ id: 'upgrade', name: 'Upgrades' })}</div><div class="tabGroup"><span>Looks</span>${CATEGORIES.filter((c) => c.id !== 'upgrade' && c.id !== 'shape').map((c) => tab(c.id === 'sword' && cat === 'shape' ? { ...c, on: true } : c)).join('')}</div>${cat === 'sword' || cat === 'shape' ? `<div class="tabGroup sub">${tab({ id: 'sword', name: 'Finish' })}${tab({ id: 'shape', name: 'Shape' })}</div>` : ''}`;
   }
   function renderGrid() {
     if (cat === 'upgrade') { // permanent stat boosts: five pips each, the bonus you have now, the price of the next level
@@ -68,7 +68,8 @@ export function initShop({ show, onClose }) {
       const own = owns(cat, it.id), eq = profile.equip[cat] === it.id;
       const st = eq ? '<span class="pr eq">Equipped</span>' : own ? '<span class="pr">Owned</span>' : `<span class="pr ${profile.coins < it.price ? 'no' : ''}"><span class="coin"></span>${it.price}</span>`;
       const sw = it.id === 'rainbow' ? 'linear-gradient(90deg,#ff4a4a,#ffd24a,#4aff7a,#4ab0ff,#c04aff)' : `linear-gradient(135deg, ${hex(it.sw)}, ${hex(it.sw)}aa)`;
-      return `<button class="card ${it.id === sel ? 'sel' : ''}" data-id="${it.id}"><div class="sw" style="background:${sw}"></div><span class="nm">${it.name}</span>${st}</button>`;
+      const tr = tierOf(it.price), badge = it.price ? `<span class="tier ${tr}">${tr}</span>` : '';
+      return `<button class="card t-${tr} ${it.id === sel ? 'sel' : ''}" data-id="${it.id}"><div class="sw" style="background:${sw}"></div>${badge}<span class="nm">${it.name}</span>${st}</button>`;
     }).join('');
   }
   function renderAction() {

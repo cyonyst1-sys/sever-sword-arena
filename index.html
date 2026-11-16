@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261116002413">
+<meta name="build" content="20261116004221">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -98,6 +98,12 @@ window.severVersion.check();
   .mapCard span { font-size:13px !important; font-weight:600; }
   .mapCard:hover { border-color:rgba(255,255,255,.5); transform:translateY(-1px); }
   .mapCard { transition:transform .12s, border-color .12s; cursor:pointer; }
+  .card { position:relative; }
+  .tier { position:absolute; top:6px; right:6px; font-size:9px; letter-spacing:.08em; text-transform:uppercase; font-weight:800; padding:2px 5px; border-radius:4px; background:rgba(0,0,0,.55); }
+  .tier.common { display:none; } .tier.rare { color:#6ab8ff; } .tier.epic { color:#c08aff; } .tier.legendary { color:#ffd25a; }
+  .card.t-legendary { border-color:rgba(255,210,90,.55); box-shadow:0 0 12px rgba(255,180,40,.25) inset; }
+  .card.t-epic { border-color:rgba(192,138,255,.4); }
+  .tabGroup.sub { padding-left:10px; border-left:2px solid var(--gold); }
   .tabGroup { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px; }
   .tabGroup > span { width:100%; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); font-weight:700; }
   .tabGroup.up button { font-weight:700; border-color:var(--gold); }
@@ -170,12 +176,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261116002413",
-  "./src/arena.js": "./src/arena.js?v=20261116002413",
-  "./src/fighter.js": "./src/fighter.js?v=20261116002413",
-  "./src/slice.js": "./src/slice.js?v=20261116002413",
-  "./src/audio.js": "./src/audio.js?v=20261116002413",
-  "./src/net.js": "./src/net.js?v=20261116002413"
+  "./src/main.js": "./src/main.js?v=20261116004221",
+  "./src/arena.js": "./src/arena.js?v=20261116004221",
+  "./src/fighter.js": "./src/fighter.js?v=20261116004221",
+  "./src/slice.js": "./src/slice.js?v=20261116004221",
+  "./src/audio.js": "./src/audio.js?v=20261116004221",
+  "./src/net.js": "./src/net.js?v=20261116004221"
 } }
 </script>
 </head>
@@ -326,6 +332,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261116002413"></script>
+<script type="module" src="src/main.js?v=20261116004221"></script>
 </body>
 </html>

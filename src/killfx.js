@@ -1,8 +1,8 @@
 // Kill effects from the shop: what happens to someone you cut down. The body still splits along your
 // cut; the effect changes what sprays out, what the pieces leak, and what becomes of them.
 import * as THREE from 'three';
-import { Particles } from './slice.js?v=20261116002413';
-import { sfx } from './audio.js?v=20261116002413';
+import { Particles } from './slice.js?v=20261116004221';
+import { sfx } from './audio.js?v=20261116004221';
 
 const R = () => Math.random() - 0.5;
 
@@ -18,9 +18,16 @@ export function makeKillFx(scene, ground, { sound = true } = {}) {
     ice: P({ color: 0xd8f6ff, size: 0.08, gravity: 20, max: 700 }),
     zap: P({ color: 0xcff4ff, size: 0.06, gravity: 0, max: 500 }),
     rift: P({ color: 0xb07aff, size: 0.07, gravity: 0, max: 600 }),
+    shard: P({ color: 0xeaf8ff, size: 0.07, gravity: 20, max: 900 }),
+    dust: P({ color: 0x8a8580, size: 0.12, gravity: -0.4, max: 800 }),
+    wisp: P({ color: 0xbff4ff, size: 0.1, gravity: -2, max: 700 }),
+    fire: P({ color: 0xff7a1a, size: 0.13, gravity: -3, max: 1200 }),
   };
   const mats = {
     ember: new THREE.MeshStandardMaterial({ color: 0x2a1208, emissive: 0xff5a10, emissiveIntensity: 1.7, roughness: 0.9 }),
+    glass: new THREE.MeshStandardMaterial({ color: 0xeaf8ff, roughness: 0.02, metalness: 0.4, transparent: true, opacity: 0.55, emissive: 0x2a4a6a, emissiveIntensity: 0.4 }),
+    stone: new THREE.MeshStandardMaterial({ color: 0x8a8580, roughness: 1 }),
+    ghost: new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }),
     ice: new THREE.MeshStandardMaterial({ color: 0xbfe8ff, emissive: 0x2a6aa0, emissiveIntensity: 0.6, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.86 }),
   };
   const timed = []; // short-lived visuals: lightning bolts, rifts
@@ -101,6 +108,44 @@ export function makeKillFx(scene, ground, { sound = true } = {}) {
         const o = t < 0.2 ? t / 0.2 : t > 0.8 ? Math.max(0, (1.1 - t) / 0.3) : 1; g.scale.set(0.35 * o + 0.001, 1.1 * o + 0.001, 1);
         if (t < 0.8) for (let i = 0; i < 3; i++) { const a = Math.random() * 6.28, r0 = 1.6; const p = c.clone().add(new THREE.Vector3(Math.cos(a) * r0, R() * 1.6, Math.sin(a) * r0)), v = c.clone().sub(p).multiplyScalar(2.2); sys.rift.emit(p.x, p.y, p.z, v.x, v.y, v.z, 0.45); }
       }, end() { scene.remove(g); glow.geometry.dispose(); hole.geometry.dispose(); mat.dispose(); core.dispose(); } });
+    } },
+    // the pieces turn to glass and burst into glittering shards when they land
+    shatter: { burst: null, on(c, n, list) {
+      spray(sys.shard, c, 40, 3, 2, 1.2);
+      for (const p of list) { p.bleed = 0; p.mesh.material = mats.glass; p.t = 0;
+        p.tick = (q, dt) => { q.t += dt; if (!q.done && ((q.onFloor && q.t > 0.15) || q.t > 2)) { q.done = true; q.life = 0; spray(sys.shard, q.mesh.position, 70, 3.2, 3.5, 1.4, q.r); s(sfx.shatter, q.mesh.position); } }; }
+    } },
+    // they turn to stone, thud down, and crumble to dust
+    petrify: { burst: sys.dust, on(c, n, list) {
+      for (const p of list) { p.bleed = 0; p.mesh.material = mats.stone; p.t = 0;
+        p.tick = (q, dt) => { q.t += dt; q.vel.y -= 14 * dt; if (!q.done && (q.onFloor || q.t > 1.8)) { q.done = true; q.life = Math.min(q.life, 0.5); spray(sys.dust, q.mesh.position, 60, 1.2, 1.4, 1.6, q.r); s(sfx.poof, q.mesh.position); } }; }
+    } },
+    // the pieces fade to a pale ghostly blue while the spirit rises out of them in a column of light
+    spirit: { burst: null, on(c, n, list) {
+      s(sfx.chime, c);
+      for (const p of list) { p.bleed = 0; p.mesh.material = mats.ghost; p.t = 0; p.life = Math.min(p.life, 1.6); p.tick = (q, dt) => { q.t += dt; q.vel.multiplyScalar(1 - dt * 2); q.vel.y += 9 * dt; }; }
+      timed.push({ t: 0, life: 1.4, step(t) { for (let i = 0; i < 6; i++) { const a = Math.random() * 6.28, r = 0.2 + Math.random() * 0.5 * (1 - t); sys.wisp.emit(c.x + Math.cos(a) * r, c.y - 0.6 + Math.random() * 0.4, c.z + Math.sin(a) * r, Math.cos(a) * 0.3, 4 + Math.random() * 3, Math.sin(a) * 0.3, 1.2); } }, end() {} });
+    } },
+    // a black hole opens on the cut: everything is pulled in, spun round it and crushed, then it collapses in a flash
+    blackhole: { burst: null, on(c, n, list) {
+      const core = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+      const ringM = new THREE.MeshBasicMaterial({ color: 0xb07aff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(new THREE.RingGeometry(1.15, 2.1, 48), ringM); ring.rotation.x = -Math.PI / 2 + 0.35;
+      const g = new THREE.Group(); g.add(core, ring); g.position.copy(c); g.scale.setScalar(0.01); scene.add(g); s(sfx.rift, c);
+      for (const p of list) { p.bleed = 0; p.t = 0; p.asleep = false;
+        p.tick = (q, dt) => { q.t += dt; q.asleep = false; const to = c.clone().sub(q.mesh.position), d = to.length(), sw = new THREE.Vector3(-to.z, 0, to.x).normalize();
+          q.vel.lerp(to.multiplyScalar(7 / Math.max(0.25, d)).addScaledVector(sw, 6), Math.min(1, dt * 5)); q.vel.y += 24 * dt; q.mesh.scale.multiplyScalar(1 - dt * 0.9); if (q.t > 0.9) q.life = Math.min(q.life, 0.2); }; }
+      timed.push({ t: 0, life: 1.3, step(t) {
+        const o = t < 0.25 ? t / 0.25 : t > 1.05 ? Math.max(0.01, (1.3 - t) / 0.25) : 1; g.scale.setScalar(0.45 * o + 0.01); ring.rotation.z += 0.25;
+        for (let i = 0; i < 4; i++) { const a = Math.random() * 6.28, r0 = 2.4; const p = c.clone().add(new THREE.Vector3(Math.cos(a) * r0, R() * 0.6, Math.sin(a) * r0)), v = c.clone().sub(p).multiplyScalar(2.5).add(new THREE.Vector3(-Math.sin(a) * 3, 0, Math.cos(a) * 3)); sys.rift.emit(p.x, p.y, p.z, v.x, v.y, v.z, 0.5); }
+      }, end() { spray(sys.zap, c, 60, 6, 2, 0.4); scene.remove(g); core.geometry.dispose(); ring.geometry.dispose(); ringM.dispose(); core.material.dispose(); } });
+    } },
+    // a dragon's roar of flame spirals up out of the cut, and the pieces burn away to ash on the wind
+    dragonbreath: { burst: sys.ember, on(c, n, list) {
+      s(sfx.thunder, c);
+      for (const p of list) { p.bleed = 0; p.mesh.material = mats.ember; p.t = 0;
+        p.tick = (q, dt) => { q.t += dt; if (Math.random() < dt * 50) spray(sys.fire, q.mesh.position, 1, 0.6, 2, 0.8, q.r); if (q.t > 0.8 && !q.done) { q.done = true; q.life = Math.min(q.life, 0.4); spray(sys.ash, q.mesh.position, 50, 1, 2, 2, q.r); } }; }
+      timed.push({ t: 0, life: 1.2, step(t) { for (let i = 0; i < 10; i++) { const a = t * 14 + i * 0.63, r = 0.4 + t * 1.6, h = t * 6 + Math.random(); sys.fire.emit(c.x + Math.cos(a) * r, c.y - 0.5 + h, c.z + Math.sin(a) * r, -Math.sin(a) * 4, 3 + Math.random() * 2, Math.cos(a) * 4, 0.7); } }, end() {} });
     } },
   };
 
