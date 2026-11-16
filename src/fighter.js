@@ -2,7 +2,7 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { item, cleanLook } from './cosmetics.js?v=20261115225357';
+import { item, cleanLook } from './cosmetics.js?v=20261115231735';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -67,10 +67,33 @@ function roundBox() {
   }
   return g;
 }
+// the torso: a V from a narrow waist up to broad, rounded shoulders, a chest standing out at the front (two pecs with a
+// dip down the middle) and shoulder blades at the back (forward is -z). Unit size, stretched into place like the rest.
+function torso() {
+  const g = new THREE.CylinderGeometry(1, 1, 1, 28, 14, false), p = g.attributes.position;
+  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const bump = (t, c, w) => Math.exp(-(((t - c) / w) ** 2));
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i); const t = y + 0.5;
+    const w = 0.74 + 0.34 * ss(0.05, 0.78, t) - 0.2 * ss(0.86, 1.0, t); // waist to shoulders, rounding over the top
+    x *= w; z *= w * 0.96;
+    if (z < 0) z *= 1 + 0.26 * bump(t, 0.66, 0.17) * (1 - 0.45 * Math.exp(-((x / 0.16) ** 2))); // the chest, a dip at the breastbone
+    else z *= 1 + 0.12 * bump(t, 0.7, 0.2) * (0.6 + 0.4 * Math.min(1, Math.abs(x) / 0.5)); // the shoulder blades
+    if (t > 0.98) y = 0.48 + (y - 0.48) * 0.4; // (a softer top)
+    p.setXYZ(i, x, y, z);
+  }
+  g.computeVertexNormals(); return g;
+}
 const GEO = {
   cyl: new THREE.CylinderGeometry(1, 1, 1, 14, 1),
   taper: lathe([[0.86, -0.49], [1.0, -0.36], [1.05, -0.1], [0.92, 0.22], [0.76, 0.42], [0.62, 0.49]], 10), // limbs: a rounded, slightly muscled shape, narrower at the far end
-  chest: lathe([[0.7, -0.5], [0.8, -0.25], [0.97, 0.12], [1.0, 0.3], [0.88, 0.43], [0.5, 0.5]], 16), // waist up to rounded shoulders
+  chest: torso(),
+  // limbs, each from the near joint (y = -0.5) to the far one (0.5), with the muscle where it really sits
+  arm: lathe([[0.95, -0.49], [1.08, -0.35], [1.13, -0.1], [1.0, 0.15], [0.82, 0.35], [0.74, 0.49]], 12), // deltoid into a biceps, down to the elbow
+  fore: lathe([[0.9, -0.49], [1.14, -0.32], [1.05, -0.1], [0.85, 0.15], [0.66, 0.38], [0.6, 0.49]], 12), // thick below the elbow, slim at the wrist
+  thigh: lathe([[1.0, -0.49], [1.1, -0.3], [1.05, -0.05], [0.9, 0.2], [0.74, 0.4], [0.68, 0.49]], 12),
+  calf: lathe([[0.78, -0.49], [0.98, -0.32], [1.12, -0.18], [0.95, 0.05], [0.7, 0.3], [0.52, 0.49]], 12), // the calf high, a slim ankle
+  neck: lathe([[1.7, -0.49], [1.25, -0.3], [1.0, -0.05], [0.95, 0.49]], 12), // flaring into the trapezius
   sph: new THREE.SphereGeometry(1, 16, 11),
   sphLo: new THREE.SphereGeometry(1, 9, 6), // small round parts (ears, joints): fewer triangles to cut
   box: new THREE.BoxGeometry(1, 1, 1),
@@ -158,16 +181,16 @@ export class Fighter {
       pelvis: mk(GEO.sph, pants), skirt: mk(GEO.skirt, pants), abdomen: mk(GEO.cyl, gi), obi: mk(GEO.cyl, trim), chest: mk(GEO.chest, gi),
       collar: mk(GEO.round, trim), padL: mk(GEO.round, trim), padR: mk(GEO.round, trim), delL: mk(GEO.sphLo, gi), delR: mk(GEO.sphLo, gi),
       // head
-      neck: mk(GEO.cyl, M.skinShade), head: mk(GEO.sph, M.skin), jaw: mk(GEO.sph, M.skin), nose: mk(GEO.round, M.skinShade),
+      neck: mk(GEO.neck, M.skinShade), head: mk(GEO.sph, M.skin), jaw: mk(GEO.sph, M.skin), nose: mk(GEO.round, M.skinShade),
       earL: mk(GEO.sphLo, M.skinShade), earR: mk(GEO.sphLo, M.skinShade), eyeL: mk(GEO.round, M.eye), eyeR: mk(GEO.round, M.eye),
       browL: mk(GEO.box, M.hair), browR: mk(GEO.box, M.hair),
       hair: mk(GEO.sph, M.hair), band: mk(GEO.cyl, horde ? M.oni : gi), knot: mk(GEO.sphLo, M.hair), mask: horde ? mk(GEO.round, M.oni) : null,
       // arms
-      uaL: mk(GEO.taper, gi), elL: mk(GEO.sphLo, M.skin), faL: mk(GEO.taper, M.skin), hL: mk(GEO.round, M.skin),
-      uaR: mk(GEO.taper, gi), elR: mk(GEO.sphLo, M.skin), faR: mk(GEO.taper, M.skin), hR: mk(GEO.round, M.skin),
+      uaL: mk(GEO.arm, gi), elL: mk(GEO.sphLo, M.skin), faL: mk(GEO.fore, M.skin), hL: mk(GEO.round, M.skin),
+      uaR: mk(GEO.arm, gi), elR: mk(GEO.sphLo, M.skin), faR: mk(GEO.fore, M.skin), hR: mk(GEO.round, M.skin),
       // legs
-      thL: mk(GEO.taper, pants), knL: mk(GEO.sphLo, pants), shL: mk(GEO.taper, pants), ftL: mk(GEO.round, M.dark),
-      thR: mk(GEO.taper, pants), knR: mk(GEO.sphLo, pants), shR: mk(GEO.taper, pants), ftR: mk(GEO.round, M.dark),
+      thL: mk(GEO.thigh, pants), knL: mk(GEO.sphLo, pants), shL: mk(GEO.calf, pants), ftL: mk(GEO.round, M.dark),
+      thR: mk(GEO.thigh, pants), knR: mk(GEO.sphLo, pants), shR: mk(GEO.calf, pants), ftR: mk(GEO.round, M.dark),
       // sword
       // detail: crossed lapels, the obi knot and its tails at the back, wrist guards, shin wraps, a scabbard
       lapL: mk(GEO.round, trim), lapR: mk(GEO.round, trim), obiK: mk(GEO.round, trim), tailL: mk(GEO.round, trim), tailR: mk(GEO.round, trim),
@@ -241,12 +264,12 @@ export class Fighter {
     const P0 = V(0, hipY, 0);
     const at = (x, y, z) => R(x, y, z).add(P0);
     const twist = -Math.sin(ph) * 0.1 * k; // shoulders counter-rotate against the hips
-    const sh = (side) => at(0.2 * side * Math.cos(twist), 0.47, -0.2 * side * Math.sin(twist));
+    const sh = (side) => at(0.22 * side * Math.cos(twist), 0.47, -0.22 * side * Math.sin(twist)); // (broad shoulders)
     P.pelvis.position.copy(P0); P.pelvis.scale.set(0.16, 0.1, 0.11); P.pelvis.rotation.set(0, 0, 0);
     P.skirt.position.set(0, hipY - 0.2, 0.01); P.skirt.scale.set(1, 1, 0.78);
-    seg(P.abdomen, at(0, 0.0, 0), at(0, 0.2, 0), 0.135, 0.74);
-    seg(P.obi, at(0, 0.04, 0), at(0, 0.12, 0), 0.148, 0.78);
-    seg(P.chest, at(0, 0.17, 0), at(0, 0.47, 0), 0.15, 0.62); P.chest.rotateY(twist);
+    seg(P.abdomen, at(0, 0.0, 0), at(0, 0.2, 0), 0.128, 0.74);
+    seg(P.obi, at(0, 0.04, 0), at(0, 0.12, 0), 0.134, 0.78); // (a belt that hugs the waist)
+    seg(P.chest, at(0, 0.15, 0), at(0, 0.5, 0), 0.17, 0.6); P.chest.rotateY(twist);
     // the gi's crossed lapels, the obi knot and its tails, and the scabbard thrust through the obi on the left
     seg(P.lapL, at(-0.088, 0.45, -0.088), at(0.03, 0.15, -0.104), 0.05, 0.22); seg(P.lapR, at(0.088, 0.45, -0.09), at(-0.012, 0.22, -0.108), 0.045, 0.22);
     P.obiK.position.copy(at(0, 0.085, 0.118)); P.obiK.scale.set(0.085, 0.06, 0.04); P.obiK.rotation.set(-lean, 0, 0);
@@ -256,7 +279,7 @@ export class Fighter {
     P.collar.position.copy(at(0, 0.45, -0.07)); P.collar.scale.set(0.12, 0.07, 0.03); P.collar.rotation.set(-lean, twist, 0);
     for (const [n, side] of [['L', -1], ['R', 1]]) {
       const S = sh(side);
-      P['del' + n].position.copy(S); P['del' + n].scale.set(0.072, 0.068, 0.075);
+      P['del' + n].position.copy(S); P['del' + n].scale.set(0.084, 0.076, 0.086);
       P['pad' + n].position.copy(S).add(V(0.035 * side, 0.03, 0)); P['pad' + n].scale.set(0.13, 0.05, 0.2); P['pad' + n].rotation.set(-lean, twist, -0.45 * side);
     }
     // ---- head
@@ -296,8 +319,8 @@ export class Fighter {
       }
       const knee = V();
       ik(hip, foot, THIGH, SHIN, V(0, 0, -1), knee);
-      seg(P['th' + side], hip, knee, 0.088); P['kn' + side].position.copy(knee); P['kn' + side].scale.setScalar(0.06);
-      seg(P['sh' + side], knee, foot, 0.064);
+      seg(P['th' + side], hip, knee, 0.095); P['kn' + side].position.copy(knee); P['kn' + side].scale.setScalar(0.06);
+      seg(P['sh' + side], knee, foot, 0.07);
       seg(P['ky' + side], _a.lerpVectors(knee, foot, 0.22), _b.lerpVectors(knee, foot, 0.86), 0.072); // shin wraps
       const ft = P['ft' + side];
       ft.position.set(foot.x, foot.y - 0.035 + Math.max(0, toe) * 0.05, foot.z - 0.06); ft.scale.set(0.095, 0.065, 0.25); ft.rotation.set(toe, 0, 0);
@@ -310,9 +333,9 @@ export class Fighter {
     hand.z += -sl * 0.35; hand.y += (hipY - 0.99) * 0.6;
     const el = V();
     ik(shR, hand, UPPER, FORE, V(0.6, -0.7, 0.3), el);
-    seg(P.uaR, shR, el, 0.058); P.elR.position.copy(el); P.elR.scale.setScalar(0.046); seg(P.faR, el, hand, 0.046);
+    seg(P.uaR, shR, el, 0.064); P.elR.position.copy(el); P.elR.scale.setScalar(0.046); seg(P.faR, el, hand, 0.052);
     seg(P.wrR, _a.lerpVectors(el, hand, 0.62), _b.lerpVectors(el, hand, 0.97), 0.05); // wrist guard
-    seg(P.hR, hand, _a.copy(hand).addScaledVector(d, 0.06), 0.042, 0.8);
+    seg(P.hR, _b.copy(hand).addScaledVector(d, -0.03), _a.copy(hand).addScaledVector(d, 0.07), 0.05, 0.85);
     // ---- off arm: swings opposite the legs with a bent elbow, or reaches for the grapple
     const sL = Math.sin(ph);
     const handL = V(-0.27, 1.12 + 0.06 * k + (hipY - 0.99), 0.05 + sL * 0.34 * k);
@@ -325,9 +348,9 @@ export class Fighter {
     }
     const elL = V();
     ik(shL, handL, UPPER, FORE, V(-0.3, -0.4, 0.6), elL);
-    seg(P.uaL, shL, elL, 0.058); P.elL.position.copy(elL); P.elL.scale.setScalar(0.046); seg(P.faL, elL, handL, 0.046);
+    seg(P.uaL, shL, elL, 0.064); P.elL.position.copy(elL); P.elL.scale.setScalar(0.046); seg(P.faL, elL, handL, 0.052);
     seg(P.wrL, _a.lerpVectors(elL, handL, 0.62), _b.lerpVectors(elL, handL, 0.97), 0.05);
-    seg(P.hL, handL, _a.subVectors(handL, elL).normalize().multiplyScalar(0.07).add(handL), 0.042, 0.8);
+    seg(P.hL, handL, _a.subVectors(handL, elL).normalize().multiplyScalar(0.1).add(handL), 0.05, 0.85);
 
     // ---- sword: the blade edge leads in the direction of motion
     _c.subVectors(d, this.lastD); _c.addScaledVector(d, -_c.dot(d));
