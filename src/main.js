@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116042548';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116042548';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116042548';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116042548';
-import * as net from './net.js?v=20261116042548';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116042548';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116042548';
-import { makeKillFx } from './killfx.js?v=20261116042548';
-import { makeGrapple } from './grapple.js?v=20261116042548';
-import { initShop } from './shop.js?v=20261116042548';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116042548';
-import { portal } from './portal.js?v=20261116042548';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116042548';
-import { makePost } from './post.js?v=20261116042548';
+import { Arena, MAPS } from './arena.js?v=20261116044348';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116044348';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116044348';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116044348';
+import * as net from './net.js?v=20261116044348';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116044348';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116044348';
+import { makeKillFx } from './killfx.js?v=20261116044348';
+import { makeGrapple } from './grapple.js?v=20261116044348';
+import { initShop } from './shop.js?v=20261116044348';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116044348';
+import { portal } from './portal.js?v=20261116044348';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116044348';
+import { makePost } from './post.js?v=20261116044348';
 
 // ---------- settings ----------
 const store = {
@@ -111,11 +111,13 @@ const upm = (f, id) => upMul(id, upLv(f, id)) * ((f && f.bossMul && f.bossMul[id
 const isEnemy = (a, b) => a.team !== b.team;
 // Team Battle: two sides, red (A) and blue (B)
 const TEAMS = { A: { name: 'Red', col: 0xd23b3b, css: '#e0524a' }, B: { name: 'Blue', col: 0x2f7ae0, css: '#4a8fe8' } };
-const teamMode = () => S.mode === 'team';
+const teamMode = () => S.mode === 'team' || S.mode === 'transport';
+// Transport: blue escorts the wagon, red raids it
+const ESCORT = 'B', RAID = 'A', CART = { hp: 100, speed: 2.3, hit: 1.5 };
 const teamKills = (t) => S.roster.reduce((s, r) => s + (r.team === t ? r.k : 0), 0);
 function assignTeams() { // humans first, then bots, always onto the smaller side
   let a = 0, b = 0;
-  for (const r of [...S.roster.filter((x) => x.human), ...S.roster.filter((x) => !x.human)]) { r.team = a <= b ? 'A' : 'B'; if (r.team === 'A') a++; else b++; }
+  for (const r of [...S.roster.filter((x) => x.human), ...S.roster.filter((x) => !x.human)]) { r.team = (S.mode === 'transport' ? a < b : a <= b) ? 'A' : 'B'; if (r.team === 'A') a++; else b++; }
 }
 const smallerTeam = () => (S.roster.filter((r) => r.team === 'A').length <= S.roster.filter((r) => r.team === 'B').length ? 'A' : 'B');
 const now = () => performance.now() / 1000;
@@ -581,6 +583,15 @@ function bladeSweep(f, dt) {
   }
   if (arena.brk) brkSweep(f, dt);
   if (tipSpd < CUT_SPD || !f.armed) return;
+  if (S.mode === 'transport' && arena.caravan && f.team === RAID && isLocal(f) && (f.cartFx || 0) <= now() && S.obj && S.obj.cart && S.obj.cart.hp > 0 && f.pos.distanceToSquared(arena.caravan.pos) < 81) { // Transport: a raider's blade hacks into the wagon (or the camel)
+    for (let k = 0; k <= 6; k++) {
+      const t = 0.12 + 0.88 * k / 6; _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
+      const at = arena.caravan.hitSeg(_A, _B); if (!at) continue;
+      f.cartFx = now() + 0.35; sfx.chop(at); for (let i = 0; i < 14; i++) sparks.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5, 0.6);
+      if (S.host) cartHit(f); else net.send({ t: 'cart' });
+      break;
+    }
+  }
   for (const g of fighters.values()) {
     if (g === f || !g.alive || g.prot > 0 || !isEnemy(f, g)) continue;
     if (g.pos.distanceToSquared(f.pos) > (f.bladeLen + 3) ** 2) continue;
@@ -870,6 +881,15 @@ function spawnList() {
   return outer.length ? outer : arena.spawns.filter((sp) => !arena.plats[sp.plat]?.busy && arena.plats[sp.plat]?.kind !== 'pad'); // (every pad in use: the main platform)
 }
 function spawnPoint(f) {
+  if (S.mode === 'transport' && arena.caravan) { // Transport: the escort just behind the wagon, the raiders up the road ahead of it
+    const C = arena.caravan, s0 = (S.obj && S.obj.cart && S.obj.cart.s) || 0, esc = f.team === ESCORT;
+    for (let t = 0; t < 40; t++) {
+      const s = esc ? Math.max(0, s0 - 7 - Math.random() * 12) : Math.min(C.len, s0 + 45 + Math.random() * 35), w = C.at(s), side = Math.random() < 0.5 ? -1 : 1, off = esc ? 3.5 + Math.random() * 5 : 5 + Math.random() * 16;
+      const x = w.x + Math.cos(w.a) * side * off, z = w.z - Math.sin(w.a) * side * off;
+      if (arena.wallAt(x, z, 0, 1.7, 0.7)) continue;
+      const p = new THREE.Vector3(x, 0.05, z); p.plat = 0; return p;
+    }
+  }
   let best = null, bs = -Infinity;
   for (const sp of spawnList()) {
     if (arena.plats[sp.plat]?.gone) continue; // that platform has fallen
@@ -893,7 +913,7 @@ function spawn(f, p, yaw) {
   sfx.spawn(p);
 }
 function hostSpawn(f) {
-  const p = spawnPoint(f), yaw = arena.runMode ? 0 : Math.atan2(p.x, p.z); // face the centre (Branch Run: face the way the run goes)
+  const p = spawnPoint(f), cv = S.mode === 'transport' && arena.caravan ? arena.caravan.pos : null, yaw = arena.runMode ? 0 : cv ? Math.atan2(-(cv.x - p.x), -(cv.z - p.z)) : Math.atan2(p.x, p.z); // (Transport: face the wagon) // face the centre (Branch Run: face the way the run goes)
   spawn(f, p, yaw);
   if (arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo') f.rushUntil = now() + 12; // bots charge the centre after coming in
   net.broadcast({ t: 'spawn', id: f.id, p: arr(p), y: +yaw.toFixed(3) });
@@ -910,6 +930,7 @@ function targetCost(b, g) {
     d -= crowd * 20;
   }
   if (S.obj && S.mode === 'koth' && S.obj.throne >= 0 && pg === S.obj.throne) d -= 40; // fight whoever holds the throne
+  if (S.mode === 'transport' && arena.caravan && b.team === ESCORT) d += Math.max(0, Math.hypot(g.pos.x - arena.caravan.pos.x, g.pos.z - arena.caravan.pos.z) - 12) * 1.5; // (the escort goes for the raiders nearest the wagon)
   if (S.obj && S.mode === 'lbs' && S.obj.warn >= 0 && pg === S.obj.warn) d += 40; // don't chase onto a platform about to fall
   return d;
 }
@@ -1283,7 +1304,7 @@ function botThink(b, dt) {
   // where to go
   let goal = t.pos, padGoal = false;
   const reach = b.bladeLen + 0.5; // how far this bot's sword reaches from its body
-  const close = t.fake ? dh < 0.6 && Math.abs(dy) < 1.5 : dh < reach + 1.1 && Math.abs(dy) < 1.3 + b.bladeLen * 0.5;
+  const close = t.cart ? dh < 1.2 && Math.abs(dy) < 1.5 : t.fake ? dh < 0.6 && Math.abs(dy) < 1.5 : dh < reach + 1.1 && Math.abs(dy) < 1.3 + b.bladeLen * 0.5;
   if (!close) {
     const direct = (Math.abs(dy) < 0.9 || (b.plat != null && b.plat === t.plat)) && dh < 25 && arena.directPath(b.pos, t.pos); // (same platform: walk straight there, up a slope too)
     if (direct) b.path = null;
@@ -1308,9 +1329,9 @@ function botThink(b, dt) {
     // fighting distance: circle and keep a little space
     b.strafeT = (b.strafeT || 0) - dt; if (b.strafeT <= 0) { b.strafe = Math.random() < 0.5 ? -1 : 1; b.strafeT = 0.8 + Math.random() * 1.2; }
     const fx = dx / (dh || 1), fz = dz / (dh || 1);
-    const back = dh < Math.min(1.5, reach * 0.6) ? -0.7 : dh > reach * 0.85 ? 0.6 : 0;
+    const back = t.cart ? (dh > 0.8 ? 0.6 : 0) : dh < Math.min(1.5, reach * 0.6) ? -0.7 : dh > reach * 0.85 ? 0.6 : 0;
     wish.x = fx * back + -fz * b.strafe * 0.6; wish.z = fz * back + fx * b.strafe * 0.6;
-    if (!t.fake && !b.anim && b.atkCd <= 0 && b.stagger <= 0 && Math.abs(da) < 0.6) {
+    if ((!t.fake || t.cart) && !b.anim && b.atkCd <= 0 && b.stagger <= 0 && Math.abs(da) < 0.6) {
       const pat = PATTERNS[(Math.random() * PATTERNS.length) | 0];
       b.anim = { phase: 'wind', t: 0, dur: D.wind * (0.85 + Math.random() * 0.3), s0: { x: b.s.x, y: b.s.y }, from: pat[0], to: pat[1] };
       b.atkCd = D.cd[0] + Math.random() * (D.cd[1] - D.cd[0]);
@@ -1390,8 +1411,9 @@ function fillBots() {
 }
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
-  for (const sp of ['lava', 'run']) { if (S.mode === sp) S.map = sp; else if (S.map === sp) S.mode = sp; } // (special maps: the mode and its map go together)
-  if (S.mode !== 'lava' && S.mode !== 'run' && (S.map === 'lava' || S.map === 'run')) S.map = 'spire';
+  const SP = ['lava', 'run', 'transport'];
+  for (const sp of SP) { if (S.mode === sp) S.map = sp; else if (S.map === sp) S.mode = sp; } // (special maps: the mode and its map go together)
+  if (!SP.includes(S.mode) && SP.includes(S.map)) S.map = 'spire';
   useMap(S.map);
   clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
   if (coop()) S.roster = S.roster.filter((r) => r.human);
@@ -1414,7 +1436,8 @@ function startMatch() {
 function matchProgress() {
   if (S.phase !== 'game') return 0;
   let p = S.mode === 'lbs' || coop() || S.mode === 'boss' ? 0 : 1 - S.timeLeft / FFA_TIME;
-  if (teamMode()) p = Math.max(p, Math.max(teamKills('A'), teamKills('B')) / MODE_GOAL.team);
+  if (S.mode === 'transport') p = Math.max(p, S.obj && S.obj.cart && arena.caravan ? S.obj.cart.s / arena.caravan.len : 0);
+  else if (teamMode()) p = Math.max(p, Math.max(teamKills('A'), teamKills('B')) / MODE_GOAL.team);
   else if (S.mode === 'ffa') p = Math.max(p, Math.max(0, ...S.roster.map((r) => r.k || 0)) / FFA_KILLS);
   else if (POINT_MODES.has(S.mode)) p = Math.max(p, Math.max(0, ...S.roster.map((r) => r.pts || 0)) / MODE_GOAL[S.mode]);
   else if (S.mode === 'lbs') { const n = S.roster.length || 1; p = 1 - [...fighters.values()].filter((f) => f.alive).length / n; }
@@ -1424,6 +1447,7 @@ function matchProgress() {
 }
 function checkEnd() {
   if (S.ended || S.phase !== 'game') return;
+  if (S.mode === 'transport') { const c = S.obj && S.obj.cart; if (!c) return; if (arena.caravan && c.s >= arena.caravan.len - 0.01) endMatch(ESCORT); else if (c.hp <= 0 || S.timeLeft <= 0) endMatch(RAID); return; } // (the wagon home, or wrecked, or out of time)
   if (teamMode()) {
     const a = teamKills('A'), b = teamKills('B');
     if (a >= MODE_GOAL.team || b >= MODE_GOAL.team || S.timeLeft <= 0) endMatch(a === b ? null : a > b ? 'A' : 'B');
@@ -1491,7 +1515,15 @@ function hostTick(dt) {
 const ZERO = new THREE.Vector3();
 const THRONE_TIME = 40, LBS_GRACE = 5, LBS_WARN = 3;
 const freshObj = () => ({ throne: -1, throneIn: 0, jugg: null, shrines: [], tokens: [], warn: -1, gone: [], crumbleIn: 0 });
-let until = { throne: 0, crumble: 0, warnEnd: 0 }, scoreT = 0;
+let until = { throne: 0, crumble: 0, warnEnd: 0 }, scoreT = 0, cartSend = 0;
+// Transport: a raider's blade bit into the wagon (host)
+function cartHit(f) {
+  const c = S.obj && S.obj.cart; if (!c || c.hp <= 0 || S.ended) return;
+  const t = now(); if ((f.cartCd || 0) > t) return; f.cartCd = t + 0.35;
+  c.hp = Math.max(0, c.hp - CART.hit);
+  if (c.hp <= 0) { c.dead = 1; showBanner('THE WAGON IS WRECKED'); net.broadcast({ t: 'banner', s: 'THE WAGON IS WRECKED' }); sfx.gong(); }
+  sendObj(); checkEnd();
+}
 function objForSend() {
   const o = S.obj || freshObj();
   o.throneIn = +Math.max(0, until.throne - now()).toFixed(1); o.crumbleIn = +Math.max(0, until.crumble - now()).toFixed(1);
@@ -1518,6 +1550,7 @@ function initObjective() {
   S.obj = freshObj(); until = { throne: 0, crumble: 0, warnEnd: 0 }; scoreT = 0;
   if (S.mode === 'koth') { S.obj.throne = pickThrone(-1); until.throne = now() + THRONE_TIME; }
   if (S.mode === 'lbs') until.crumble = now() + LBS_GRACE;
+  if (S.mode === 'transport') { S.obj.cart = { s: 0, hp: CART.hp, mv: 0, dead: 0 }; cartSend = 0; }
   if (S.mode === 'hunt') { // two altars out in open air (no platform near), as far apart as possible
     const spots = [];
     for (let t = 0; t < 600 && spots.length < 24; t++) {
@@ -1635,6 +1668,14 @@ function modeTick(dt) {
       const on = throneOccupants();
       if (on.length === 1) { const r = rosterGet(on[0].id); if (r) { r.pts = (r.pts || 0) + 1; sendRoster(); checkEnd(); } }
     }
+  } else if (S.mode === 'transport' && o.cart && arena.caravan) { // the wagon rolls while an escort walks with it, slows when raiders outnumber them, and is mended when they're driven off
+    const c = o.cart, C = arena.caravan, cp = C.pos; let esc = 0, raid = 0;
+    for (const f of fighters.values()) { if (!f.alive || Math.abs(f.pos.y - cp.y) > 8) continue; const d = Math.hypot(f.pos.x - cp.x, f.pos.z - cp.z); if (f.team === ESCORT) { if (d < 16) esc++; } else if (d < 9) raid++; }
+    if (c.dead) c.mv = 0; else c.mv = esc === 0 ? 0 : raid > esc ? 1 : 2; // (0: waiting for its escort, 1: slowed by raiders, 2: rolling)
+    c.s = Math.min(C.len, c.s + CART.speed * c.mv / 2 * dt);
+    if (!c.dead && raid === 0 && esc > 0 && c.hp < CART.hp) c.hp = Math.min(CART.hp, c.hp + dt * 0.8); // (the escort patches it up when no raider is near)
+    cartSend -= dt; if (cartSend <= 0) { cartSend = 0.25; sendObj(); }
+    if (c.s >= C.len - 0.01) checkEnd();
   } else if (S.mode === 'jugg') {
     const j = o.jugg ? fighters.get(o.jugg) : null;
     if (!j) { const alive = [...fighters.values()].filter((f) => f.alive); if (alive.length) setJugg(alive[(Math.random() * alive.length) | 0].id); }
@@ -1679,6 +1720,16 @@ function modeTick(dt) {
 }
 // what a bot should go for besides fighting: the throne, a shrine or loose heads, or away from a crumbling platform
 function botObjective(b) {
+  if (S.mode === 'transport' && arena.caravan && S.obj && S.obj.cart) {
+    const C = arena.caravan, cp = C.pos, e = b.target, mk = (pos, engage, cart) => ({ pos, plat: 0, engage, cart, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null });
+    if (b.team === ESCORT) { // the escort: fight raiders who come near the wagon, otherwise walk beside it
+      if (e && e.alive && Math.hypot(e.pos.x - cp.x, e.pos.z - cp.z) < 20) return null;
+      const k = (parseInt(String(b.id).replace(/\D/g, ''), 10) || 0) % 4, w = C.at(C.s + [3.5, -1, 7, -3][k]), side = k % 2 ? 1 : -1;
+      return mk(new THREE.Vector3(w.x + Math.cos(w.a) * side * 3.4, 0, w.z - Math.sin(w.a) * side * 3.4), 6);
+    }
+    if (S.obj.cart.hp <= 0) return null; // the raiders: hack at the wagon, and only turn on an escort who's right on them
+    return mk(C.near(b.pos, 0.7), 3.2, true);
+  }
   if (S.mode === 'run' && arena.nextBranch) { // Branch Run: always on to the next branch coming (fighting whoever's close on the way)
     const p = arena.nextBranch(b.pos); if (!p) return null; const e = b.target, late = b.pos.z > -2, eng = e && e.alive && !late ? 3.2 : 0; // (too near where the trees sink: stop fighting, get moving)
     return { pos: new THREE.Vector3(p.x, p.y, p.z), plat: p.i, engage: eng, flee: late, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null };
@@ -1781,6 +1832,7 @@ function hostMsg(from, d) {
   else if (d.t === 'yank' && typeof d.v === 'string') yankStart(d.v, from); // (a player hooked an enemy)
   else if (d.t === 'bamboo' && Number.isInteger(d.s) && typeof d.y === 'number') { cutBamboo(d.s, d.y); net.broadcast({ t: 'bamboo', s: d.s, y: d.y }, from); }
   else if (d.t === 'chain' && Number.isInteger(d.id)) { cutChain(d.id); net.broadcast({ t: 'chain', id: d.id }, from); }
+  else if (d.t === 'cart' && S.mode === 'transport' && f.team === RAID && f.alive) cartHit(f); // (a raider hacked the wagon)
   else if (d.t === 'brk' && Number.isInteger(d.i)) { smashChunk(d.i, Array.isArray(d.n) ? d.n : null, +d.d || 0); net.broadcast({ t: 'brk', i: d.i, n: d.n, d: d.d }, from); }
   else if (d.t === 'cut') {
     const v = fighters.get(d.v);
@@ -2038,6 +2090,9 @@ function showEnd(res) {
   const list = ranked(res.list, res.mode), name = (MODES[res.mode] || MODES.ffa).name, pts = POINT_MODES.has(res.mode);
   if (res.mode === 'horde') { $('endTitle').textContent = `The horde got you on wave ${res.wave}`; }
   else if (res.mode === 'boss') { const n = res.list.find((r) => r.human)?.pts || 0, b = res.list.find((r) => r.boss != null); $('endTitle').textContent = `You beat ${n} boss${n === 1 ? '' : 'es'}`; setTimeout(() => { $('endSub').textContent = `ChopSocky · stopped by ${b ? b.name : 'a boss'}`; }, 0); }
+  else if (res.mode === 'transport') { const my = res.list.find((r) => r.id === S.myId), home = res.winner === ESCORT;
+    $('endTitle').textContent = my && my.team === res.winner ? 'Victory' : home ? 'The wagon got through' : 'The wagon was wrecked';
+    setTimeout(() => { $('endSub').textContent = `Transport · ${home ? 'the escort brought it home' : 'the raiders took it'}`; }, 0); }
   else if (res.mode === 'team') { // Team Battle: the winning side, and the score
     const my = res.list.find((r) => r.id === S.myId), sum = (t) => res.list.reduce((s, r) => s + (r.team === t ? r.k : 0), 0);
     $('endTitle').textContent = !res.winner ? 'Draw' : my && my.team === res.winner ? 'Victory' : `${TEAMS[res.winner].name} team wins`;
@@ -2055,7 +2110,7 @@ function showEnd(res) {
   let coins = 0; const bonus = [];
   if (mine && now() - (S.matchStart || now()) > 40) {
     coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0) + (res.mode === 'boss' ? 25 * (mine.pts || 0) : 0);
-    if (res.mode === 'team' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) coins += 30; // (Team Battle: everyone on the winning side)
+    if (res.mode === 'team' || res.mode === 'transport' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) coins += 30; // (Team Battle: everyone on the winning side)
     // bonuses: the bot difficulty (whenever there were bots, solo or online), and +10% per friend in the match (up to +30%)
     const bots = res.mode === 'horde' || res.list.some((r) => !r.human), friends = Math.min(3, res.list.filter((r) => r.human).length - 1);
     const dm = bots ? [0.75, 1, 1.3, 1.6, 2, 2.5, 3, 4][S.diff ?? 1] : 1, fm = 1 + 0.1 * Math.max(0, friends);
@@ -2097,7 +2152,10 @@ function updateHud(dt) {
   const top = ranked(S.roster, S.mode)[0];
   const lead = top ? `Leader: <span style="color:${colorOf(top)}">${esc(top.name)}</span> ${pts ? top.pts || 0 : top.k}` : '';
   let status = '';
-  if (teamMode()) { const a = teamKills('A'), b = teamKills('B'), mt = mr && TEAMS[mr.team]; $('topbar').innerHTML = `Team Battle · ${clock(S.timeLeft)} · <span style="color:${TEAMS.A.css}">Red ${a}</span> – <span style="color:${TEAMS.B.css}">${b} Blue</span> · first to ${MODE_GOAL.team}`; if (me && me.alive && mt) status = `You are on <span style="color:${mt.css}">${mt.name.toUpperCase()}</span>`; }
+  if (S.mode === 'transport') { const c = o.cart, C = arena.caravan, pct = c && C ? Math.round(c.s / C.len * 100) : 0, hp = c ? Math.ceil(c.hp) : 0;
+    $('topbar').innerHTML = `Transport · ${clock(S.timeLeft)} · Wagon <span style="color:${hp > 50 ? '#5ad06a' : hp > 25 ? '#f0c040' : '#e04a3a'}">${hp}%</span> · ${pct}% of the way`;
+    if (me && me.alive && mr) status = mr.team === ESCORT ? (c && !c.mv ? 'The wagon waits for its escort: walk beside it' : c && c.mv === 1 ? 'Raiders at the wagon: drive them off' : `You <span style="color:${TEAMS.B.css}">ESCORT</span> the wagon: keep it rolling, fight off the raiders`) : `You <span style="color:${TEAMS.A.css}">RAID</span>: hack the wagon apart before it reaches the village`; }
+  else if (teamMode()) { const a = teamKills('A'), b = teamKills('B'), mt = mr && TEAMS[mr.team]; $('topbar').innerHTML = `Team Battle · ${clock(S.timeLeft)} · <span style="color:${TEAMS.A.css}">Red ${a}</span> – <span style="color:${TEAMS.B.css}">${b} Blue</span> · first to ${MODE_GOAL.team}`; if (me && me.alive && mt) status = `You are on <span style="color:${mt.css}">${mt.name.toUpperCase()}</span>`; }
   else if (S.mode === 'ffa' || S.mode === 'run') $('topbar').innerHTML = `${S.mode === 'run' ? 'Branch Run · ' : ''}${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
   else if (S.mode === 'koth') {
     $('topbar').innerHTML = `King of the Platform · ${clock(S.timeLeft)} · Throne moves in ${Math.ceil(Math.max(0, until.throne - now()))} s · ${lead}/${MODE_GOAL.koth}`;
@@ -2229,6 +2287,7 @@ function frame(t) {
 }
 function tick(rdt, tt) {
   arena.update(tt); fx.update(tt); if (arena.tendrilTick) arena.tendrilTick(rdt, fighters.values()); // (Colosseum: tendrils sway and get dragged by whoever hangs on them)
+  if (arena.caravan) { const c = S.obj && S.obj.cart; if (c && S.phase === 'game') { if (!S.host && c.mv && !S.paused) c.s = Math.min(arena.caravan.len, c.s + CART.speed * c.mv / 2 * rdt); arena.caravan.update(c.s, c.hp, rdt, !!c.dead); } } // (Transport: the wagon follows the road; clients roll it on between the host's updates)
   if (arena.lavaTick) arena.lavaTick(S.phase === 'game' ? now() - (S.matchStart || now()) : 0, tt); // (Lava Climb: the lava rises)
   if (arena.cometTick && arena.cometTick(rdt, matchProgress(), S.ended)) { shake = Math.max(shake, 1.4); sfx.thunder(); sfx.thunder(); } // (Comet Crash: the planet looms; at the end, impact)
   if (S.phase === 'game' && !S.paused) {
@@ -2308,13 +2367,13 @@ window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, r
 // ---------- map picker: a thumbnail card for each map (the hidden select still holds the choice) ----------
 function thumb(id) { return `thumbs/${id}.jpg?v=${document.querySelector('meta[name=build]').content}`; }
 // special maps come with their own mode (and that mode with its map)
-const SPECIAL = { lava: 'lava', run: 'run' };
+const SPECIAL = { lava: 'lava', run: 'run', transport: 'transport' };
 // a painted card for each mode: a colour wash and an emblem drawn on a canvas (made once)
 const modeArt = {};
 function modeThumb(id) {
   if (modeArt[id]) return modeArt[id];
   const W = 240, H = 180, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-  const pal = { ffa: ['#5a1418', '#d6403a'], run: ['#173a1a', '#7ac04a'], team: ['#1a2b5e', '#c23b3b'], koth: ['#3d2a0c', '#e0a83a'], jugg: ['#2a0f2e', '#c08a2e'], lbs: ['#1d2430', '#7f93b0'], hunt: ['#2e2208', '#f0c419'], horde: ['#1a0c0c', '#8e1717'], boss: ['#120a1c', '#7a3ab8'], lava: ['#2a0804', '#ff6a20'] }[id] || ['#222', '#888'];
+  const pal = { ffa: ['#5a1418', '#d6403a'], run: ['#173a1a', '#7ac04a'], team: ['#1a2b5e', '#c23b3b'], koth: ['#3d2a0c', '#e0a83a'], jugg: ['#2a0f2e', '#c08a2e'], lbs: ['#1d2430', '#7f93b0'], hunt: ['#2e2208', '#f0c419'], horde: ['#1a0c0c', '#8e1717'], boss: ['#120a1c', '#7a3ab8'], lava: ['#2a0804', '#ff6a20'], transport: ['#3a2410', '#e0a050'] }[id] || ['#222', '#888'];
   const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, pal[0]); bg.addColorStop(1, '#0c0b0b'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
   const glow = g.createRadialGradient(W / 2, H * 0.48, 4, W / 2, H * 0.48, W * 0.55); glow.addColorStop(0, pal[1] + 'aa'); glow.addColorStop(1, pal[1] + '00'); g.fillStyle = glow; g.fillRect(0, 0, W, H);
   const cx = W / 2, cy = H * 0.47;
@@ -2336,6 +2395,7 @@ function modeThumb(id) {
   else if (id === 'boss') { g.fillStyle = '#d8d0e8'; g.beginPath(); g.arc(cx, cy - 4, 40, 0, 7); g.fill(); g.fillRect(cx - 24, cy + 26, 48, 22); g.fillStyle = '#120a1c'; g.beginPath(); g.arc(cx - 15, cy - 6, 10, 0, 7); g.arc(cx + 15, cy - 6, 10, 0, 7); g.fill(); for (let i = -2; i <= 2; i++) g.fillRect(cx + i * 9 - 2, cy + 30, 4, 18); }
   else if (id === 'run') { g.fillStyle = '#3a2614'; for (const s of [-1, 1]) g.fillRect(cx + s * 78 - 9, 0, 18, H); const br = (x, y, w) => { g.fillStyle = '#6b4a2c'; g.beginPath(); g.ellipse(x, y, w, w * 0.22, 0, 0, 7); g.fill(); g.fillStyle = '#4a8f3a'; g.beginPath(); g.arc(x - w, y - 6, 9, 0, 7); g.fill(); }; br(cx - 10, cy + 52, 46); br(cx + 22, cy + 14, 32); br(cx - 14, cy - 18, 22); br(cx + 8, cy - 40, 14); g.strokeStyle = '#ffd25a'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 40, cy + 30); g.quadraticCurveTo(cx - 30, cy - 10, cx + 4, cy - 2); g.stroke(); g.beginPath(); g.moveTo(cx - 4, cy - 10); g.lineTo(cx + 6, cy - 1); g.lineTo(cx - 6, cy + 4); g.fill(); }
   else if (id === 'lava') { const fl = g.createLinearGradient(0, cy + 70, 0, cy - 40); fl.addColorStop(0, '#ffe08a'); fl.addColorStop(0.4, '#ff6a20'); fl.addColorStop(1, 'rgba(255,60,10,0)'); g.fillStyle = fl; g.fillRect(0, cy + 20, W, H); plat(cx - 46, cy + 18, 24, '#4a3f38'); plat(cx + 10, cy - 10, 22, '#4a3f38'); plat(cx + 50, cy - 42, 20, '#4a3f38'); g.fillStyle = '#ffd27a'; g.fillRect(cx + 48, 0, 4, cy - 46); }
+  else if (id === 'transport') { g.fillStyle = '#9a7048'; g.beginPath(); g.moveTo(cx - 20, H); g.quadraticCurveTo(cx + 40, cy + 20, cx - 6, cy - 30); g.lineTo(cx + 6, cy - 30); g.quadraticCurveTo(cx + 56, cy + 20, cx + 20, H); g.fill(); g.fillStyle = '#eee0c4'; g.beginPath(); g.ellipse(cx, cy + 6, 34, 26, 0, Math.PI, 0); g.fill(); g.fillStyle = '#6b4a2c'; g.fillRect(cx - 36, cy + 6, 72, 10); g.fillStyle = '#2a1d14'; for (const x of [-24, 24]) { g.beginPath(); g.arc(cx + x, cy + 22, 10, 0, 7); g.fill(); } g.fillStyle = '#c89a5e'; g.beginPath(); g.ellipse(cx + 60, cy - 2, 16, 11, 0, 0, 7); g.ellipse(cx + 60, cy - 12, 8, 7, 0, 0, 7); g.fill(); g.fillRect(cx + 70, cy - 26, 5, 18); g.fillRect(cx + 50, cy + 6, 4, 18); g.fillRect(cx + 66, cy + 6, 4, 18); blade(-0.9, 80, '#ff8a7a'); }
   else blade(0);
   g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
   return (modeArt[id] = c.toDataURL('image/jpeg', 0.85));

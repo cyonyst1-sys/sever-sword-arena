@@ -10,6 +10,7 @@ export const MODES = {
   hunt: { name: 'Headhunter', blurb: 'Every kill drops gold heads. Carry them to an altar floating in open air and swing through its glowing ring to bank them; die and you drop them all. First to 20 banked.' },
   lava: { name: 'Lava Climb', blurb: 'The lava rises: race up the volcano to the summit. No respawns. Three checkpoint arenas on the way, each under a gate that only opens for you once you have eliminated enough fighters (1, then 2, then 3 in all). First to stand on the summit wins, or the last one alive. Always played on Lava Climb.' },
   run: { name: 'Branch Run', blurb: 'Whole Great Canopy trees stream toward you through a giant forest. Stop and fight on a limb, then jump, dash or swing on to the next tree before yours sinks away. Respawns; most kills wins. Always played on Branch Run.' },
+  transport: { name: 'Transport', blurb: 'Escort against raiders. Blue escorts a camel and its wagon down the road to the next village: it only rolls while an escort walks with it. Red raids it: hack at the wagon to wreck it. Respawns. The escort wins if the wagon arrives; the raiders win if they wreck it or time runs out. Always played on Transport.' },
   horde: { name: 'Horde', blurb: 'Co-op: everyone together against waves of oni.' },
   boss: { name: 'ChopSocky', solo: true, blurb: 'Solo, 1v1: fight through one boss after another, each with its own tricks. Bosses take several cuts to bring down. You have 3 lives, and beating a boss gives one back. After the eighth they come round again, harder. How far can you get?' },
 };

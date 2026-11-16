@@ -3,18 +3,19 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116042548';
-import { buildFoundry } from './foundry.js?v=20261116042548';
-import { buildBamboo } from './bamboo.js?v=20261116042548';
-import { buildCity } from './city.js?v=20261116042548';
-import { buildDojo } from './dojo.js?v=20261116042548';
-import { buildComet } from './comet.js?v=20261116042548';
-import { buildLava } from './lava.js?v=20261116042548';
-import { buildRun } from './run.js?v=20261116042548';
-import { buildGrove } from './grove.js?v=20261116042548';
-import { addScenery } from './scenery.js?v=20261116042548';
-import { addAtmosphere } from './atmos.js?v=20261116042548';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116042548';
+import { buildTilt } from './tilt.js?v=20261116044348';
+import { buildFoundry } from './foundry.js?v=20261116044348';
+import { buildBamboo } from './bamboo.js?v=20261116044348';
+import { buildCity } from './city.js?v=20261116044348';
+import { buildDojo } from './dojo.js?v=20261116044348';
+import { buildComet } from './comet.js?v=20261116044348';
+import { buildLava } from './lava.js?v=20261116044348';
+import { buildRun } from './run.js?v=20261116044348';
+import { buildGrove } from './grove.js?v=20261116044348';
+import { buildTransport } from './transport.js?v=20261116044348';
+import { addScenery } from './scenery.js?v=20261116044348';
+import { addAtmosphere } from './atmos.js?v=20261116044348';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116044348';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -155,6 +156,7 @@ export const MAPS = {
   lava: { name: 'Lava Climb', blurb: 'the inside of a volcano: the lava rises, so climb a course of floating rock to the summit. Hop, dash, grapple up and swing across. Three checkpoint arenas on the way, each under a gate that only opens once you have eliminated enough fighters' },
   run: { name: 'Branch Run', blurb: 'a giant forest: whole Great Canopy trees stream toward you, their limbs and big leaves reaching across the lane' },
   grove: { name: 'Topiary Grove', blurb: 'two rows of huge, ancient cloud-pruned trees facing each other over a gulf of sunset mist: no floor, just the clipped foliage pads to fight on and swing between' },
+  transport: { name: 'Transport', blurb: 'a sandstone canyon at golden hour: a camel hauls a covered wagon down a winding road from one adobe village to the next, past rock arches, palms and watchtowers' },
 };
 
 export class Arena {
@@ -595,6 +597,7 @@ export class Arena {
     if (this.mapId === 'lava') return buildLava(this, TEX);
     if (this.mapId === 'run') return buildRun(this, TEX);
     if (this.mapId === 'grove') return buildGrove(this, TEX);
+    if (this.mapId === 'transport') return buildTransport(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     this.realScene.background = new THREE.Color(0x9cc4e4);
