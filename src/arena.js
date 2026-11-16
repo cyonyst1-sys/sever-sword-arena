@@ -3,16 +3,16 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115215632';
-import { buildFoundry } from './foundry.js?v=20261115215632';
-import { buildBamboo } from './bamboo.js?v=20261115215632';
-import { buildCity } from './city.js?v=20261115215632';
-import { buildDojo } from './dojo.js?v=20261115215632';
-import { buildComet } from './comet.js?v=20261115215632';
-import { buildLava } from './lava.js?v=20261115215632';
-import { addScenery } from './scenery.js?v=20261115215632';
-import { addAtmosphere } from './atmos.js?v=20261115215632';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115215632';
+import { buildTilt } from './tilt.js?v=20261115220338';
+import { buildFoundry } from './foundry.js?v=20261115220338';
+import { buildBamboo } from './bamboo.js?v=20261115220338';
+import { buildCity } from './city.js?v=20261115220338';
+import { buildDojo } from './dojo.js?v=20261115220338';
+import { buildComet } from './comet.js?v=20261115220338';
+import { buildLava } from './lava.js?v=20261115220338';
+import { addScenery } from './scenery.js?v=20261115220338';
+import { addAtmosphere } from './atmos.js?v=20261115220338';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115220338';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -148,7 +148,7 @@ export const MAPS = {
   city: { name: 'Glass Skyline', blurb: 'skyscrapers above the clouds: swing between them and smash through their glass, or climb the steel frames of half-built towers' },
   bamboo: { name: 'Bamboo Fort', blurb: 'a platform built all of bamboo, floor included: slice through anything (even the ground), smash in through the walls, swing from the pillars outside' },
   foundry: { name: 'Saw Foundry', blurb: 'a foundry in the sky full of blades: rail saws, swinging pendulums, saws dropping from above, spinning saw columns, lifts and sliding platforms' },
-  tilt: { name: 'Swinging Decks', blurb: 'four huge round decks, each hanging on one chain: landing shoves them into a swing, and cutting the chain drops the deck (and whoever is on it) into the clouds' },
+  tilt: { name: 'Swinging Decks', blurb: 'six big round decks hanging on chains from a spinning crown, swinging outward as it turns like a fairground swing ride: cut a chain and the deck flies off with whoever is on it' },
   comet: { name: 'Comet Crash', blurb: 'a cluster of asteroids riding a comet toward a planet: jump across them, swing from the small rocks floating round, and watch the planet loom closer until the comet hits it' },
   lava: { name: 'Lava Climb', blurb: 'the inside of a volcano: the lava rises, so climb a course of floating rock to the summit. Hop, dash, grapple up and swing across. Three checkpoint arenas on the way, each under a gate that only opens once you have eliminated enough fighters' },
 };
