@@ -2,8 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261116000258';
-import { item, cleanLook } from './cosmetics.js?v=20261116000258';
+import { buildBody, poseBody } from './body.js?v=20261116000535';
+import { item, cleanLook } from './cosmetics.js?v=20261116000535';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -88,7 +88,7 @@ function torso() {
 }
 // a sculpted head (unit size, stretched into place like the rest; forward is -z): a skull longer front to back, a brow
 // ridge, eye sockets, cheekbones, a nose with a bridge and a tip, a groove for the mouth, a jaw narrowing to a chin
-function headGeo() {
+function headGeo(withNose = true) {
   const g = new THREE.SphereGeometry(1, 40, 30), p = g.attributes.position;
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const gs = (x, y, cx, cy, sx, sy) => Math.exp(-(((x - cx) / sx) ** 2) - (((y - cy) / sy) ** 2));
@@ -100,12 +100,12 @@ function headGeo() {
     const low = ss(-0.15, -0.85, y); // the lower face: the jaw narrows toward the chin and the chin comes down and forward
     x *= 1 - 0.3 * low * (0.4 + 0.6 * fr); y -= 0.16 * low * (0.3 + 0.7 * fr); z -= 0.07 * gs(x, y, 0, -0.95, 0.35, 0.18) * fr;
     if (z < 0) {
-      z -= 0.07 * gs(x, y, 0, 0.22, 0.6, 0.07) * fr; // brow ridge
-      z += 0.1 * (gs(x, y, -0.36, 0.05, 0.17, 0.12) + gs(x, y, 0.36, 0.05, 0.17, 0.12)) * fr; // eye sockets
+      z -= 0.07 * gs(x, y, 0, 0.27, 0.6, 0.07) * fr; // brow ridge
+      z += 0.1 * (gs(x, y, -0.36, 0.1, 0.17, 0.12) + gs(x, y, 0.36, 0.1, 0.17, 0.12)) * fr; // eye sockets
       x *= 1 + 0.06 * (gs(x, y, -0.55, -0.15, 0.2, 0.15) + gs(x, y, 0.55, -0.15, 0.2, 0.15)); // cheekbones
-      const nose = y < 0.16 && y > -0.36 ? (0.08 + 0.28 * ss(0.12, -0.22, y)) * (1 - ss(-0.24, -0.34, y)) : 0, nw = 0.1 + 0.07 * ss(-0.05, -0.24, y);
-      z -= nose * Math.exp(-((x / nw) ** 2)) * fr; // the nose: a narrow bridge growing out to a broader tip
-      z += 0.05 * gs(x, y, 0, -0.5, 0.26, 0.03) * fr; // the line of the mouth
+      const nose = y < 0.2 && y > -0.36 ? (0.07 + 0.22 * ss(0.16, -0.22, y)) * (1 - ss(-0.24, -0.34, y)) : 0, nw = 0.1 + 0.07 * ss(-0.05, -0.24, y);
+      if (withNose) z -= nose * Math.exp(-((x / nw) ** 2)) * fr; // the nose: a narrow bridge growing out to a broader tip
+      z += 0.03 * gs(x, y, 0, -0.5, 0.2, 0.025) * fr; // the line of the mouth
       z -= 0.025 * gs(x, y, 0, -0.43, 0.22, 0.05) * fr; // upper lip
     }
     p.setXYZ(i, x, y, z);
@@ -117,7 +117,7 @@ function hairGeo() {
   const g = new THREE.SphereGeometry(1, 32, 24), p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const line = -0.62 + 0.95 * Math.min(1, Math.max(0, (-z + 1) / 2)) ** 1.4 - 0.25 * Math.abs(x) * (z < 0 ? 1 : 0); // the hairline: forehead high, back low
+    const line = -0.62 + 1.15 * Math.min(1, Math.max(0, (-z + 1) / 2)) ** 1.4 - 0.3 * Math.abs(x) * (z < 0 ? 1 : 0); // the hairline: forehead high, back low
     if (z > 0) z *= 1.1;
     const t = Math.min(1, Math.max(0, (y - line + 0.08) / 0.1)), k = 0.66 + (0.34 + 0.04 * Math.sin(x * 9 + z * 7)) * t * t * (3 - 2 * t); // (below the line it tucks well inside the head; above it, a little texture)
     p.setXYZ(i, x * k * 0.96, y * k, z * k);
@@ -134,7 +134,7 @@ const GEO = {
   thigh: lathe([[1.0, -0.49], [1.1, -0.3], [1.05, -0.05], [0.9, 0.2], [0.74, 0.4], [0.68, 0.49]], 12),
   calf: lathe([[0.78, -0.49], [0.98, -0.32], [1.12, -0.18], [0.95, 0.05], [0.7, 0.3], [0.52, 0.49]], 12), // the calf high, a slim ankle
   neck: lathe([[1.7, -0.49], [1.25, -0.3], [1.0, -0.05], [0.95, 0.49]], 12), // flaring into the trapezius
-  headS: headGeo(), hairS: hairGeo(),
+  headS: headGeo(), headFlat: headGeo(false), hairS: hairGeo(), // (headFlat: under a face mask, no nose to poke through it)
   sph: new THREE.SphereGeometry(1, 16, 11),
   sphLo: new THREE.SphereGeometry(1, 9, 6), // small round parts (ears, joints): fewer triangles to cut
   box: new THREE.BoxGeometry(1, 1, 1),
@@ -245,6 +245,7 @@ export class Fighter {
       for (const [shape, md, p, s, r = [0, 0, 0]] of it.parts || []) this.acc.push({ m: mk(GEO[shape], cosMat(md)), p, s, r });
       for (const n of it.hide || []) { const m = this.p[n]; if (m) { this.group.remove(m); this.meshes = this.meshes.filter((x) => x !== m); } }
     }
+    if ([L.mask, L.hat].some((it) => (it.hide || []).includes('nose'))) this.p.head.geometry = GEO.headFlat; // (a face mask: no nose under it)
     for (const m of this.meshes) m.userData.mi = regMat(m.material);
     // name tag
     this.label = null;
@@ -347,11 +348,11 @@ export class Fighter {
     P.nose.position.copy(H(0, -0.01, -0.112)); P.nose.scale.set(0.024, 0.042, 0.03); headRot(P.nose);
     P.earL.position.copy(H(-0.1, 0, 0.005)); P.earR.position.copy(H(0.1, 0, 0.005));
     P.earL.scale.set(0.013, 0.03, 0.02); P.earR.scale.set(0.013, 0.03, 0.02);
-    P.eyeL.position.copy(H(-0.034, 0.006, -0.087)); P.eyeR.position.copy(H(0.034, 0.006, -0.087)); // (set in the sockets)
-    P.eyeL.scale.set(0.0135, 0.0068, 0.01); P.eyeR.scale.set(0.0135, 0.0068, 0.01); headRot(P.eyeL); headRot(P.eyeR);
-    P.browL.position.copy(H(-0.035, 0.03, -0.104)); P.browR.position.copy(H(0.035, 0.03, -0.104));
+    P.eyeL.position.copy(H(-0.035, 0.0105, -0.0975)); P.eyeR.position.copy(H(0.035, 0.0105, -0.0975)); // (in the sockets: the socket's surface is at z -0.0986, so half of each eye stands out of it)
+    P.eyeL.scale.set(0.018, 0.0092, 0.011); P.eyeR.scale.set(0.018, 0.0092, 0.011); headRot(P.eyeL); headRot(P.eyeR);
+    P.browL.position.copy(H(-0.035, 0.0345, -0.104)); P.browR.position.copy(H(0.035, 0.0345, -0.104));
     P.browL.scale.set(0.03, 0.006, 0.012); P.browR.scale.set(0.03, 0.006, 0.012); headRot(P.browL); headRot(P.browR); P.browL.rotateZ(-0.14); P.browR.rotateZ(0.14);
-    P.hair.position.copy(H(0, 0.003, 0.003)); P.hair.scale.set(0.105, 0.127, 0.117); headRot(P.hair); // (follows the skull, down to a hairline)
+    P.hair.position.copy(H(0, 0.004, 0.004)); P.hair.scale.set(0.108, 0.131, 0.12); headRot(P.hair); // (follows the skull, down to a hairline)
     P.band.position.copy(H(0, 0.052, 0.004)); P.band.scale.set(0.104, 0.03, 0.116); headRot(P.band);
     P.knot.position.copy(H(0, 0.12, 0.07)); P.knot.scale.setScalar(0.04);
     if (P.mask) { P.mask.position.copy(H(0, -0.04, -0.095)); P.mask.scale.set(0.15, 0.08, 0.04); headRot(P.mask); }
