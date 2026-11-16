@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116021411';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116021411';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116021411';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116021411';
-import * as net from './net.js?v=20261116021411';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116021411';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116021411';
-import { makeKillFx } from './killfx.js?v=20261116021411';
-import { makeGrapple } from './grapple.js?v=20261116021411';
-import { initShop } from './shop.js?v=20261116021411';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116021411';
-import { portal } from './portal.js?v=20261116021411';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116021411';
-import { makePost } from './post.js?v=20261116021411';
+import { Arena, MAPS } from './arena.js?v=20261116022006';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116022006';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116022006';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116022006';
+import * as net from './net.js?v=20261116022006';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116022006';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116022006';
+import { makeKillFx } from './killfx.js?v=20261116022006';
+import { makeGrapple } from './grapple.js?v=20261116022006';
+import { initShop } from './shop.js?v=20261116022006';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116022006';
+import { portal } from './portal.js?v=20261116022006';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116022006';
+import { makePost } from './post.js?v=20261116022006';
 
 // ---------- settings ----------
 const store = {
@@ -437,6 +437,8 @@ function stepFighter(f, dt, wish, sprint, jump) {
       else { const sp = Math.min(30, 12 + L * 1.8); f.vel.set(dx / L * sp, dy / L * sp, dz / L * sp); f.onGround = false; f.hook = null; f.dashT = 0; f.mantle = null; }
     }
   }
+  if (!Number.isFinite(f.vel.x + f.vel.y + f.vel.z)) f.vel.set(0, 0, 0); // (never let a bad number from a jump calculation through)
+  if (!Number.isFinite(f.pos.x + f.pos.y + f.pos.z)) f.pos.copy(f.prevPos);
   f.prevPos.copy(f.pos);
   const was = f.onGround, fallV = f.vel.y;
   // fast moves (dashes, swings) go in short steps so a sloped branch can't be skipped past
@@ -876,7 +878,7 @@ function spawnPoint(f) {
     // big map: come back in near the action (about 18 m from the nearest enemy) so brawls grow; small map: far away
     // (Last Blade Standing has no respawns, so everyone starts spread out instead)
     const sc = (arena.mapId === 'plateaus' && S.mode !== 'lbs' ? -Math.abs(Math.min(md, 60) - 18) : md) + Math.random() * 6;
-    if (sc > bs) { bs = sc; best = sp; }
+    if (sc > bs || !best) { bs = sc; best = sp; }
   }
   return best.clone();
 }
@@ -1256,10 +1258,10 @@ function botThink(b, dt) {
   if (S.mode === 'run' && arena.nextBranch) { // Branch Run: near the front of the branch, leap for the next one; in the air, steer onto it (and jump again if falling short)
     const nb = arena.nextBranch(b.pos), cur = b.plat != null ? arena.plats[b.plat] : null;
     if (nb && nb !== cur) {
-      const tx = nb.x, tz = nb.z + nb.d / 2 - 2.5, ddx = tx - b.pos.x, ddz = tz - b.pos.z, l = Math.hypot(ddx, ddz) || 1, w = { x: ddx / l, z: ddz / l };
+      const tx = Math.max(nb.box.x0 + 1.2, Math.min(nb.box.x1 - 1.2, b.pos.x)), tz = nb.z, ddx = tx - b.pos.x, ddz = tz - b.pos.z, l = Math.hypot(ddx, ddz) || 1, w = { x: ddx / l, z: ddz / l };
       if (!b.onGround && !b.hook) return { wish: w, jump: b.vel.y < 1 && b.pos.y < nb.y + 1 && (b.airJumps || 0) < 2 && Math.random() < 0.5, sprint: false };
       const front = cur && cur.kind === 'branch' ? b.pos.z - (cur.z - cur.d / 2) : 0;
-      if (b.onGround && front < 3.2) { b.yaw = Math.atan2(-ddx, -ddz); return { wish: w, jump: true, sprint: true }; }
+      if (b.onGround && front < 1.4) { b.yaw = Math.atan2(-ddx, -ddz); return { wish: w, jump: true, sprint: true }; }
     }
   }
   const g = botGrapple(b, t, D, dt, dx, dy, dz, dh);
@@ -1677,7 +1679,7 @@ function modeTick(dt) {
 function botObjective(b) {
   if (S.mode === 'run' && arena.nextBranch) { // Branch Run: always on to the next branch coming (fighting whoever's close on the way)
     const p = arena.nextBranch(b.pos); if (!p) return null; const e = b.target, eng = e && e.alive ? 3.2 : 0;
-    return { pos: new THREE.Vector3(p.x, p.y, p.z + p.d / 2 - 1.5), plat: p.i, engage: eng, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null };
+    return { pos: new THREE.Vector3(Math.max(p.box.x0 + 1, Math.min(p.box.x1 - 1, b.pos.x)), p.y, p.z), plat: p.i, engage: eng, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null };
   }
   if (S.mode === 'lava' && arena.summitPos) { // Lava Climb: up to the summit, unless a shut gate is in the way (then: fight)
     if (gateFor(b)) return null;
@@ -2222,7 +2224,7 @@ function tick(rdt, tt) {
     for (const f of fighters.values()) {
       if (!f.alive) continue;
       if (f === me) {
-        const fw = S.mode === 'run' ? Math.max(0.15, Math.min(1, (me.pos.z + 45) / 25)) : (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0); // (Branch Run: always running forward)
+        const fw = S.mode === 'run' ? (keys.KeyS || keys.ArrowDown ? 0 : Math.max(0.15, Math.min(1, (me.pos.z + 45) / 25))) : (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0); // (Branch Run: always running forward)
         const st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
         // body = camera + twist; the twist eases back once you stop swinging
         if (!swingHeld()) { const k = Math.exp(-6 * rdt); twist.yaw *= k; twist.pitch *= k; }
