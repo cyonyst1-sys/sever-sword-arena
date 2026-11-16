@@ -19,7 +19,7 @@ const AIR = {
   lava: { c: 0xff7a26, n: 700, size: 0.11, vel: [0.2, 2.2, 0.15], sway: 1.0, glow: true, a: 0.95 }, // embers rising off the lava
   foundry: { c: 0xff8a2e, n: 460, size: 0.1, vel: [0.2, 1.5, 0.1], sway: 0.9, glow: true, a: 0.9 }, // embers
 };
-const NO_SUN = ['tilt', 'colosseum', 'comet', 'lava', 'run', 'isles', 'pagoda', 'canopy']; // (space, a moon of its own, a sun of its own, a roof of leaves)
+const NO_SUN = ['city', 'tilt', 'colosseum', 'comet', 'lava', 'run', 'isles', 'pagoda', 'canopy']; // (space, a moon of its own, a sun of its own, a roof of leaves)
 
 let glowTex = null;
 function sunTexture() {

@@ -20,7 +20,7 @@ const LOOK = {
   bamboo: { env: 0.5, wet: 0.6, haze: [[0xd8f0a8, 0.26, -0.4]], shafts: [0xf0ffc0, 0.14, 9] },
   pagoda: { env: 0.55, wet: 0.6, haze: [[0xffb890, 0.3, -0.5]], shafts: [0xffc8a0, 0.13, 8], lights: [[0xffa050, 300, 70, 0, 9, 0]] },
   dojo: { env: 0.45, wet: 0.75, haze: [[0xe8f0ff, 0.28, -0.4]], shafts: [0xffffff, 0.08, 6], lights: [[0xffb060, 260, 60, 0, 6, 0]] },
-  city: { env: 0.8, wet: 0.5, haze: [[0xc8dcff, 0.3, -0.7]], shafts: [0xe8f0ff, 0.07, 6] },
+  city: { env: 0.9, wet: 0.4, haze: [[0x6a50ff, 0.3, -0.7]], lights: [[0xff40c0, 520, 130, -22, 22, 4], [0x40d0ff, 520, 130, 26, 30, 10]], custom: stars },
   foundry: { env: 0.6, wet: 0.55, haze: [[0xff9a50, 0.3, -0.7]], lights: [[0xff7a30, 420, 110, 0, -14, 0]] },
   comet: { env: 0.6, wet: 0.6, lights: [[0x8ac8ff, 300, 120, 0, 30, 0]], flat: true },
   lava: { env: 0.45, wet: 0.6, flat: true },
@@ -153,3 +153,5 @@ function spireLook(A, T) {
       for (let k = 0; k < 4; k++) { const c = new THREE.Mesh(crysG, m), sc = 0.35 + r() * 0.6; c.scale.set(sc * 0.45, sc * 1.6, sc * 0.45); c.rotation.set((r() - 0.5) * 0.7, r() * 3, (r() - 0.5) * 0.7); c.position.set(cx + (r() - 0.5) * 1.1, cy + sc * 0.8, cz + (r() - 0.5) * 1.1); S.add(c); A.own(p, c); }
       const gl = glow(m.color.getHex(), 6, 0.7); gl.position.set(cx, cy + 0.9, cz); S.add(gl); A.own(p, gl); } }
 }
+function stars(A, T) { const r = T.rng(909), n = 1300, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const u = r() * TAU, v = Math.acos(1 - r() * 0.85); pos[i * 3] = Math.sin(v) * Math.cos(u) * 480; pos[i * 3 + 1] = Math.cos(v) * 480; pos[i * 3 + 2] = Math.sin(v) * Math.sin(u) * 480; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); A.scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xd8dcff, size: 1.4, sizeAttenuation: false, fog: false }))); }

@@ -3,9 +3,9 @@
 // breakable chunks as the Paper Dojo: every window pane shatters, office partitions and crates break, and the
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
-import { cloudHeaps } from './scenery.js?v=20261116180145';
+import { cloudHeaps } from './scenery.js?v=20261116180400';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116180145';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116180400';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -17,12 +17,13 @@ export function buildCity(A, T) {
   kindMats(T);
   // red steel columns that cut like bamboo: a band (a bolted splice) every 2.6 m
   M.bamboo = new THREE.MeshStandardMaterial({ map: T.canvasTex((g, s) => { const gr = g.createLinearGradient(0, 0, s, 0); gr.addColorStop(0, '#7e2a12'); gr.addColorStop(0.45, '#cf5a30'); gr.addColorStop(1, '#7a2810'); g.fillStyle = gr; g.fillRect(0, 0, s, s); g.fillStyle = '#3a1408'; g.fillRect(0, 0, s, s * 0.05); g.fillStyle = '#e0e0e0'; for (let i = 0; i < 6; i++) g.fillRect(i * s / 6 + 4, s * 0.012, 4, 4); }, 128), roughness: 0.5, metalness: 0.35 });
-  A.setSky({ top: 0x2a68c8, mid: 0xa6cff0, bot: 0xe9f2fa, fog: 0xc3dbef, near: 120, far: 470, hemiSky: 0xe6f2ff, hemiGround: 0x56606e, hemi: 0.95, sunColor: 0xfff3dc, sun: 2.2, sunOff: new THREE.Vector3(40, 70, 25) });
+  A.setSky({ top: 0x04061a, mid: 0x1c1a4a, bot: 0x0a0a1e, fog: 0x1c1a48, near: 130, far: 520, hemiSky: 0x8e9cec, hemiGround: 0x48246a, hemi: 1.5, sunColor: 0xbcc8ff, sun: 1.9, sunOff: new THREE.Vector3(40, 70, 25) });
   const concrete = M.concrete = std(0xffffff, { map: T.canvasTex((g, s) => { g.fillStyle = '#a3a19c'; g.fillRect(0, 0, s, s); T.speckle(g, s, T.rng(3), 3500, 0.22); g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, 0, s, 2); g.fillRect(0, 0, 2, s); }), roughness: 0.95 });
   const facade = M.facade = std(0xffffff, { map: T.canvasTex((g, s) => {
-    const gr = g.createLinearGradient(0, 0, s, s); gr.addColorStop(0, '#3d6488'); gr.addColorStop(0.5, '#6f9cc4'); gr.addColorStop(1, '#2e5170'); g.fillStyle = gr; g.fillRect(0, 0, s, s);
+    const gr = g.createLinearGradient(0, 0, s, s); gr.addColorStop(0, '#16263c'); gr.addColorStop(0.5, '#243c5c'); gr.addColorStop(1, '#101c2e'); g.fillStyle = gr; g.fillRect(0, 0, s, s);
+    { const q = T.rng(21); for (let y = 0; y < 5; y++) for (let x = 0; x < 4; x++) { const lit = q(); g.fillStyle = lit < 0.3 ? '#ffd890' : lit < 0.42 ? '#8ae0ff' : lit < 0.5 ? '#ff8ad8' : '#0c1420'; g.fillRect(14 + x * s / 4, 16 + y * s / 5, s / 4 - 14, s / 5 - 18); } }
     g.fillStyle = '#1b232c'; g.fillRect(0, 0, s, 8); g.fillRect(0, 0, 6, s);
-  }), roughness: 0.15, metalness: 0.4, emissive: 0x0c1824 });
+  }), roughness: 0.15, metalness: 0.4, emissive: 0xffffff, emissiveIntensity: 0.55 }); facade.emissiveMap = facade.map; // (the lit windows glow)
   const dark = std(0x2a3138, { roughness: 0.5, metalness: 0.5 }), white = std(0xffffff, { roughness: 0.6, map: (() => { const t = T.canvasTex((g, s) => { const q = T.rng(12); g.fillStyle = '#dfe2e6'; g.fillRect(0, 0, s, s); for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(90,100,110,${0.03 + q() * 0.06})`; g.fillRect(q() * s, 0, 4 + q() * 30, s); } for (let i = 0; i < 14; i++) { const x = q() * s, d = g.createLinearGradient(0, 0, 0, s * (0.3 + q() * 0.5)); d.addColorStop(0, 'rgba(70,70,60,0.22)'); d.addColorStop(1, 'rgba(70,70,60,0)'); g.fillStyle = d; g.fillRect(x, 0, 3 + q() * 8, s); } g.fillStyle = 'rgba(40,50,60,0.55)'; g.fillRect(0, 0, s, 3); g.fillRect(0, 0, 3, s); g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(0, 3, s, 2); g.fillRect(3, 0, 2, s); for (const [x, y] of [[14, 14], [s - 14, 14], [14, s - 14], [s - 14, s - 14]]) { g.fillStyle = '#7a828c'; g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); } T.speckle(g, s, q, 2500, 0.12); }, 256); t.repeat.set(2, 2); return t; })() }), red = std(0xc23b2b), yellow = std(0xe8b422);
   const pillar = (x, z, y0, y1, w) => { const m = A.addBox(x - w / 2, x + w / 2, y0, y1, z - w / 2, z + w / 2, dark); A.pillars.push({ x, z, w }); return m; };
   const hookBox = (p, x0, x1, y0, y1, z0, z1) => { const b = { x0, x1, y0, y1, z0, z1 }; A.rayBoxes.push(b); p.rays.push(b); };
@@ -167,14 +168,14 @@ export function buildCity(A, T) {
 
   // ---------- backdrop: a far skyline in the haze, puffs of cloud below, a sea of cloud ----------
   {
-    const N = 170, im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }), N), mm = new THREE.Matrix4(), col = new THREE.Color();
+    const N = 170, im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, map: (() => { const t = T.canvasTex((g, s) => { const q = T.rng(22); g.fillStyle = '#10142a'; g.fillRect(0, 0, s, s); for (let y = 0; y < 16; y++) for (let x = 0; x < 6; x++) if (q() < 0.4) { g.fillStyle = q() < 0.7 ? '#ffd890' : q() < 0.5 ? '#8ae0ff' : '#ff8ad8'; g.fillRect(4 + x * s / 6, 3 + y * s / 16, s / 6 - 8, s / 16 - 6); } }, 128); t.repeat.set(2, 5); return t; })() }), N), mm = new THREE.Matrix4(), col = new THREE.Color();
     for (let i = 0; i < N; i++) {
       const a = r() * TAU, dd = 290 + r() * 150, h = 60 + r() * r() * 300, wd = 12 + r() * 22;
       mm.compose(new THREE.Vector3(Math.cos(a) * dd, -110 + h / 2, Math.sin(a) * dd), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * 3), new THREE.Vector3(wd, h, wd * (0.7 + r() * 0.6)));
-      im.setMatrixAt(i, mm); im.setColorAt(i, col.setHSL(0.6, 0.28, 0.2 + (dd - 290) / 800 + r() * 0.05));
+      im.setMatrixAt(i, mm); im.setColorAt(i, col.setHSL(0.62, 0.3, 0.75 - (dd - 290) / 400 + r() * 0.05));
     }
     S.add(im);
   }
-  cloudHeaps(S, r, { n: 46, rMin: 30, rMax: 210, y: -30, depth: 24, sMin: 8, sMax: 22 }); // clouds below: soft heaps of puffs (scenery.js)
-  const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf2f6fb, transparent: true, opacity: 0.96 })); sea.position.y = -62; S.add(sea);
+  cloudHeaps(S, r, { n: 46, rMin: 30, rMax: 210, y: -30, depth: 24, sMin: 8, sMax: 22, tint: new THREE.Color(0x4c4aa0) }); // clouds below: soft heaps of puffs (scenery.js)
+  const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x302e72, transparent: true, opacity: 0.96 })); sea.position.y = -62; S.add(sea);
 }
