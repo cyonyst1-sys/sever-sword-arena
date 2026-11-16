@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116004221';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116004221';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116004221';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116004221';
-import * as net from './net.js?v=20261116004221';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116004221';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116004221';
-import { makeKillFx } from './killfx.js?v=20261116004221';
-import { makeGrapple } from './grapple.js?v=20261116004221';
-import { initShop } from './shop.js?v=20261116004221';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116004221';
-import { portal } from './portal.js?v=20261116004221';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116004221';
-import { makePost } from './post.js?v=20261116004221';
+import { Arena, MAPS } from './arena.js?v=20261116015350';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116015350';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116015350';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116015350';
+import * as net from './net.js?v=20261116015350';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116015350';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116015350';
+import { makeKillFx } from './killfx.js?v=20261116015350';
+import { makeGrapple } from './grapple.js?v=20261116015350';
+import { initShop } from './shop.js?v=20261116015350';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116015350';
+import { portal } from './portal.js?v=20261116015350';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116015350';
+import { makePost } from './post.js?v=20261116015350';
 
 // ---------- settings ----------
 const store = {
@@ -1808,6 +1808,17 @@ function roomInfo() { return S.pub ? { code: net.net.code, name: settings.name |
 // ---------- UI ----------
 const screens = ['home', 'mp', 'lobby', 'settings', 'pause', 'end', 'shop'];
 const shop = initShop({ show, onClose: () => { setMetalEnv(gameEnv); show('home'); updateCoinBadge(); } });
+// the shop button's thumbnail: an oni mask, a katana and a scatter of coins, painted once
+{ const c = document.createElement('canvas'); c.width = 192; c.height = 136; const g = c.getContext('2d');
+  const bg = g.createLinearGradient(0, 0, 192, 136); bg.addColorStop(0, '#3a1408'); bg.addColorStop(1, '#0e0a08'); g.fillStyle = bg; g.fillRect(0, 0, 192, 136);
+  const gl = g.createRadialGradient(96, 64, 4, 96, 64, 100); gl.addColorStop(0, 'rgba(255,190,60,.55)'); gl.addColorStop(1, 'rgba(255,190,60,0)'); g.fillStyle = gl; g.fillRect(0, 0, 192, 136);
+  g.save(); g.translate(132, 66); g.rotate(-0.6); g.fillStyle = '#e8eef4'; g.fillRect(-3, -70, 6, 90); g.fillStyle = '#d9ad3c'; g.fillRect(-10, 20, 20, 5); g.fillStyle = '#2a1d14'; g.fillRect(-3, 25, 6, 26); g.restore();
+  g.fillStyle = '#b3191f'; g.beginPath(); g.ellipse(80, 66, 34, 40, 0, 0, 7); g.fill();
+  g.fillStyle = '#eee6d2'; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(80 + s * 20, 36); g.lineTo(80 + s * 34, 8); g.lineTo(80 + s * 10, 32); g.fill(); }
+  g.fillStyle = '#ffd23a'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(80 + s * 13, 58, 8, 4, s * -0.3, 0, 7); g.fill(); }
+  g.fillStyle = '#111'; g.fillRect(64, 80, 32, 7); g.fillStyle = '#eee6d2'; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(80 + s * 9, 87); g.lineTo(80 + s * 6, 98); g.lineTo(80 + s * 3, 87); g.fill(); }
+  for (const [x, y] of [[30, 112], [46, 118], [150, 114], [166, 106], [24, 96]]) { g.fillStyle = '#ffc23d'; g.beginPath(); g.ellipse(x, y, 9, 6, 0, 0, 7); g.fill(); g.fillStyle = '#b07e1c'; g.beginPath(); g.ellipse(x, y, 4, 2.5, 0, 0, 7); g.fill(); }
+  $('shopThumb').src = c.toDataURL('image/jpeg', 0.88); }
 function updateCoinBadge() { $('coinBadge').textContent = profile.coins; }
 $('toShop').addEventListener('click', () => shop.open());
 updateCoinBadge();
