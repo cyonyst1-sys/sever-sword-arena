@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116020219';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116020219';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116020219';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116020219';
-import * as net from './net.js?v=20261116020219';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116020219';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116020219';
-import { makeKillFx } from './killfx.js?v=20261116020219';
-import { makeGrapple } from './grapple.js?v=20261116020219';
-import { initShop } from './shop.js?v=20261116020219';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116020219';
-import { portal } from './portal.js?v=20261116020219';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116020219';
-import { makePost } from './post.js?v=20261116020219';
+import { Arena, MAPS } from './arena.js?v=20261116021155';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116021155';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116021155';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116021155';
+import * as net from './net.js?v=20261116021155';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116021155';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116021155';
+import { makeKillFx } from './killfx.js?v=20261116021155';
+import { makeGrapple } from './grapple.js?v=20261116021155';
+import { initShop } from './shop.js?v=20261116021155';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116021155';
+import { portal } from './portal.js?v=20261116021155';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116021155';
+import { makePost } from './post.js?v=20261116021155';
 
 // ---------- settings ----------
 const store = {
@@ -861,6 +861,7 @@ function overviewFrom(p, out) {
 // ---------- spawning ----------
 // Pagoda Falls: everyone comes in on the outer ring (rock spires and terraces) and rushes the pagoda
 function spawnList() {
+  if (arena.runMode) { const near = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && p.z > -35 && p.z < 2; }); if (near.length) return near; } // (Branch Run: back in on a branch near the action)
   const kinds = { pagoda: ['spire', 'terrace'], colosseum: ['rim'], bamboo: ['pad'] }[arena.mapId]; // (Colosseum: its high rim)
   if (!kinds) return arena.spawns;
   const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && !p.busy && kinds.includes(p.kind); });
@@ -890,7 +891,7 @@ function spawn(f, p, yaw) {
   sfx.spawn(p);
 }
 function hostSpawn(f) {
-  const p = spawnPoint(f), yaw = Math.atan2(p.x, p.z); // face the centre
+  const p = spawnPoint(f), yaw = arena.runMode ? 0 : Math.atan2(p.x, p.z); // face the centre (Branch Run: face the way the run goes)
   spawn(f, p, yaw);
   if (arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo') f.rushUntil = now() + 12; // bots charge the centre after coming in
   net.broadcast({ t: 'spawn', id: f.id, p: arr(p), y: +yaw.toFixed(3) });
@@ -1252,6 +1253,15 @@ function botThink(b, dt) {
   b.yaw += Math.max(-turn, Math.min(turn, da));
   b.pitch = Math.max(-0.7, Math.min(0.7, Math.atan2(dy, Math.max(0.5, dh))));
   // grappling hook
+  if (S.mode === 'run' && arena.nextBranch) { // Branch Run: near the front of the branch, leap for the next one; in the air, steer onto it (and jump again if falling short)
+    const nb = arena.nextBranch(b.pos), cur = b.plat != null ? arena.plats[b.plat] : null;
+    if (nb && nb !== cur) {
+      const tx = nb.x, tz = nb.z + nb.d / 2 - 2.5, ddx = tx - b.pos.x, ddz = tz - b.pos.z, l = Math.hypot(ddx, ddz) || 1, w = { x: ddx / l, z: ddz / l };
+      if (!b.onGround && !b.hook) return { wish: w, jump: b.vel.y < 1 && b.pos.y < nb.y + 1 && (b.airJumps || 0) < 2 && Math.random() < 0.5, sprint: false };
+      const front = cur && cur.kind === 'branch' ? b.pos.z - (cur.z - cur.d / 2) : 0;
+      if (b.onGround && front < 3.2) { b.yaw = Math.atan2(-ddx, -ddz); return { wish: w, jump: true, sprint: true }; }
+    }
+  }
   const g = botGrapple(b, t, D, dt, dx, dy, dz, dh);
   const tpl = S.mode === 'lava' && t.fake && t.plat != null ? arena.plats[t.plat] : null, rr = tpl ? Math.max(0, tpl.round - 1.5) : 0;
   if (tpl && !g && b.onGround && !b.hook && b.plat !== t.plat && (dy > 2.8 || dh - rr > 6) && dy > -3 && dh - rr < 34 && (b.hookCd || 0) <= 0) { // (high above, or across a wide gap) // Lava Climb: a rock (or the arena) high overhead: hook the near edge of its top and reel up and over
@@ -1376,7 +1386,8 @@ function fillBots() {
 }
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
-  if (S.mode === 'lava') S.map = 'lava'; else if (S.map === 'lava') S.mode = 'lava'; // (Lava Climb: the mode and its map go together)
+  for (const sp of ['lava', 'run']) { if (S.mode === sp) S.map = sp; else if (S.map === sp) S.mode = sp; } // (special maps: the mode and its map go together)
+  if (S.mode !== 'lava' && S.mode !== 'run' && (S.map === 'lava' || S.map === 'run')) S.map = 'spire';
   useMap(S.map);
   clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
   if (coop()) S.roster = S.roster.filter((r) => r.human);
@@ -1412,7 +1423,7 @@ function checkEnd() {
   if (teamMode()) {
     const a = teamKills('A'), b = teamKills('B');
     if (a >= MODE_GOAL.team || b >= MODE_GOAL.team || S.timeLeft <= 0) endMatch(a === b ? null : a > b ? 'A' : 'B');
-  } else if (S.mode === 'ffa') {
+  } else if (S.mode === 'ffa' || S.mode === 'run') {
     const top = [...S.roster].sort((a, b) => b.k - a.k)[0];
     if ((top && top.k >= FFA_KILLS) || S.timeLeft <= 0) endMatch();
   } else if (POINT_MODES.has(S.mode)) {
@@ -1664,6 +1675,10 @@ function modeTick(dt) {
 }
 // what a bot should go for besides fighting: the throne, a shrine or loose heads, or away from a crumbling platform
 function botObjective(b) {
+  if (S.mode === 'run' && arena.nextBranch) { // Branch Run: always on to the next branch coming (fighting whoever's close on the way)
+    const p = arena.nextBranch(b.pos); if (!p) return null; const e = b.target, eng = e && e.alive ? 3.2 : 0;
+    return { pos: new THREE.Vector3(p.x, p.y, p.z + p.d / 2 - 1.5), plat: p.i, engage: eng, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null };
+  }
   if (S.mode === 'lava' && arena.summitPos) { // Lava Climb: up to the summit, unless a shut gate is in the way (then: fight)
     if (gateFor(b)) return null;
     const nr = nextRock(b); if (nr) return { pos: new THREE.Vector3(nr.x, nr.y, nr.z), plat: nr.i, engage: b.target && b.target.alive && !b.target.isBot ? 3 : 0, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null }; // (every rock in turn)
@@ -2066,7 +2081,7 @@ function updateHud(dt) {
   const lead = top ? `Leader: <span style="color:${colorOf(top)}">${esc(top.name)}</span> ${pts ? top.pts || 0 : top.k}` : '';
   let status = '';
   if (teamMode()) { const a = teamKills('A'), b = teamKills('B'), mt = mr && TEAMS[mr.team]; $('topbar').innerHTML = `Team Battle · ${clock(S.timeLeft)} · <span style="color:${TEAMS.A.css}">Red ${a}</span> – <span style="color:${TEAMS.B.css}">${b} Blue</span> · first to ${MODE_GOAL.team}`; if (me && me.alive && mt) status = `You are on <span style="color:${mt.css}">${mt.name.toUpperCase()}</span>`; }
-  else if (S.mode === 'ffa') $('topbar').innerHTML = `${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
+  else if (S.mode === 'ffa' || S.mode === 'run') $('topbar').innerHTML = `${S.mode === 'run' ? 'Branch Run · ' : ''}${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
   else if (S.mode === 'koth') {
     $('topbar').innerHTML = `King of the Platform · ${clock(S.timeLeft)} · Throne moves in ${Math.ceil(Math.max(0, until.throne - now()))} s · ${lead}/${MODE_GOAL.koth}`;
     if (me && me.alive && S.obj && o.throne >= 0) {
@@ -2207,7 +2222,7 @@ function tick(rdt, tt) {
     for (const f of fighters.values()) {
       if (!f.alive) continue;
       if (f === me) {
-        const fw = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
+        const fw = S.mode === 'run' ? Math.max(0.15, Math.min(1, (me.pos.z + 45) / 25)) : (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0); // (Branch Run: always running forward)
         const st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
         // body = camera + twist; the twist eases back once you stop swinging
         if (!swingHeld()) { const k = Math.exp(-6 * rdt); twist.yaw *= k; twist.pitch *= k; }
@@ -2276,13 +2291,13 @@ window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, r
 // ---------- map picker: a thumbnail card for each map (the hidden select still holds the choice) ----------
 function thumb(id) { return `thumbs/${id}.jpg?v=${document.querySelector('meta[name=build]').content}`; }
 // special maps come with their own mode (and that mode with its map)
-const SPECIAL = { lava: 'lava' };
+const SPECIAL = { lava: 'lava', run: 'run' };
 // a painted card for each mode: a colour wash and an emblem drawn on a canvas (made once)
 const modeArt = {};
 function modeThumb(id) {
   if (modeArt[id]) return modeArt[id];
   const W = 240, H = 180, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-  const pal = { ffa: ['#5a1418', '#d6403a'], team: ['#1a2b5e', '#c23b3b'], koth: ['#3d2a0c', '#e0a83a'], jugg: ['#2a0f2e', '#c08a2e'], lbs: ['#1d2430', '#7f93b0'], hunt: ['#2e2208', '#f0c419'], horde: ['#1a0c0c', '#8e1717'], boss: ['#120a1c', '#7a3ab8'], lava: ['#2a0804', '#ff6a20'] }[id] || ['#222', '#888'];
+  const pal = { ffa: ['#5a1418', '#d6403a'], run: ['#173a1a', '#7ac04a'], team: ['#1a2b5e', '#c23b3b'], koth: ['#3d2a0c', '#e0a83a'], jugg: ['#2a0f2e', '#c08a2e'], lbs: ['#1d2430', '#7f93b0'], hunt: ['#2e2208', '#f0c419'], horde: ['#1a0c0c', '#8e1717'], boss: ['#120a1c', '#7a3ab8'], lava: ['#2a0804', '#ff6a20'] }[id] || ['#222', '#888'];
   const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, pal[0]); bg.addColorStop(1, '#0c0b0b'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
   const glow = g.createRadialGradient(W / 2, H * 0.48, 4, W / 2, H * 0.48, W * 0.55); glow.addColorStop(0, pal[1] + 'aa'); glow.addColorStop(1, pal[1] + '00'); g.fillStyle = glow; g.fillRect(0, 0, W, H);
   const cx = W / 2, cy = H * 0.47;
@@ -2302,6 +2317,7 @@ function modeThumb(id) {
   else if (id === 'hunt') { for (const [x, y] of [[-40, 30], [0, 40], [40, 30], [-20, 5], [20, 5]]) { g.fillStyle = '#ffc23d'; g.beginPath(); g.arc(cx + x, cy + y, 14, 0, 7); g.fill(); g.fillStyle = '#7a5410'; g.fillRect(cx + x - 6, cy + y - 3, 4, 4); g.fillRect(cx + x + 2, cy + y - 3, 4, 4); } g.strokeStyle = '#ffe08a'; g.lineWidth = 5; g.beginPath(); g.ellipse(cx, cy - 30, 34, 12, 0, 0, 7); g.stroke(); }
   else if (id === 'horde') { g.fillStyle = '#b3191f'; g.beginPath(); g.ellipse(cx, cy + 6, 46, 52, 0, 0, 7); g.fill(); g.fillStyle = '#111'; g.beginPath(); g.ellipse(cx - 18, cy - 4, 10, 7, 0.3, 0, 7); g.ellipse(cx + 18, cy - 4, 10, 7, -0.3, 0, 7); g.fill(); g.fillStyle = '#f2ead8'; for (const s of [-1, 1]) { g.beginPath(); g.moveTo(cx + s * 30, cy - 34); g.lineTo(cx + s * 44, cy - 70); g.lineTo(cx + s * 16, cy - 40); g.fill(); } g.fillRect(cx - 22, cy + 26, 44, 8); }
   else if (id === 'boss') { g.fillStyle = '#d8d0e8'; g.beginPath(); g.arc(cx, cy - 4, 40, 0, 7); g.fill(); g.fillRect(cx - 24, cy + 26, 48, 22); g.fillStyle = '#120a1c'; g.beginPath(); g.arc(cx - 15, cy - 6, 10, 0, 7); g.arc(cx + 15, cy - 6, 10, 0, 7); g.fill(); for (let i = -2; i <= 2; i++) g.fillRect(cx + i * 9 - 2, cy + 30, 4, 18); }
+  else if (id === 'run') { g.fillStyle = '#3a2614'; for (const s of [-1, 1]) g.fillRect(cx + s * 78 - 9, 0, 18, H); const br = (x, y, w) => { g.fillStyle = '#6b4a2c'; g.beginPath(); g.ellipse(x, y, w, w * 0.22, 0, 0, 7); g.fill(); g.fillStyle = '#4a8f3a'; g.beginPath(); g.arc(x - w, y - 6, 9, 0, 7); g.fill(); }; br(cx - 10, cy + 52, 46); br(cx + 22, cy + 14, 32); br(cx - 14, cy - 18, 22); br(cx + 8, cy - 40, 14); g.strokeStyle = '#ffd25a'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 40, cy + 30); g.quadraticCurveTo(cx - 30, cy - 10, cx + 4, cy - 2); g.stroke(); g.beginPath(); g.moveTo(cx - 4, cy - 10); g.lineTo(cx + 6, cy - 1); g.lineTo(cx - 6, cy + 4); g.fill(); }
   else if (id === 'lava') { const fl = g.createLinearGradient(0, cy + 70, 0, cy - 40); fl.addColorStop(0, '#ffe08a'); fl.addColorStop(0.4, '#ff6a20'); fl.addColorStop(1, 'rgba(255,60,10,0)'); g.fillStyle = fl; g.fillRect(0, cy + 20, W, H); plat(cx - 46, cy + 18, 24, '#4a3f38'); plat(cx + 10, cy - 10, 22, '#4a3f38'); plat(cx + 50, cy - 42, 20, '#4a3f38'); g.fillStyle = '#ffd27a'; g.fillRect(cx + 48, 0, 4, cy - 46); }
   else blade(0);
   g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';

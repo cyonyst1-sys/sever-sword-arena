@@ -3,16 +3,17 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116020219';
-import { buildFoundry } from './foundry.js?v=20261116020219';
-import { buildBamboo } from './bamboo.js?v=20261116020219';
-import { buildCity } from './city.js?v=20261116020219';
-import { buildDojo } from './dojo.js?v=20261116020219';
-import { buildComet } from './comet.js?v=20261116020219';
-import { buildLava } from './lava.js?v=20261116020219';
-import { addScenery } from './scenery.js?v=20261116020219';
-import { addAtmosphere } from './atmos.js?v=20261116020219';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116020219';
+import { buildTilt } from './tilt.js?v=20261116021155';
+import { buildFoundry } from './foundry.js?v=20261116021155';
+import { buildBamboo } from './bamboo.js?v=20261116021155';
+import { buildCity } from './city.js?v=20261116021155';
+import { buildDojo } from './dojo.js?v=20261116021155';
+import { buildComet } from './comet.js?v=20261116021155';
+import { buildLava } from './lava.js?v=20261116021155';
+import { buildRun } from './run.js?v=20261116021155';
+import { addScenery } from './scenery.js?v=20261116021155';
+import { addAtmosphere } from './atmos.js?v=20261116021155';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116021155';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -134,7 +135,7 @@ function worldUV(geo, sc) {
 // rotate a point a quarter turn k times around the centre
 // texture helpers for the map builders in maps2.js
 export const TEX = { rng, canvasTex, stoneTex, woodTex, bambooTex, worldUV, speckle };
-const PLAIN_MAPS = ['foundry', 'city', 'tilt', 'comet', 'bamboo']; // (steel, glass, planks and bamboo stay straight-edged)
+const PLAIN_MAPS = ['foundry', 'city', 'tilt', 'comet', 'bamboo', 'run']; // (steel, glass, planks and bamboo stay straight-edged)
 function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; } return [x, z]; }
 
 export const MAPS = {
@@ -151,6 +152,7 @@ export const MAPS = {
   tilt: { name: 'Swinging Decks', blurb: 'six big round decks hanging on chains from a spinning crown, swinging outward as it turns like a fairground swing ride: cut a chain and the deck flies off with whoever is on it' },
   comet: { name: 'Comet Crash', blurb: 'a cluster of asteroids riding a comet toward a planet: jump across them, swing from the small rocks floating round, and watch the planet loom closer until the comet hits it' },
   lava: { name: 'Lava Climb', blurb: 'the inside of a volcano: the lava rises, so climb a course of floating rock to the summit. Hop, dash, grapple up and swing across. Three checkpoint arenas on the way, each under a gate that only opens once you have eliminated enough fighters' },
+  run: { name: 'Branch Run', blurb: 'a giant forest: branches stream toward you and you never stop running, leaping branch to branch and fighting on each' },
 };
 
 export class Arena {
@@ -589,6 +591,7 @@ export class Arena {
     if (this.mapId === 'tilt') return buildTilt(this, TEX);
     if (this.mapId === 'comet') return buildComet(this, TEX);
     if (this.mapId === 'lava') return buildLava(this, TEX);
+    if (this.mapId === 'run') return buildRun(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     this.realScene.background = new THREE.Color(0x9cc4e4);
