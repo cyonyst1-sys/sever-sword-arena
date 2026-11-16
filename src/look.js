@@ -13,9 +13,9 @@ const LOOK = {
   spire: { env: 0.45, wet: 0.72, haze: [[0xdcecff, 0.3, -0.6]], shafts: [0xfff4dc, 0.1, 7] },
   plateaus: { env: 0.35, haze: [[0xffe2b8, 0.28, -0.5]], shafts: [0xffeecc, 0.08, 6] },
   tilt: { env: 0.7, wet: 0.5, haze: [[0x4a6aff, 0.3, -0.7]] },
-  canopy: { env: 0.55, wet: 0.6, haze: [[0xc8f0a0, 0.3, -0.3], [0x9ad0a0, 0.18, 0.2]], shafts: [0xf4ffc0, 0.16, 12] },
-  grove: { env: 0.5, wet: 0.7, haze: [[0xffc890, 0.32, -0.5]], shafts: [0xffd0a0, 0.15, 9], flat: true },
-  run: { env: 0.5, wet: 0.65, shafts: [0xe8ffb0, 0.13, 10], flat: true },
+  canopy: { bump: 3, env: 0.55, wet: 0.6, haze: [[0xc8f0a0, 0.3, -0.3], [0x9ad0a0, 0.18, 0.2]], shafts: [0xf4ffc0, 0.16, 12] },
+  grove: { bump: 1.6, env: 0.5, wet: 0.7, haze: [[0xffc890, 0.32, -0.5]], shafts: [0xffd0a0, 0.15, 9], flat: true },
+  run: { bump: 2.2, env: 0.5, wet: 0.65, shafts: [0xe8ffb0, 0.13, 10], flat: true },
   isles: { env: 0.7, wet: 0.45, haze: [[0x6a58ff, 0.34, -0.5]] },
   bamboo: { env: 0.5, wet: 0.6, haze: [[0xd8f0a8, 0.26, -0.4]], shafts: [0xf0ffc0, 0.14, 9] },
   pagoda: { env: 0.55, wet: 0.6, haze: [[0xffb890, 0.3, -0.5]], shafts: [0xffc8a0, 0.13, 8], lights: [[0xffa050, 300, 70, 0, 9, 0]] },
@@ -50,10 +50,24 @@ export function applyLook(A, T) {
   const S = A.scene;
   // ---- reflections: everything mirrors the sky a little; polished and wet things a lot
   const env = skyEnv(A, T), seen = new Set();
+  // surface detail: nothing is left a flat colour. Plain materials get a fine mineral grain (blotches, speckle, hairline
+  // scratches) as both colour and relief; textured ones get relief from their own texture; and everything gets a little
+  // variation in how glossy it is, so highlights break up across a surface instead of sitting on it like plastic
+  const grain = T.canvasTex((g, s) => { const q = T.rng(31); g.fillStyle = '#e6e6e6'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 120; i++) { const x = q() * s, y = q() * s, R = s * (0.03 + q() * 0.1), d = g.createRadialGradient(x, y, 0, x, y, R); d.addColorStop(0, `rgba(${q() < 0.55 ? '0,0,0' : '255,255,255'},${0.05 + q() * 0.09})`); d.addColorStop(1, 'rgba(128,128,128,0)'); g.fillStyle = d; g.fillRect(x - R, y - R, R * 2, R * 2); }
+    for (let i = 0; i < 40; i++) { g.strokeStyle = `rgba(0,0,0,${0.08 + q() * 0.14})`; g.lineWidth = 0.6 + q(); let x = q() * s, y = q() * s; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (q() - 0.5) * s * 0.08; y += (q() - 0.5) * s * 0.08; g.lineTo(x, y); } g.stroke(); }
+    T.speckle(g, s, q, 9000, 0.16); }, 512);
+  grain.repeat.set(2, 2);
+  const rough = T.canvasTex((g, s) => { const q = T.rng(32); g.fillStyle = 'rgb(0,235,0)'; g.fillRect(0, 0, s, s); for (let i = 0; i < 160; i++) { const x = q() * s, y = q() * s, R = s * (0.03 + q() * 0.12), d = g.createRadialGradient(x, y, 0, x, y, R); d.addColorStop(0, `rgba(0,${q() < 0.6 ? 150 : 255},0,${0.25 + q() * 0.4})`); d.addColorStop(1, 'rgba(0,200,0,0)'); g.fillStyle = d; g.fillRect(x - R, y - R, R * 2, R * 2); } }, 256);
+  rough.colorSpace = THREE.NoColorSpace; rough.repeat.set(3, 3);
   S.traverse((o) => { if (o.isHemisphereLight) o.intensity *= 0.9; // (the mirrored sky adds some light of its own)
     const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
     for (const m of ms) { if (!m.isMeshStandardMaterial || m.envMap || seen.has(m)) continue; seen.add(m);
       m.envMap = env; m.envMapIntensity = L.env * (m.metalness > 0.4 ? 1.8 : 1);
+      if (!m.transparent && !m.userData.plain && !o.isInstancedMesh && !o.isSkinnedMesh) {
+        if (!m.bumpMap && !m.normalMap) { if (m.map) { m.bumpMap = m.map; m.bumpScale = 1.6 * (L.bump || 1); } else if (!m.vertexColors && !(m.emissiveIntensity > 1 && m.emissive.getHex())) { m.map = grain; m.bumpMap = grain; m.bumpScale = 1.3; } }
+        if (!m.roughnessMap && !m.metalnessMap) m.roughnessMap = rough;
+      }
       if (L.wet && m.roughness > L.wet && !m.transparent && !m.userData.dry) m.roughness = L.wet + (m.roughness - L.wet) * 0.35; // (rain-washed: nothing quite matte)
       m.needsUpdate = true; } });
   // ---- how big the place is (from its platforms)

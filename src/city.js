@@ -3,9 +3,9 @@
 // breakable chunks as the Paper Dojo: every window pane shatters, office partitions and crates break, and the
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
-import { cloudHeaps } from './scenery.js?v=20261116052258';
+import { cloudHeaps } from './scenery.js?v=20261116052826';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116052258';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116052826';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -23,7 +23,7 @@ export function buildCity(A, T) {
     const gr = g.createLinearGradient(0, 0, s, s); gr.addColorStop(0, '#3d6488'); gr.addColorStop(0.5, '#6f9cc4'); gr.addColorStop(1, '#2e5170'); g.fillStyle = gr; g.fillRect(0, 0, s, s);
     g.fillStyle = '#1b232c'; g.fillRect(0, 0, s, 8); g.fillRect(0, 0, 6, s);
   }), roughness: 0.15, metalness: 0.4, emissive: 0x0c1824 });
-  const dark = std(0x2a3138, { roughness: 0.5, metalness: 0.5 }), white = std(0xe9ecef), red = std(0xc23b2b), yellow = std(0xe8b422);
+  const dark = std(0x2a3138, { roughness: 0.5, metalness: 0.5 }), white = std(0xffffff, { roughness: 0.6, map: (() => { const t = T.canvasTex((g, s) => { const q = T.rng(12); g.fillStyle = '#dfe2e6'; g.fillRect(0, 0, s, s); for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(90,100,110,${0.03 + q() * 0.06})`; g.fillRect(q() * s, 0, 4 + q() * 30, s); } for (let i = 0; i < 14; i++) { const x = q() * s, d = g.createLinearGradient(0, 0, 0, s * (0.3 + q() * 0.5)); d.addColorStop(0, 'rgba(70,70,60,0.22)'); d.addColorStop(1, 'rgba(70,70,60,0)'); g.fillStyle = d; g.fillRect(x, 0, 3 + q() * 8, s); } g.fillStyle = 'rgba(40,50,60,0.55)'; g.fillRect(0, 0, s, 3); g.fillRect(0, 0, 3, s); g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(0, 3, s, 2); g.fillRect(3, 0, 2, s); for (const [x, y] of [[14, 14], [s - 14, 14], [14, s - 14], [s - 14, s - 14]]) { g.fillStyle = '#7a828c'; g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); } T.speckle(g, s, q, 2500, 0.12); }, 256); t.repeat.set(2, 2); return t; })() }), red = std(0xc23b2b), yellow = std(0xe8b422);
   const pillar = (x, z, y0, y1, w) => { const m = A.addBox(x - w / 2, x + w / 2, y0, y1, z - w / 2, z + w / 2, dark); A.pillars.push({ x, z, w }); return m; };
   const hookBox = (p, x0, x1, y0, y1, z0, z1) => { const b = { x0, x1, y0, y1, z0, z1 }; A.rayBoxes.push(b); p.rays.push(b); };
   // a run of window panes along x (az == bz) or z (ax == bx), each pane on its own: it shatters alone

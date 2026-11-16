@@ -3,20 +3,20 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116052258';
-import { buildFoundry } from './foundry.js?v=20261116052258';
-import { buildBamboo } from './bamboo.js?v=20261116052258';
-import { buildCity } from './city.js?v=20261116052258';
-import { buildDojo } from './dojo.js?v=20261116052258';
-import { buildComet } from './comet.js?v=20261116052258';
-import { buildLava } from './lava.js?v=20261116052258';
-import { buildRun } from './run.js?v=20261116052258';
-import { buildGrove } from './grove.js?v=20261116052258';
-import { buildTransport } from './transport.js?v=20261116052258';
-import { applyLook } from './look.js?v=20261116052258';
-import { addScenery } from './scenery.js?v=20261116052258';
-import { addAtmosphere } from './atmos.js?v=20261116052258';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116052258';
+import { buildTilt } from './tilt.js?v=20261116052826';
+import { buildFoundry } from './foundry.js?v=20261116052826';
+import { buildBamboo } from './bamboo.js?v=20261116052826';
+import { buildCity } from './city.js?v=20261116052826';
+import { buildDojo } from './dojo.js?v=20261116052826';
+import { buildComet } from './comet.js?v=20261116052826';
+import { buildLava } from './lava.js?v=20261116052826';
+import { buildRun } from './run.js?v=20261116052826';
+import { buildGrove } from './grove.js?v=20261116052826';
+import { buildTransport } from './transport.js?v=20261116052826';
+import { applyLook } from './look.js?v=20261116052826';
+import { addScenery } from './scenery.js?v=20261116052826';
+import { addAtmosphere } from './atmos.js?v=20261116052826';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116052826';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -116,7 +116,9 @@ const barkTex = () => canvasTex((g, S) => {
   for (let i = 0; i < 70; i++) { const x = r() * S, w = 2 + r() * 7, sh = 50 + r() * 40 | 0; g.fillStyle = `rgb(${sh + 20},${sh},${sh * 0.6 | 0})`; g.fillRect(x, 0, w, S); }
   for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(20,12,6,${0.2 + r() * 0.3})`; g.fillRect(r() * S, r() * S, 1 + r() * 3, 6 + r() * 26); }
   for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(90,120,60,${0.15 + r() * 0.2})`; g.beginPath(); g.arc(r() * S, r() * S, 3 + r() * 10, 0, Math.PI * 2); g.fill(); } // moss
-});
+  for (let i = 0; i < 46; i++) { let x = r() * S; const w = 2 + r() * 5; for (const [c, o] of [["12,7,3,0.6", 0], ["175,135,90,0.22", w]]) { g.strokeStyle = `rgba(${c})`; g.lineWidth = o ? 1.5 : w; let xx = x + o; g.beginPath(); g.moveTo(xx, 0); for (let y = 0; y <= S; y += S / 8) { xx += (r() - 0.5) * 14; g.lineTo(xx, y); } g.stroke(); } } // deep furrows running up the trunk, a lit edge beside each
+  for (let i = 0; i < 9; i++) { const x = r() * S, y = r() * S; g.fillStyle = "rgba(14,8,4,0.7)"; g.beginPath(); g.ellipse(x, y, 5 + r() * 8, 9 + r() * 14, 0, 0, 7); g.fill(); g.strokeStyle = "rgba(160,120,80,0.35)"; g.lineWidth = 2; g.stroke(); } // knots
+}, 512);
 const bambooTex = () => canvasTex((g, S) => {
   const grd = g.createLinearGradient(0, 0, S, 0);
   grd.addColorStop(0, '#5e8a2c'); grd.addColorStop(0.45, '#9dc35a'); grd.addColorStop(0.55, '#a9cc66'); grd.addColorStop(1, '#5a8428');
