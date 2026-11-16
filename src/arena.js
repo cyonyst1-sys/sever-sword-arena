@@ -3,18 +3,18 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116030512';
-import { buildFoundry } from './foundry.js?v=20261116030512';
-import { buildBamboo } from './bamboo.js?v=20261116030512';
-import { buildCity } from './city.js?v=20261116030512';
-import { buildDojo } from './dojo.js?v=20261116030512';
-import { buildComet } from './comet.js?v=20261116030512';
-import { buildLava } from './lava.js?v=20261116030512';
-import { buildRun } from './run.js?v=20261116030512';
-import { buildGrove } from './grove.js?v=20261116030512';
-import { addScenery } from './scenery.js?v=20261116030512';
-import { addAtmosphere } from './atmos.js?v=20261116030512';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116030512';
+import { buildTilt } from './tilt.js?v=20261116030553';
+import { buildFoundry } from './foundry.js?v=20261116030553';
+import { buildBamboo } from './bamboo.js?v=20261116030553';
+import { buildCity } from './city.js?v=20261116030553';
+import { buildDojo } from './dojo.js?v=20261116030553';
+import { buildComet } from './comet.js?v=20261116030553';
+import { buildLava } from './lava.js?v=20261116030553';
+import { buildRun } from './run.js?v=20261116030553';
+import { buildGrove } from './grove.js?v=20261116030553';
+import { addScenery } from './scenery.js?v=20261116030553';
+import { addAtmosphere } from './atmos.js?v=20261116030553';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116030553';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 

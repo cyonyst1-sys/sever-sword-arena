@@ -55,7 +55,7 @@ export function buildGrove(A, T) {
   const free = (px, pz, py, R) => all.every((q) => Math.hypot(q.x - px, q.z - pz) > q.round + R + 0.8 || Math.abs(q.y - py) > 5);
   const pad = (px, pz, py, R) => { const p = addPad(px, pz, py, R); all.push(p); return p; };
   for (const side of [-1, 1]) for (let k = 0; k < 4; k++) {
-    const x = side * (ROW + (r() - 0.5) * 2), z = -39 + k * 26 + (side > 0 ? 13 : 0) + (r() - 0.5) * 3, top = 15 + r() * 8, H = top - BASE, R0 = 3.6 + r() * 1.4;
+    const x = side * (ROW + (r() - 0.5) * 2), z = -39 + k * 26 + (side > 0 ? 13 : 0) + (r() - 0.5) * 3, top = 15 + r() * 8, H = top - BASE, R0 = 2.0 + r() * 0.8; // (slimmer trunks)
     // the trunk: thick and swollen, twisting as it rises out of the mist
     const tg = new THREE.CylinderGeometry(R0 * 0.62, R0 * 1.3, H, 20, 14, false), tp = tg.attributes.position, ph = r() * TAU;
     for (let i = 0; i < tp.count; i++) { const y = tp.getY(i) / H + 0.5, a = Math.atan2(tp.getZ(i), tp.getX(i)), rr = Math.hypot(tp.getX(i), tp.getZ(i)), k2 = 1 + 0.16 * Math.sin(a * 3 + y * 7 + ph) + 0.08 * Math.sin(a * 7 - y * 12), tw = a + y * 1.4; tp.setX(i, Math.cos(tw) * rr * k2); tp.setZ(i, Math.sin(tw) * rr * k2); }
