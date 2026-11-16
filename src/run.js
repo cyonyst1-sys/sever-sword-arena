@@ -110,16 +110,17 @@ export function buildRun(A, T) {
     // launch spurs: an arm reaching well forward toward the next tree coming, kicking up at its end like a ramp, to run
     // up and dash off; and a catch arm reaching back toward the tree behind, for those dashing in to land on
     const inRun = (P, z0, z1) => Math.abs(P.x) < LANE + 5 && P.z > z0 && P.z < z1;
-    const arm = (dir, z0, z1, lipUp) => { for (let tries = 0; tries < 14; tries++) {
-      const st = tree.ends.filter((e) => (dir < 0 ? e.z < 4 && e.y > 7 && e.y < 16 : e.z > -4 && e.y > 2 && e.y < 10)).sort(() => q() - 0.5)[0]; if (!st) return null; // (catch arms low, launch spurs high: you drop onto the next tree)
+    const arm = (dir, z0, z1, mode) => { const lipUp = mode === 'lip'; for (let tries = 0; tries < 14; tries++) {
+      const st = tree.ends.filter((e) => (mode === 'path' ? Math.abs(e.z) < 12 : dir < 0 ? e.z < 4 && e.y > 7 && e.y < 16 : e.z > -4 && e.y > 2 && e.y < 10)).sort(() => q() - 0.5)[0]; if (!st) return null; // (catch arms low, launch spurs high: you drop onto the next tree)
       const a = dir * Math.PI / 2 + (q() - 0.5) * 0.5, pts = [st]; let P = st;
-      for (let s = 0; s < 3; s++) { const L = 7 + q() * 2.5, last = s === 2, n = { x: P.x + Math.cos(a) * L, y: P.y + (lipUp ? (last ? 2.4 + q() * 1.2 : (q() - 0.5) * 1.2) : 0.9 + q() * 0.7), z: P.z + Math.sin(a) * L }; if (!inRun(n, z0, z1)) break; pts.push(n); P = n; } // (a catch arm rises gently out toward you: landing on it, you run downhill)
+      for (let s = 0, segs = mode === 'path' ? 4 : 3; s < segs; s++) { const L = 7 + q() * 2.5, last = s === segs - 1, n = { x: P.x + Math.cos(a) * L, y: P.y + (lipUp ? (last ? 2.4 + q() * 1.2 : (q() - 0.5) * 1.2) : mode === 'path' ? (q() - 0.5) * 2.2 : 0.9 + q() * 0.7), z: P.z + Math.sin(a) * L }; if (!inRun(n, z0, z1)) break; pts.push(n); P = n; } // (a catch arm rises gently out toward you: landing on it, you run downhill)
       if (pts.length < 3) continue;
       let p = null; for (let s = 1; s < pts.length; s++) p = branch(pts[s - 1], pts[s], s === 1 ? Math.max(2.6, st.w) : 2.8, s === pts.length - 1 ? 2.3 : 2.8);
       if (lipUp) p.launch = true; else if (q() < 0.6) { const end = pts[pts.length - 1], len = 11 + q() * 3; leaf({ x: end.x + Math.cos(a) * len * 0.45, z: end.z + Math.sin(a) * len * 0.45 }, len, 7 + q() * 2, a, end.y + 0.3); }
       return p; } return null; };
-    if (q() < 0.85) arm(-1, -36, 6, true); // forward: a launch spur, its lip about 30 m ahead of the trunk
-    arm(1, -6, 22, false); // back: a catch arm, its end about 18 m behind the trunk
+    if (q() < 0.85) arm(-1, -36, 6, 'lip'); // forward: a launch spur, its lip about 30 m ahead of the trunk
+    arm(1, -6, 22, 'catch'); // back: a catch arm, its end about 18 m behind the trunk
+    for (let n = 0, want = 2 + (q() * 2 | 0); n < want; n++) arm(n % 2 ? 1 : -1, -34, 24, 'path'); // paths: long, rolling arms running along the way you travel, to run down
     return tree;
   };
   for (let i = 0; i < N; i++) trees.push(mkTree(i));
