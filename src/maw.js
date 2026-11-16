@@ -111,15 +111,15 @@ export function buildTendrils(A, pts) {
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(2, 18); return t; })();
   const list = A.tendrils = [];
   pts.forEach(([x, z], i) => {
-    const by = mawY(Math.hypot(x, z)) - 2, top = 62 + ((i * 7) % 5) * 3, H = top - by, R0 = 2.1;
-    const geo = new THREE.CylinderGeometry(0.45, R0, H, 12, 40, true); geo.translate(0, H / 2, 0);
+    const by = mawY(Math.hypot(x, z)) - 2, top = 70 + ((i * 7) % 5) * 4, H = top - by, R0 = 2.5;
+    const geo = new THREE.CylinderGeometry(1.5, R0, H, 14, 48, false); geo.translate(0, H / 2, 0); // (thick right to the end, with a blunt rounded-off tip)
     const uB = { value: new THREE.Vector2() };
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05, emissive: 0x220308 });
     mat.onBeforeCompile = (sh) => { sh.uniforms.uB = uB; sh.uniforms.uH = { value: H };
       sh.vertexShader = 'uniform vec2 uB; uniform float uH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat ts = clamp(position.y / uH, 0.0, 1.0); transformed.xz += uB * pow(ts, 2.6); transformed.y -= 14.0 * pow(ts, 5.0);'); };
     mat.customProgramCacheKey = () => 'tendril';
     const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; A.scene.add(m);
-    const ph = i * 1.7, dl = Math.hypot(x, z) || 1, inw = dl - 5 - (i % 4) * 2.5, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2); // (curling right in: the tips hang over the centre platform) // a natural curve at rest
+    const ph = i * 1.7, dl = Math.hypot(x, z) || 1, inw = dl - 6 - (i % 4) * 5, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2); // (curling right in: the tips hang over the centre platform) // a natural curve at rest
     const boxes = []; for (let s = 0.12; s < 1; s += 0.08) { const b = { x0: 0, x1: 0, y0: by + (s - 0.05) * H, y1: by + (s + 0.05) * H, z0: 0, z1: 0, ts: s, tend: i }; A.rayBoxes.push(b); boxes.push(b); }
     list.push({ x, z, by, H, R0, uB, rest, ph, bend: new THREE.Vector2(), vel: new THREE.Vector2(), boxes });
     { const s = 0.55, k = Math.pow(s, 2.6); A.pillars.push({ x: x + rest.x * k, z: z + rest.y * k, w: 2.8 }); } // (for the bots: aim at the middle of its curve, not its base)
@@ -144,7 +144,7 @@ export function buildTendrils(A, pts) {
       t.vel.x += (-2 * t.bend.x - 1.1 * t.vel.x + t.fx) * dt; t.vel.y += (-2 * t.bend.y - 1.1 * t.vel.y + t.fz) * dt;
       t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 12) t.bend.multiplyScalar(12 / l);
       tipOff(t, tmp); t.uB.value.copy(tmp);
-      for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * bw(s), cz = t.z + tmp.y * bw(s), cy = t.by + s * t.H - dropY(s), r = t.R0 * (1 - s * 0.75) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; b.y0 = cy - t.H * 0.05; b.y1 = cy + t.H * 0.05; }
+      for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * bw(s), cz = t.z + tmp.y * bw(s), cy = t.by + s * t.H - dropY(s), r = t.R0 * (1 - s * 0.4) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; b.y0 = cy - t.H * 0.05; b.y1 = cy + t.H * 0.05; }
     }
     for (const f of fighters) { const h = f.hook; if (h && h.tend) A.tendrilPoint(h.tend.i, h.tend.s, h.p); } // ropes stay attached as it moves
   };

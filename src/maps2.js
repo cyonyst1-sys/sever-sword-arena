@@ -3,7 +3,7 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261115223129';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261115223310';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -350,7 +350,7 @@ export function buildBowl(A, T) {
   // fleshy tendrils rising out of the maw between the rings: the things you swing on (they bend as you swing on them)
   const tpts = [];
   for (let i = 0, tries = 0; tpts.length < 16 && tries < 400; i++, tries++) { // spread all over the mouth (near and far, never under a platform), each still curling in over the middle
-    const a = i * 2.39996, rad = 40 + ((i * 37) % 90), x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+    const a = i * 2.39996, rad = 105 + ((i * 37) % 65), x = Math.cos(a) * rad, z = Math.sin(a) * rad; // (rooted far out in the mouth, reaching right in)
     if (A.plats.some((p) => Math.hypot(p.x - x, p.z - z) < (p.round || 6) + 3) || tpts.some(([u, v]) => Math.hypot(u - x, v - z) < 14)) continue;
     tpts.push([x, z]);
   }
