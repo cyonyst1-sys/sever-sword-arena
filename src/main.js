@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116002401';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116002401';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116002401';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116002401';
-import * as net from './net.js?v=20261116002401';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116002401';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116002401';
-import { makeKillFx } from './killfx.js?v=20261116002401';
-import { makeGrapple } from './grapple.js?v=20261116002401';
-import { initShop } from './shop.js?v=20261116002401';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116002401';
-import { portal } from './portal.js?v=20261116002401';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116002401';
-import { makePost } from './post.js?v=20261116002401';
+import { Arena, MAPS } from './arena.js?v=20261116002413';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116002413';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116002413';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116002413';
+import * as net from './net.js?v=20261116002413';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116002413';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116002413';
+import { makeKillFx } from './killfx.js?v=20261116002413';
+import { makeGrapple } from './grapple.js?v=20261116002413';
+import { initShop } from './shop.js?v=20261116002413';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116002413';
+import { portal } from './portal.js?v=20261116002413';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116002413';
+import { makePost } from './post.js?v=20261116002413';
 
 // ---------- settings ----------
 const store = {
@@ -1991,7 +1991,7 @@ function showEnd(res) {
   show('end'); $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
   const list = ranked(res.list, res.mode), name = (MODES[res.mode] || MODES.ffa).name, pts = POINT_MODES.has(res.mode);
   if (res.mode === 'horde') { $('endTitle').textContent = `The horde got you on wave ${res.wave}`; }
-  else if (res.mode === 'boss') { const n = res.list.find((r) => r.human)?.pts || 0, b = res.list.find((r) => r.boss != null); $('endTitle').textContent = `You beat ${n} boss${n === 1 ? '' : 'es'}`; setTimeout(() => { $('endSub').textContent = `Boss Rush · stopped by ${b ? b.name : 'a boss'}`; }, 0); }
+  else if (res.mode === 'boss') { const n = res.list.find((r) => r.human)?.pts || 0, b = res.list.find((r) => r.boss != null); $('endTitle').textContent = `You beat ${n} boss${n === 1 ? '' : 'es'}`; setTimeout(() => { $('endSub').textContent = `ChopSocky · stopped by ${b ? b.name : 'a boss'}`; }, 0); }
   else if (res.mode === 'team') { // Team Battle: the winning side, and the score
     const my = res.list.find((r) => r.id === S.myId), sum = (t) => res.list.reduce((s, r) => s + (r.team === t ? r.k : 0), 0);
     $('endTitle').textContent = !res.winner ? 'Draw' : my && my.team === res.winner ? 'Victory' : `${TEAMS[res.winner].name} team wins`;
