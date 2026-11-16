@@ -88,5 +88,17 @@ export function buildGrove(A, T) {
       const t0 = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.6, h, 8), far); t0.scale.y = 1 + 40 / h; t0.position.set(x, (h - 40) / 2, z); S.add(t0); // (rising out of the mist)
       for (let j = 0; j < 4; j++) { const pd = new THREE.Mesh(new THREE.SphereGeometry(3 + r() * 2, 10, 6), farLeaf); pd.scale.y = 0.4; pd.position.set(x + (r() - 0.5) * 9, h * (0.6 + r() * 0.5), z + (r() - 0.5) * 9); S.add(pd); } } }
 
+  // ---- and more of them filling the open mist all round the two rows (scenery: a wood standing in the haze). Two instanced meshes.
+  { const N = A.quality === 'low' ? 40 : 90, PN = 4, far = new THREE.MeshStandardMaterial({ color: 0x4a3a34, roughness: 1 }), farLeaf = new THREE.MeshStandardMaterial({ color: 0x5a6a4a, roughness: 1, flatShading: true });
+    const tr = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.55, 1, 1, 8).translate(0, 0.5, 0), far, N), pd = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 6), farLeaf, N * PN), mt = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3();
+    let n = 0; const got = [];
+    for (let t = 0; t < 4000 && n < N; t++) { const a = r() * TAU, d = 34 + r() * 66, x = Math.cos(a) * d, z = Math.sin(a) * d + 8;
+      if ((Math.abs(x) < 36 && Math.abs(z - 8) < 74) || got.some(([u, v]) => Math.hypot(u - x, v - z) < 11)) continue; // (clear of the fighting, and of each other)
+      got.push([x, z]); const h = 12 + r() * 20, w = 1.6 + r() * 1.4;
+      mt.compose(ps.set(x, -40, z), q, sc.set(w, h + 40, w)); tr.setMatrixAt(n, mt);
+      for (let j = 0; j < PN; j++) { const R = 3 + r() * 2.6; mt.compose(ps.set(x + (j ? (r() - 0.5) * 11 : 0), j ? h * (0.5 + r() * 0.45) : h + 0.6, z + (j ? (r() - 0.5) * 11 : 0)), q, sc.set(R, R * 0.4, R)); pd.setMatrixAt(n * PN + j, mt); }
+      n++; }
+    tr.count = n; pd.count = n * PN; S.add(tr, pd); }
+
   A.finishNav();
 }
