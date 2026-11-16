@@ -55,10 +55,16 @@ export function buildRun(A, T) {
     const ramp = (p, lx, lz, hx, hz, hL, hH, w, base, o = {}) => { const r0 = A.addRamp(lx, lz, hx, hz, hL, hH, w, base, null, { visual: false, noWall: true, ...o }); r0.l = { lz: r0.lz, z0: r0.z0, z1: r0.z1, hL, hH, base }; p.ramps.push(r0); tree.ramps.push(r0); return r0; };
     const ray = (p, b) => { b.l = { y0: b.y0, y1: b.y1, z0: b.z0, z1: b.z1 }; A.rayBoxes.push(b); tree.rays.push(b); p.rays.push(b); };
     // one segment of a limb, A to B (Great Canopy's branch): the walkable top, the oval log, a knot at its end, hook boxes
+    // keep it tidy: a new branch mustn't pass close to one already there (bar the one it grows from), nor a leaf sit on one
+    const segs = [], lerp3 = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
+    const segGap = (a, b, c, d) => { let m = Infinity; for (let i = 0; i <= 8; i++) { const p = lerp3(a, b, i / 8); for (let j = 0; j <= 8; j++) { const q2 = lerp3(c, d, j / 8); m = Math.min(m, Math.hypot(p.x - q2.x, (p.y - q2.y) * 1.6, p.z - q2.z)); } } return m; };
+    const near = (p, q2) => Math.hypot(p.x - q2.x, p.y - q2.y, p.z - q2.z) < 0.01;
+    const clear = (a, b, w) => segs.every((s) => near(s.b, a) || near(s.a, a) || segGap(lerp3(a, b, 0.15), b, s.a, s.b) > (w + s.w) / 2 + 1.6); // (the branch it grows from doesn't count)
     const branch = (a, b, wA, wB) => {
       const width = (wA + wB) / 2, dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz), ang = Math.atan2(dz, dx);
       const p = addPlat({ kind: 'branch', x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, y: (a.y + b.y) / 2, ya: a.y, yb: b.y, w: L, d: width, ang });
       tree.ends.push({ x: b.x, y: b.y, z: b.z, w: wB });
+      segs.push({ a: { x: a.x, y: a.y, z: a.z }, b: { x: b.x, y: b.y, z: b.z }, w: width });
       ramp(p, a.x, a.z, b.x, b.z, a.y, b.y, width, Math.min(a.y, b.y) - 1.2);
       const OV = 1.8, R = width * 0.39, Ra = wA * 0.39, Rb = wB * 0.39, k = Math.hypot(L, b.y - a.y) / L;
       const a3 = new THREE.Vector3(a.x, a.y - Ra * (k - 0.15), a.z), b3 = new THREE.Vector3(b.x, b.y - Rb * (k - 0.15), b.z), dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
@@ -71,6 +77,7 @@ export function buildRun(A, T) {
     };
     // a big leaf (Great Canopy's): a curled walkable blade with a midrib, on a stalk from the branch
     const leaf = (Cc, len, wid, ang, y) => {
+      if (segs.some((s) => segGap({ x: Cc.x, y, z: Cc.z }, { x: Cc.x + 0.01, y, z: Cc.z }, s.a, s.b) < len * 0.3 + s.w / 2)) return null; // (not on top of a branch)
       const p = addPlat({ kind: 'leaf', x: Cc.x, z: Cc.z, y, w: len, d: wid, ang }), ux = Math.cos(ang), uz = Math.sin(ang);
       const F = Math.min(0.9, wid * 0.12), kf = F / Math.pow(wid * 0.75, 2), kv = 0.07;
       ramp(p, Cc.x - ux * len * 0.42, Cc.z - uz * len * 0.42, Cc.x + ux * len * 0.42, Cc.z + uz * len * 0.42, y, y, wid * 0.78, y - 0.6, { foldK: kf, foldV: kv });
@@ -98,6 +105,7 @@ export function buildRun(A, T) {
         let B0 = null; for (const turn of [0, 0.7, -0.7, 1.3, -1.3]) { const aa = a + turn, c = { x: A0.x + Math.cos(aa) * L, y: A0.y + dy, z: A0.z + Math.sin(aa) * L }; if (inLane(c)) { a = aa; B0 = c; break; } } // (it bends away from the edges instead of stopping)
         if (!B0) break;
         const wA = Math.max(2.4, (depth ? 3.0 : 3.8) * (1 - s / segs * 0.4)), wB = Math.max(2.2, (depth ? 3.0 : 3.8) * (1 - (s + 1) / segs * 0.4));
+        if (!clear(A0, B0, (wA + wB) / 2)) break; // (no tangles)
         branch(A0, B0, wA, wB);
         if (q() < 0.3) { const sdd = q() < 0.5 ? 1 : -1, la = a + sdd * (1.1 + q() * 0.5), len = 10 + q() * 4, wid = 6.5 + q() * 2.5, Cc = { x: B0.x + Math.cos(la) * (wB / 2 + len * 0.45), z: B0.z + Math.sin(la) * (wB / 2 + len * 0.45) }; if (inLane(Cc)) leaf(Cc, len, wid, la, B0.y + 0.25); }
         if (depth < 2 && s >= 1 && q() < (depth ? 0.3 : 0.6)) grow(B0, a + (q() < 0.5 ? 1 : -1) * (0.7 + q() * 0.6), depth ? 2 : 2 + (q() * 2 | 0), depth + 1); // (branching arms off the limb, and arms off those)
@@ -113,14 +121,14 @@ export function buildRun(A, T) {
     const arm = (dir, z0, z1, mode) => { const lipUp = mode === 'lip'; for (let tries = 0; tries < 14; tries++) {
       const st = tree.ends.filter((e) => (mode === 'path' ? Math.abs(e.z) < 12 : dir < 0 ? e.z < 4 && e.y > 7 && e.y < 16 : e.z > -4 && e.y > 2 && e.y < 10)).sort(() => q() - 0.5)[0]; if (!st) return null; // (catch arms low, launch spurs high: you drop onto the next tree)
       const a = dir * Math.PI / 2 + (q() - 0.5) * 0.5, pts = [st]; let P = st;
-      for (let s = 0, segs = mode === 'path' ? 4 : 3; s < segs; s++) { const L = 7 + q() * 2.5, last = s === segs - 1, n = { x: P.x + Math.cos(a) * L, y: P.y + (lipUp ? (last ? 2.4 + q() * 1.2 : (q() - 0.5) * 1.2) : mode === 'path' ? (q() - 0.5) * 2.2 : 0.9 + q() * 0.7), z: P.z + Math.sin(a) * L }; if (!inRun(n, z0, z1)) break; pts.push(n); P = n; } // (a catch arm rises gently out toward you: landing on it, you run downhill)
+      for (let s = 0, nseg = mode === 'path' ? 4 : 3; s < nseg; s++) { const L = 7 + q() * 2.5, last = s === nseg - 1, n = { x: P.x + Math.cos(a) * L, y: P.y + (lipUp ? (last ? 2.4 + q() * 1.2 : (q() - 0.5) * 1.2) : mode === 'path' ? (q() - 0.5) * 2.2 : 0.9 + q() * 0.7), z: P.z + Math.sin(a) * L }; if (!inRun(n, z0, z1) || !clear(P, n, 2.8)) break; pts.push(n); P = n; } // (a catch arm rises gently out toward you: landing on it, you run downhill)
       if (pts.length < 3) continue;
       let p = null; for (let s = 1; s < pts.length; s++) p = branch(pts[s - 1], pts[s], s === 1 ? Math.max(2.6, st.w) : 2.8, s === pts.length - 1 ? 2.3 : 2.8);
       if (lipUp) p.launch = true; else if (q() < 0.6) { const end = pts[pts.length - 1], len = 11 + q() * 3; leaf({ x: end.x + Math.cos(a) * len * 0.45, z: end.z + Math.sin(a) * len * 0.45 }, len, 7 + q() * 2, a, end.y + 0.3); }
       return p; } return null; };
     if (q() < 0.85) arm(-1, -36, 6, 'lip'); // forward: a launch spur, its lip about 30 m ahead of the trunk
     arm(1, -6, 22, 'catch'); // back: a catch arm, its end about 18 m behind the trunk
-    for (let n = 0, want = 2 + (q() * 2 | 0); n < want; n++) arm(n % 2 ? 1 : -1, -34, 24, 'path'); // paths: long, rolling arms running along the way you travel, to run down
+    for (let n = 0, want = 1 + (q() * 2 | 0); n < want; n++) arm(n % 2 ? 1 : -1, -34, 24, 'path'); // paths: long, rolling arms running along the way you travel, to run down
     return tree;
   };
   for (let i = 0; i < N; i++) trees.push(mkTree(i));
