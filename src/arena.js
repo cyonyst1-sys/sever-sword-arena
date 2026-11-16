@@ -3,16 +3,16 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115223310';
-import { buildFoundry } from './foundry.js?v=20261115223310';
-import { buildBamboo } from './bamboo.js?v=20261115223310';
-import { buildCity } from './city.js?v=20261115223310';
-import { buildDojo } from './dojo.js?v=20261115223310';
-import { buildComet } from './comet.js?v=20261115223310';
-import { buildLava } from './lava.js?v=20261115223310';
-import { addScenery } from './scenery.js?v=20261115223310';
-import { addAtmosphere } from './atmos.js?v=20261115223310';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115223310';
+import { buildTilt } from './tilt.js?v=20261115223732';
+import { buildFoundry } from './foundry.js?v=20261115223732';
+import { buildBamboo } from './bamboo.js?v=20261115223732';
+import { buildCity } from './city.js?v=20261115223732';
+import { buildDojo } from './dojo.js?v=20261115223732';
+import { buildComet } from './comet.js?v=20261115223732';
+import { buildLava } from './lava.js?v=20261115223732';
+import { addScenery } from './scenery.js?v=20261115223732';
+import { addAtmosphere } from './atmos.js?v=20261115223732';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115223732';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -967,7 +967,7 @@ export class Arena {
     for (let i = 1; i <= n; i++) {
       const x = a.x + dx * i / n, z = a.z + dz * i / n;
       if (this.wallAt(x, z, y, 1.7, 0.25)) return false;
-      const g = this.groundHeight(x, z, y);
+      const g = this.groundHeight(x, z, y + 0.4); // (a slope up counts as walkable)
       if (g < y - 0.8 || !isFinite(g)) return false;
       y = g;
     }
@@ -1046,7 +1046,7 @@ export class Arena {
   // slopes from height ya at one end to yb at the other.
   platFrame(p, q) { const a = p.ang || 0, ux = Math.cos(a), uz = Math.sin(a), dx = q.x - p.x, dz = q.z - p.z; return [dx * ux + dz * uz, -dx * uz + dz * ux]; }
   inPlat(p, q, m) { if (p.round) return (q.x - p.x) ** 2 + (q.z - p.z) ** 2 < (p.round + m) ** 2 * Math.sign(p.round + m); const [a, b] = this.platFrame(p, q); return Math.abs(a) < p.w / 2 + m && Math.abs(b) < p.d / 2 + m; }
-  platTop(p, q) { if (p.kind === 'tilt' && this.tilt) { const h = this.tilt.heightAt(q.x, q.z, 1); return h === null ? p.y : h; } if (p.ya === undefined) return p.y; const [a] = this.platFrame(p, q); const t = Math.max(0, Math.min(1, a / p.w + 0.5)); return p.ya + (p.yb - p.ya) * t; }
+  platTop(p, q) { if (p.bank) { const h = p.disc.hf(q.x, q.z); return h > -1e8 ? h : p.y; } if (p.kind === 'tilt' && this.tilt) { const h = this.tilt.heightAt(q.x, q.z, 1); return h === null ? p.y : h; } if (p.ya === undefined) return p.y; const [a] = this.platFrame(p, q); const t = Math.max(0, Math.min(1, a / p.w + 0.5)); return p.ya + (p.yb - p.ya) * t; }
   rimDist(p, q) {
     if (p.round) return Math.max(0, Math.hypot(q.x - p.x, q.z - p.z) - p.round);
     const [a, b] = this.platFrame(p, q);

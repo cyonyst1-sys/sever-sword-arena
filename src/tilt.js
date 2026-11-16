@@ -5,7 +5,7 @@
 // whoever is on it; a new one is hung back on 10 s later.
 import * as THREE from 'three';
 import { drift } from './maps2.js';
-import { cloudHeaps } from './scenery.js?v=20261115223310';
+import { cloudHeaps } from './scenery.js?v=20261115223732';
 
 const TAU = Math.PI * 2, N = 6, R = 14, DISH = 1.9, ARM = 25, L = 22, HUB = 40, MAXOFF = 2; // platforms, radius, dish depth, crown arm, chain, crown height, extra swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
@@ -51,7 +51,7 @@ export function buildTilt(A, T) {
   const plankD = planks.clone(); plankD.side = THREE.DoubleSide; plankD.shadowSide = THREE.FrontSide; // (so the dish doesn't shadow its own top)
   const decks = [];
   for (let k = 0; k < N; k++) {
-    const p = { kind: 'swing', x: 0, z: 0, y: 0, w: 2 * R, d: 2 * R, ang: 0, round: R, dish: DISH, i: A.plats.length, meshes: [], boxes: [], ramps: [], rays: [], slot: k };
+    const p = { kind: 'swing', bank: true, x: 0, z: 0, y: 0, w: 2 * R, d: 2 * R, ang: 0, round: R, dish: DISH, i: A.plats.length, meshes: [], boxes: [], ramps: [], rays: [], slot: k };
     A.plats.push(p); p.node = A.node('P' + p.i, 0, 0, 0); p.node.plat = p.i;
     p.spawns = [0, 1].map((j) => { const sp = new THREE.Vector3(); sp.plat = p.i; sp.off = j ? -3 : 3; A.spawns.push(sp); return sp; });
     p.disc = { x: 0, z: 0, r: R, y0: -0.8, y1: 0, dish: DISH }; A.discs.push(p.disc); p.discs = [p.disc];

@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261115223310';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115223310';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115223310';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115223310';
-import * as net from './net.js?v=20261115223310';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115223310';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115223310';
-import { makeKillFx } from './killfx.js?v=20261115223310';
-import { makeGrapple } from './grapple.js?v=20261115223310';
-import { initShop } from './shop.js?v=20261115223310';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261115223310';
-import { portal } from './portal.js?v=20261115223310';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115223310';
-import { makePost } from './post.js?v=20261115223310';
+import { Arena, MAPS } from './arena.js?v=20261115223732';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261115223732';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261115223732';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261115223732';
+import * as net from './net.js?v=20261115223732';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261115223732';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261115223732';
+import { makeKillFx } from './killfx.js?v=20261115223732';
+import { makeGrapple } from './grapple.js?v=20261115223732';
+import { initShop } from './shop.js?v=20261115223732';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261115223732';
+import { portal } from './portal.js?v=20261115223732';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261115223732';
+import { makePost } from './post.js?v=20261115223732';
 
 // ---------- settings ----------
 const store = {
@@ -892,7 +892,7 @@ function nearestEnemy(b) {
 // is there floor (no big drop) `dist` metres ahead in direction (x,z)?
 function floorAhead(b, x, z, dist) {
   const l = Math.hypot(x, z) || 1, px = b.pos.x + x / l * dist, pz = b.pos.z + z / l * dist;
-  return ground(px, pz, b.pos.y) > b.pos.y - 1.5;
+  return ground(px, pz, b.pos.y + dist) > b.pos.y - 1.5; // (ground rising ahead counts: a slope, up to about 45°)
 }
 // aim is a direction, or (isPoint) a point to hook straight at
 function botFireHook(b, aim, maxT, why, isPoint) {
@@ -1233,7 +1233,7 @@ function botThink(b, dt) {
   const reach = b.bladeLen + 0.5; // how far this bot's sword reaches from its body
   const close = t.fake ? dh < 0.6 && Math.abs(dy) < 1.5 : dh < reach + 1.1 && Math.abs(dy) < 1.3 + b.bladeLen * 0.5;
   if (!close) {
-    const direct = Math.abs(dy) < 0.9 && dh < 25 && arena.directPath(b.pos, t.pos);
+    const direct = (Math.abs(dy) < 0.9 || (b.plat != null && b.plat === t.plat)) && dh < 25 && arena.directPath(b.pos, t.pos); // (same platform: walk straight there, up a slope too)
     if (direct) b.path = null;
     else {
       if (!b.path || b.repath <= 0) {
