@@ -4,7 +4,7 @@
 // so every player sees the same trees in the same places.
 import * as THREE from 'three';
 
-const TAU = Math.PI * 2, N = 12, C = 34, V = 8, LANE = 10; // pooled trees, one tree every C m (wide apart), coming at V m/s, lane half-width
+const TAU = Math.PI * 2, N = 8, C = 56, V = 8, LANE = 10; // pooled trees, one tree every C m (wide apart), coming at V m/s, lane half-width
 export const RUN = { speed: V };
 const hash = (k, s = 0) => { const x = Math.sin(k * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
 
@@ -87,25 +87,25 @@ export function buildRun(A, T) {
       return p;
     };
     // limbs (Great Canopy's grow): level, climbing or dipping a stretch at a time, side arms now and then, leaves
-    const inLane = (P) => Math.abs(P.x) < LANE + 3 && Math.abs(P.z) < 15;
+    const inLane = (P) => Math.abs(P.x) < LANE + 7 && Math.abs(P.z) < 24; // (one long limb can wander right across the lane, and its arms forward and back)
     const grow = (start, angle, segs, depth) => {
       let a = angle, A0 = start, mode = 'level';
       for (let s = 0; s < segs; s++) {
-        if (s % 2 === 0) { const rr = q(); mode = rr < 0.45 ? 'level' : rr < 0.75 ? 'up' : 'down'; }
+        if (s % 2 === 0) { const rr = q(); mode = rr < 0.3 ? 'level' : rr < 0.65 ? 'up' : 'down'; } // (rising and dipping as it goes)
         let dy = mode === 'level' ? 0 : (mode === 'up' ? 1 : -1) * (1.5 + q() * 2.5);
         const L = 8 + q() * 4; a += (q() - 0.5) * 0.4;
-        const B0 = { x: A0.x + Math.cos(a) * L, y: A0.y + dy, z: A0.z + Math.sin(a) * L };
-        if (!inLane(B0)) break;
+        let B0 = null; for (const turn of [0, 0.7, -0.7, 1.3, -1.3]) { const aa = a + turn, c = { x: A0.x + Math.cos(aa) * L, y: A0.y + dy, z: A0.z + Math.sin(aa) * L }; if (inLane(c)) { a = aa; B0 = c; break; } } // (it bends away from the edges instead of stopping)
+        if (!B0) break;
         const wA = Math.max(2.4, (depth ? 3.0 : 3.8) * (1 - s / segs * 0.4)), wB = Math.max(2.2, (depth ? 3.0 : 3.8) * (1 - (s + 1) / segs * 0.4));
         branch(A0, B0, wA, wB);
         if (q() < 0.3) { const sdd = q() < 0.5 ? 1 : -1, la = a + sdd * (1.1 + q() * 0.5), len = 10 + q() * 4, wid = 6.5 + q() * 2.5, Cc = { x: B0.x + Math.cos(la) * (wB / 2 + len * 0.45), z: B0.z + Math.sin(la) * (wB / 2 + len * 0.45) }; if (inLane(Cc)) leaf(Cc, len, wid, la, B0.y + 0.25); }
-        if (depth < 1 && s >= 1 && q() < 0.3) grow(B0, a + (q() < 0.5 ? 1 : -1) * (0.6 + q() * 0.5), 2, depth + 1);
+        if (depth < 2 && s >= 1 && q() < (depth ? 0.3 : 0.6)) grow(B0, a + (q() < 0.5 ? 1 : -1) * (0.7 + q() * 0.6), depth ? 2 : 2 + (q() * 2 | 0), depth + 1); // (branching arms off the limb, and arms off those)
         A0 = B0;
       }
       if (q() < 0.6) { const len = 12 + q() * 3, wid = 7 + q() * 2, Cc = { x: A0.x + Math.cos(a) * len * 0.48, z: A0.z + Math.sin(a) * len * 0.48 }; if (inLane(Cc)) leaf(Cc, len, wid, a, A0.y + 0.3); }
     };
     const toLane = side > 0 ? Math.PI : 0, ys = [0, 4.5, 9, 13.5];
-    ys.forEach((y0, n) => { const a = toLane + (n - 1.5) * 0.45 + (q() - 0.5) * 0.3; grow({ x: tx + Math.cos(a) * tR * 0.7, y: y0 + (q() - 0.5) * 2, z: Math.sin(a) * tR * 0.7 }, a, 2 + (q() * 2 | 0), 0); });
+    { const a = toLane + (q() - 0.5) * 0.5; grow({ x: tx + Math.cos(a) * tR * 0.7, y: 4 + q() * 4, z: Math.sin(a) * tR * 0.7 }, a, 5 + (q() * 2 | 0), 0); } // (one long limb, pointing in across the lane)
     return tree;
   };
   for (let i = 0; i < N; i++) trees.push(mkTree(i));
