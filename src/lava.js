@@ -9,7 +9,7 @@ export const LAVA = {
   floors: [0, 126, 280, 434], // the base, then the three checkpoint arenas
   summit: 588, need: [1, 2, 3], gateUp: 10, arenaR: 15,
   /** Height of the lava t seconds into the match: a few seconds' grace, then rising faster and faster. */
-  y(t) { const s = Math.max(0, t - 10); return -8 + s * 1.415 + s * s * 0.000823; }, // (the first arena goes under about 1 min 40 s in, the summit about 6 min)
+  y(t) { const s = Math.max(0, t - 10); return -8 + s * 2.652 + s * s * 0.000558; }, // (the first arena goes under about 1 min in, the summit about 3 min 45 s)
 };
 
 export function buildLava(A, T) {
@@ -91,7 +91,8 @@ export function buildLava(A, T) {
 
   // ---- the base (where everyone starts) and the three checkpoint arenas
   const floors = LAVA.floors.map((y, i) => rock(0, 0, y, i ? LAVA.arenaR : 17, i ? 'arena' : 'base'));
-  for (let k = 0; k < 10; k++) { const a = k / 10 * TAU, sp = new THREE.Vector3(Math.cos(a) * 11, 0.05, Math.sin(a) * 11); sp.plat = 0; A.spawns.push(sp); }
+  // a ring of small rocks round the base, one for each fighter to start on (so nobody starts on top of anyone else)
+  for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + 0.11, x = Math.cos(a) * 22.5, z = Math.sin(a) * 22.5, pad = rock(x, z, 1.0 + (k % 2) * 0.6, 2.5, 'pad'); A.link('P' + pad.i, 'P' + floors[0].i); const sp = new THREE.Vector3(x, pad.y + 0.05, z); sp.plat = pad.i; A.spawns.push(sp); }
   const summit = rock(0, 0, LAVA.summit, 7.5, 'summit');
 
   // ---- the course between them: a climbing spiral of steps of four kinds
@@ -105,7 +106,7 @@ export function buildLava(A, T) {
     const s0 = course.length;
     const target = sec < 3 ? LAVA.floors[sec + 1] : LAVA.summit, base = LAVA.floors[sec];
     // first step: off the floor and (after a checkpoint) up past its gate, to a rock out near the edge
-    let y = sec === 0 ? 2.2 : base + LAVA.gateUp + 3, rad = sec === 0 ? 26.5 : 23;
+    let y = sec === 0 ? 4.5 : base + LAVA.gateUp + 3, rad = sec === 0 ? 31.5 : 23; // (the first rock out beyond the ring of start rocks)
     let p = null;
     for (let t = 0; t < 40 && !p; t++) { const x = Math.cos(a) * rad, z = Math.sin(a) * rad; if (fits(x, z, y, 6)) p = rock(x, z, y, 6); else a += 0.3; }
     if (!p) p = rock(Math.cos(a) * rad, Math.sin(a) * rad, y, 6); // (never leave a section without a way in)
