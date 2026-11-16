@@ -3,9 +3,9 @@
 // breakable chunks as the Paper Dojo: every window pane shatters, office partitions and crates break, and the
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
-import { cloudHeaps } from './scenery.js?v=20261116185315';
+import { cloudHeaps } from './scenery.js?v=20261116185528';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116185315';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116185528';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -145,6 +145,7 @@ export function buildCity(A, T) {
 
   // ---------- two tower cranes out past the edge: a mast up out of the clouds, a jib reaching in over the city (run along it,
   // hook it), a counterweight, and a load platform hanging on the cable that you can drop onto ----------
+  const lifts = [];
   for (const [mx, mz, dir, topY, py] of [[-50, -16, 1, 56, 20], [50, 18, -1, 62, 26]]) {
     const L = 30, tipX = mx + dir * (L - 4), yellowS = std(0xe8b422, { roughness: 0.6, metalness: 0.3 });
     A.addBox(mx - 1, mx + 1, -90, topY, mz - 1, mz + 1, yellowS); A.pillars.push({ x: mx, z: mz, w: 2 }); // the mast
@@ -153,12 +154,19 @@ export function buildCity(A, T) {
     const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.2, 2.4), white); cab.position.set(mx + dir * 1.8, topY - 1.1, mz + 1.6); S.add(cab);
     for (let k = 0; k < 10; k++) { const lat = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 2.6), dark); lat.position.set(mx + dir * (k * 3 + 1), topY + 0.6, mz); lat.rotation.y = 0.6; S.add(lat); } // lattice on the jib
     const p = deck(A, { x: tipX, z: mz, y: py, w: 7, d: 7, mat: std(0x8a6a4a, { roughness: 0.9 }), kind: 'lift', thick: 0.5 }); // the load platform
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, topY - py - 3, 5), dark); prop(A, p, cable, tipX, (topY + py + 3) / 2, mz);
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 5).translate(0, 0.5, 0), dark); cable.position.set(tipX, py + 3, mz); S.add(cable); // (it pays out and reels in as the platform goes down and up)
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { // four slings from the hook down to its corners
       const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 4.6, 4), dark); sl.position.set(tipX + sx * 1.6, py + 1.5, mz + sz * 1.6); sl.rotation.set(sz * 0.62, 0, -sx * 0.62); S.add(sl); p.meshes.push(sl); }
     prop(A, p, new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 1.2), red), tipX, py + 3.5, mz); // the hook block
-    A.curPlat = p.i; stack(A, tipX + 1.8, mz - 1.8, py, 1, 2, 1, 1, 1, 1, 'wood'); A.curPlat = undefined; // a couple of crates on it (cover)
+    // it works as a lift: down to the lower floors and back up under the jib, pausing at each end; whoever stands on it rides along
+    { const lo = py - 20, hi = topY - 12; p.base = { x: p.x, y: p.y, z: p.z }; p.prev = { x: p.x, y: p.y, z: p.z }; p.cable = cable; p.topY = topY;
+      p.path = (t) => { const u = ((t + (dir > 0 ? 0 : 9)) / 18) % 1, tri = u < 0.5 ? u * 2 : 2 - u * 2, s = Math.min(1, Math.max(0, (tri - 0.12) / 0.76)); return lo + (hi - lo) * s * s * (3 - 2 * s) - py; };
+      const nd = A.nodeMap.get('P' + p.i); if (nd) nd.gone = true; A.spawns = A.spawns.filter((sp) => sp.plat !== p.i); // (bots don't plan routes over it, and nobody spawns on it)
+      p.meshBase = p.meshes.map((q) => q.position.clone()); p.boxBase = p.boxes.map((b) => ({ ...b })); lifts.push(p); }
   }
+  const moveLifts = () => { const t = Date.now() / 1000; for (const p of lifts) { const dy = p.path(t); p.prev.y = p.y; p.y = p.base.y + dy; p.meshes.forEach((q, j) => { q.position.y = p.meshBase[j].y + dy; }); p.boxes.forEach((b, j) => { b.y0 = p.boxBase[j].y0 + dy; b.y1 = p.boxBase[j].y1 + dy; }); p.cable.position.y = p.y + 3; p.cable.scale.y = Math.max(0.1, p.topY - p.y - 3); } };
+  A.anim.push(moveLifts); moveLifts();
+  A.tickHazards = (fighters) => { for (const f of fighters) { if (!f.alive || !f.onGround) continue; for (const p of lifts) { if (Math.abs(f.pos.y - p.prev.y) > 0.5 || !A.inPlat(p, f.pos, 0.2)) continue; if (p.y > p.prev.y) f.pos.y = p.y; break; } } };
 
   A.plantStalks(-70, 160); // the frames' corner columns, from the clouds up into the sky
   finishBrk(A);
