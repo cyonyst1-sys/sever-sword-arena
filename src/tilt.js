@@ -5,7 +5,7 @@
 // whoever is on it; a new one is hung back on 10 s later.
 import * as THREE from 'three';
 import { drift } from './maps2.js';
-import { cloudHeaps } from './scenery.js?v=20261115221010';
+import { cloudHeaps } from './scenery.js?v=20261115223129';
 
 const TAU = Math.PI * 2, N = 6, R = 14, DISH = 1.9, ARM = 25, L = 22, HUB = 40, MAXOFF = 2; // platforms, radius, dish depth, crown arm, chain, crown height, extra swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
@@ -55,6 +55,11 @@ export function buildTilt(A, T) {
     A.plats.push(p); p.node = A.node('P' + p.i, 0, 0, 0); p.node.plat = p.i;
     p.spawns = [0, 1].map((j) => { const sp = new THREE.Vector3(); sp.plat = p.i; sp.off = j ? -3 : 3; A.spawns.push(sp); return sp; });
     p.disc = { x: 0, z: 0, r: R, y0: -0.8, y1: 0, dish: DISH }; A.discs.push(p.disc); p.discs = [p.disc];
+    p.ca = 1; p.sa = 0; p.tb = 0; p.cb = 1; // (the way out from the middle, and the bank: tan and cos of the tilt)
+    p.disc.hf = (x, z) => { // banked: the outer edge higher, like a swing ride's seat; the dish curves up to the rim
+      const dx = x - p.x, dz = z - p.z, u = dx * p.ca + dz * p.sa, v = -dx * p.sa + dz * p.ca, s = u / p.cb, d2 = (s * s + v * v) / (R * R);
+      return d2 > 1.02 ? -1e9 : p.y + u * p.tb + DISH * Math.min(1, d2) / p.cb;
+    };
     p.ray = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0 }; A.rayBoxes.push(p.ray); p.rays.push(p.ray);
     p.off = { x: 0, z: 0 }; p.vel = { x: 0, z: 0 }; p.prev = { x: 0, y: 0, z: 0 }; p.riders = new Set();
     const g = new THREE.Group(); S.add(g); p.meshes.push(g); p.group = g;
@@ -84,10 +89,11 @@ export function buildTilt(A, T) {
     const out = Math.sin(lw) * L, x = p.pivot.x + ca * out + p.off.x, z = p.pivot.z + sa * out + p.off.z;
     const drop = Math.sqrt(Math.max(1, L * L - out * out - p.off.x * p.off.x - p.off.z * p.off.z)), y = p.pivot.y - drop;
     p.prev = { x: p.x, y: p.y, z: p.z }; p.x = x; p.z = z; p.y = y;
-    p.group.position.set(x, y, z); p.group.rotation.y = -a; // (each platform turns with the ride)
+    const bank = Math.min(0.8, lw * 1.25); p.ca = ca; p.sa = sa; p.tb = Math.tan(bank); p.cb = Math.cos(bank);
+    p.group.position.set(x, y, z); p.group.rotation.order = 'YZX'; p.group.rotation.set(0, -a, bank); // (each platform turns with the ride, banked outward)
     const c = p.disc; c.x = x; c.z = z; c.y0 = y - 0.8; c.y1 = y;
-    const q = p.ray, k = R * 0.85; q.x0 = x - k; q.x1 = x + k; q.z0 = z - k; q.z1 = z + k; q.y0 = y - 0.8; q.y1 = y + DISH;
-    p.node.p.set(x, y, z); for (const sp of p.spawns) sp.set(x + ca * sp.off, y + 0.3, z + sa * sp.off);
+    const q = p.ray, k = R * 0.85, hb = R * 0.85 * p.tb; q.x0 = x - k; q.x1 = x + k; q.z0 = z - k; q.z1 = z + k; q.y0 = y - 0.8 - hb; q.y1 = y + DISH + hb;
+    p.node.p.set(x, y, z); for (const sp of p.spawns) sp.set(x + ca * sp.off, p.disc.hf(x + ca * sp.off, z + sa * sp.off) + 0.3, z + sa * sp.off);
     const ch = p.chains[0]; _s.set(x, y + 0.3, z); _d.subVectors(p.pivot, _s); const len = _d.length();
     ch.line.a.copy(_s); ch.line.b.copy(p.pivot); ch.m.position.copy(_s).addScaledVector(_d, 0.5); ch.m.quaternion.setFromUnitVectors(up, _d.normalize()); ch.m.scale.set(1, len, 1);
   };
@@ -119,7 +125,7 @@ export function buildTilt(A, T) {
     A.dirty = true; return at;
   };
   A.anim.push((t) => { clockT = t; for (const p of decks) if (p.down && t > p.backAt) restore(p); });
-  const onDeck = (f, p) => f.alive && Math.hypot(f.pos.x - p.x, f.pos.z - p.z) < R + 0.2 && f.pos.y > p.y - 0.4 && f.pos.y < p.y + DISH + 0.7;
+  const onDeck = (f, p) => { if (!f.alive || Math.hypot(f.pos.x - p.x, f.pos.z - p.z) > R + 0.2) return false; const h = p.disc.hf(f.pos.x, f.pos.z); return f.pos.y > h - 0.4 && f.pos.y < h + 0.9; };
   /** Each frame: turn the crown, swing the platforms, fling cut ones away; landings shove a platform; carry riders. */
   A.tickTilt = (fighters, mine, dt) => {
     dt = Math.min(0.05, dt || 0); if (!dt) return;
