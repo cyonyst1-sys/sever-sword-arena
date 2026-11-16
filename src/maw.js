@@ -103,60 +103,93 @@ export function buildMaw(A, T) {
 
 // Tendrils: fleshy arms rising from the maw to swing on. Each sways on a spring; a fighter hooked onto one drags its
 // tip toward them (so it bends as they swing) and it springs back when they let go. Their hookable boxes follow the bend.
-const DROP = 26; // how far a tendril's tip hooks back down (m)
+const DROP = 6, SPIKE = 26; // how far the arm curls down before its elbow (m), and the length of the spiked limb below it
+// Fleshy arms rising out of the maw. Each rises, sweeps in over the arena and ends in an elbow, and from the elbow a
+// long, skinny, needle-sharp limb (with thorns along it) angles down toward the fighting. Hook one anywhere (the arm
+// or the limb) and it swings toward you and sags under your weight; let go and it springs back and wobbles.
 export function buildTendrils(A, pts) {
   const tex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
     g.fillStyle = '#6e2233'; g.fillRect(0, 0, 128, 128);
     for (let y = 0; y < 128; y += 8) { g.fillStyle = 'rgba(30,5,12,0.35)'; g.fillRect(0, y, 128, 2); g.fillStyle = 'rgba(200,110,120,0.18)'; g.fillRect(0, y + 3, 128, 2); } // ringed like a worm
     for (let i = 0; i < 30; i++) { const x = (i * 37) % 128, y = (i * 53) % 128; g.fillStyle = 'rgba(230,160,170,0.55)'; g.beginPath(); g.arc(x, y, 3 + (i % 3), 0, TAU); g.fill(); g.fillStyle = 'rgba(60,10,20,0.7)'; g.beginPath(); g.arc(x, y, 1.5, 0, TAU); g.fill(); } // suckers
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.repeat.set(2, 18); return t; })();
+  // the limb: dark glossy chitin, a knobbly joint, pale bone thorns, and a needle tip
+  const chitin = new THREE.MeshStandardMaterial({ color: 0x2a0a12, roughness: 0.25, metalness: 0.25, emissive: 0x120206 });
+  const bone = new THREE.MeshStandardMaterial({ color: 0xeadfca, roughness: 0.35 });
+  const limbGeo = new THREE.CylinderGeometry(0.05, 0.95, SPIKE, 10, 6).translate(0, SPIKE / 2, 0); // (thick at the elbow, y = 0, tapering to a needle at y = SPIKE; aimed each frame)
+  const thornGeo = new THREE.ConeGeometry(0.28, 2.4, 6).translate(0, 1.2, 0);
+  const jointGeo = new THREE.SphereGeometry(1.9, 14, 10);
   const list = A.tendrils = [];
   pts.forEach(([x, z], i) => {
     const by = mawY(Math.hypot(x, z)) - 2, top = 70 + ((i * 7) % 5) * 4, H = top - by, R0 = 2.5;
-    const geo = new THREE.CylinderGeometry(1.5, R0, H, 14, 48, false); geo.translate(0, H / 2, 0); // (thick right to the end, with a blunt rounded-off tip)
-    const uB = { value: new THREE.Vector2() };
+    const geo = new THREE.CylinderGeometry(1.7, R0, H, 14, 48, false); geo.translate(0, H / 2, 0);
+    const uB = { value: new THREE.Vector2() }, uS = { value: 0 };
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05, emissive: 0x220308 });
-    mat.onBeforeCompile = (sh) => { sh.uniforms.uB = uB; sh.uniforms.uH = { value: H };
-      // bend the straight tube along its curve: rising, sweeping in, and hooking down at the tip; each ring of the tube
-      // turned square to the curve (so it stays round and thick all the way along), normals turned with it
-      sh.vertexShader = 'uniform vec2 uB; uniform float uH;\n' + sh.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+    mat.onBeforeCompile = (sh) => { sh.uniforms.uB = uB; sh.uniforms.uS = uS; sh.uniforms.uH = { value: H };
+      // bend the straight tube along its curve (rising, sweeping in, curling down a little to the elbow, sagging under
+      // weight); each ring of the tube turned square to the curve so it stays round, normals turned with it
+      sh.vertexShader = 'uniform vec2 uB; uniform float uH, uS;\n' + sh.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
         float ts = clamp(position.y / uH, 0.0, 1.0);
         vec3 Bd = length(uB) > 0.001 ? normalize(vec3(uB.x, 0.0, uB.y)) : vec3(1.0, 0.0, 0.0), Sd = vec3(-Bd.z, 0.0, Bd.x);
-        float bwp = 2.6 * pow(max(ts, 0.0001), 1.6) / uH, dpp = ${DROP.toFixed(1)} * 4.0 * pow(ts, 3.0) / uH;
+        float bwp = 2.6 * pow(max(ts, 0.0001), 1.6) / uH, dpp = (${DROP.toFixed(1)} * 4.0 * pow(ts, 3.0) + uS * 2.6 * pow(max(ts, 0.0001), 1.6)) / uH;
         vec3 Tg = normalize(vec3(uB.x * bwp, 1.0 - dpp, uB.y * bwp)), Nd = normalize(cross(Tg, Sd));
         objectNormal = normalize(Sd * dot(objectNormal.xz, Sd.xz) + Nd * dot(objectNormal.xz, Bd.xz) + Tg * objectNormal.y);`).replace('#include <begin_vertex>', `#include <begin_vertex>
-        vec3 cen = vec3(uB.x * pow(ts, 2.6), ts * uH - ${DROP.toFixed(1)} * pow(ts, 4.0), uB.y * pow(ts, 2.6));
+        vec3 cen = vec3(uB.x * pow(ts, 2.6), ts * uH - ${DROP.toFixed(1)} * pow(ts, 4.0) - uS * pow(ts, 2.6), uB.y * pow(ts, 2.6));
         transformed = cen + Sd * dot(position.xz, Sd.xz) + Nd * dot(position.xz, Bd.xz);`); };
-    mat.customProgramCacheKey = () => 'tendril';
+    mat.customProgramCacheKey = () => 'tendril2';
     const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; A.scene.add(m);
-    const ph = i * 1.7, dl = Math.hypot(x, z) || 1, inw = dl - 6 - (i % 4) * 5, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2); // (curling right in: the tips hang over the centre platform) // a natural curve at rest
-    const boxes = []; for (let s = 0.12; s < 1; s += 0.08) { const b = { x0: 0, x1: 0, y0: by + (s - 0.05) * H, y1: by + (s + 0.05) * H, z0: 0, z1: 0, ts: s, tend: i }; A.rayBoxes.push(b); boxes.push(b); }
-    list.push({ x, z, by, H, R0, uB, rest, ph, bend: new THREE.Vector2(), vel: new THREE.Vector2(), boxes });
+    // the elbow and the limb (moved and aimed every frame)
+    const limb = new THREE.Group(); A.scene.add(limb);
+    const joint = new THREE.Mesh(jointGeo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05, emissive: 0x220308 })); joint.scale.set(1, 0.85, 1); limb.add(joint);
+    const lm = new THREE.Mesh(limbGeo, chitin); lm.castShadow = A.quality !== 'low'; limb.add(lm);
+    for (let k = 0; k < 5; k++) { // thorns along the limb, raking back up toward the joint
+      const u = 0.2 + k * 0.15, th = new THREE.Mesh(thornGeo, bone), a = k * 2.2;
+      th.position.set(Math.cos(a) * 0.95 * (1 - u) * 0.9, u * SPIKE, Math.sin(a) * 0.95 * (1 - u) * 0.9);
+      th.rotation.set(Math.sin(a) * 1.1, 0, -Math.cos(a) * 1.1); th.rotateX(-0.5); th.scale.setScalar(1.2 - u * 0.6); limb.add(th);
+    }
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.16, 3, 6).translate(0, 1.5, 0), bone); tip.position.y = SPIKE - 0.5; limb.add(tip); // a pale needle point
+    const ph = i * 1.7, dl = Math.hypot(x, z) || 1, inw = dl - 6 - (i % 4) * 5, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2);
+    const boxes = []; for (let s = 0.12; s < 1.95; s += s < 1 ? 0.08 : 0.2) { const b = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0, ts: s, tend: i }; A.rayBoxes.push(b); boxes.push(b); }
+    list.push({ x, z, by, H, R0, uB, uS, rest, ph, bend: new THREE.Vector2(), vel: new THREE.Vector2(), sag: 0, sagV: 0, boxes, limb, dir: new THREE.Vector3(0, -1, 0) });
     { const s = 0.55, k = Math.pow(s, 2.6); A.pillars.push({ x: x + rest.x * k, z: z + rest.y * k, w: 2.8 }); } // (for the bots: aim at the middle of its curve, not its base)
   });
-  const tipOff = (t, out) => { const c = A.lastT || 0; return out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin(c * 0.55 + t.ph) * 6 + Math.sin(c * 1.3 + t.ph * 2.1) * 2.5, Math.cos(c * 0.47 + t.ph * 1.3) * 6 + Math.cos(c * 1.1 + t.ph * 0.7) * 2.5)); }; // (always writhing a little)
-  const tmp = new THREE.Vector2();
-  const bw = (s) => Math.pow(s, 2.6), dropY = (s) => DROP * Math.pow(s, 4); // (the shape: rising, then hooking in hard over the top, the tip drooping like a claw)
-  A.tendrilPoint = (i, s, out) => { const t = list[i]; tipOff(t, tmp); return out.set(t.x + tmp.x * bw(s), t.by + s * t.H - dropY(s), t.z + tmp.y * bw(s)); };
-  A.tendrilAt = (p) => { // which tendril (and how far up it) a hook point is on
-    for (let i = 0; i < list.length; i++) { const t = list[i]; let s = (p.y - t.by) / t.H; s = (p.y - t.by + dropY(Math.min(1, Math.max(0, s)))) / t.H; if (s < 0 || s > 1) continue; tipOff(t, tmp);
-      if (Math.hypot(p.x - (t.x + tmp.x * bw(s)), p.z - (t.z + tmp.y * bw(s))) < t.R0 + 1) return { i, s }; }
-    return null;
+  const tipOff = (t, out) => { const c = A.lastT || 0; return out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin(c * 0.45 + t.ph) * 3.5 + Math.sin(c * 1.2 + t.ph * 2.1) * 1.2, Math.cos(c * 0.4 + t.ph * 1.3) * 3.5 + Math.cos(c * 1.05 + t.ph * 0.7) * 1.2)); }; // (a slow, gentle writhe)
+  const tmp = new THREE.Vector2(), _e = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+  const bw = (s) => Math.pow(s, 2.6), dropY = (s) => DROP * Math.pow(s, 4);
+  // a point on tendril i: s from 0 (its root) to 1 (the elbow), then on to 2 (the limb's needle tip)
+  const point = (t, s, out) => {
+    tipOff(t, tmp);
+    if (s <= 1) return out.set(t.x + tmp.x * bw(s), t.by + s * t.H - dropY(s) - t.sag * bw(s), t.z + tmp.y * bw(s));
+    point(t, 1, _e); return out.copy(_e).addScaledVector(t.dir, (s - 1) * SPIKE);
+  };
+  A.tendrilPoint = (i, s, out) => point(list[i], s, out);
+  const rad = (t, s) => (s <= 1 ? t.R0 * (1 - s * 0.32) : 1.1 * (2 - s) + 0.2);
+  const _p = new THREE.Vector3();
+  A.tendrilAt = (p) => { // which tendril (and how far along it) a hook point is on: the nearest point on any of them, if it's close
+    let best = null, bd = Infinity;
+    for (let i = 0; i < list.length; i++) { const t = list[i];
+      if (Math.hypot(p.x - t.x, p.z - t.z) > t.H * 2 + SPIKE + 40) continue;
+      for (let s = 0; s <= 2.001; s += s < 1 ? 0.02 : 0.05) { point(t, s, _p); const d = _p.distanceTo(p) - rad(t, s); if (d < bd) { bd = d; best = { i, s: Math.min(s, 1.95) }; } } }
+    return bd < 1.6 ? best : null;
   };
   const pv = new THREE.Vector3();
   A.tendrilTick = (dt, fighters) => {
     if (!dt) return;
-    for (const t of list) { t.fx = 0; t.fz = 0; }
-    for (const f of fighters) { const h = f.hook; if (!h || !h.tend) continue; const t = list[h.tend.i]; if (!t) continue; // the rope drags the tip toward whoever hangs on it
-      A.tendrilPoint(h.tend.i, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, k = 28 * h.tend.s;
-      t.fx += dx / l * k; t.fz += dz / l * k; }
+    for (const t of list) { t.fx = 0; t.fz = 0; t.fy = 0; }
+    for (const f of fighters) { const h = f.hook; if (!h || !h.tend) continue; const t = list[h.tend.i]; if (!t) continue; // whoever hangs on it drags it their way, and pulls it down
+      point(t, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, lev = Math.min(1.3, h.tend.s), k = 70 * lev;
+      t.fx += dx / l * k; t.fz += dz / l * k; t.fy += 26 * lev + Math.max(0, pv.y - f.pos.y) * 0.8 * lev; }
     for (const t of list) {
-      t.vel.x += (-1.1 * t.bend.x - 0.55 * t.vel.x + t.fx) * dt; t.vel.y += (-1.1 * t.bend.y - 0.55 * t.vel.y + t.fz) * dt; // (soft and springy)
+      t.vel.x += (-1.1 * t.bend.x - 0.6 * t.vel.x + t.fx) * dt; t.vel.y += (-1.1 * t.bend.y - 0.6 * t.vel.y + t.fz) * dt; // (soft and springy)
       t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 28) t.bend.multiplyScalar(28 / l);
-      tipOff(t, tmp); t.uB.value.copy(tmp);
-      for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * bw(s), cz = t.z + tmp.y * bw(s), cy = t.by + s * t.H - dropY(s), r = t.R0 * (1 - s * 0.4) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; b.y0 = cy - t.H * 0.05; b.y1 = cy + t.H * 0.05; }
+      t.sagV += (-1.3 * t.sag - 0.7 * t.sagV + t.fy) * dt; t.sag = Math.max(-4, Math.min(30, t.sag + t.sagV * dt));
+      tipOff(t, tmp); t.uB.value.copy(tmp); t.uS.value = t.sag;
+      // the limb: from the elbow, angled down and on in toward the middle, swinging back as the arm is dragged
+      const L = Math.hypot(tmp.x, tmp.y) || 1; t.dir.set(tmp.x / L * 0.42 - t.vel.x * 0.02, -1, tmp.y / L * 0.42 - t.vel.y * 0.02).normalize();
+      point(t, 1, _e); t.limb.position.copy(_e); t.limb.quaternion.setFromUnitVectors(_up, t.dir);
+      for (const b of t.boxes) { point(t, b.ts, pv); const r = rad(t, b.ts) + 0.3, hh = b.ts < 1 ? t.H * 0.05 : SPIKE * 0.12; b.x0 = pv.x - r; b.x1 = pv.x + r; b.z0 = pv.z - r; b.z1 = pv.z + r; b.y0 = pv.y - Math.max(r, hh); b.y1 = pv.y + Math.max(r, hh); }
     }
-    for (const f of fighters) { const h = f.hook; if (h && h.tend) A.tendrilPoint(h.tend.i, h.tend.s, h.p); } // ropes stay attached as it moves
+    for (const f of fighters) { const h = f.hook; if (h && h.tend) point(list[h.tend.i], h.tend.s, h.p); } // ropes stay attached as it moves
   };
   A.tendrilTick(1e-4, []); // (place the hookable boxes)
   return list;
