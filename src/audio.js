@@ -59,9 +59,9 @@ function bubble(delay, f, vol) {
 export const sfx = {
   swish(sp, p) { const a = att(p, NEAR); nz(0.18, 600 + Math.min(sp, 40) * 40, 3200, 1.1, a * (0.08 + Math.min(0.2, sp / 150))); },
   slice(p) { const a = att(p); nz(0.25, 3200, 700, 0.8, 0.35 * a); nz(0.3, 420, 110, 0.7, 0.32 * a, 'lowpass'); }, // the cut: a hiss and a soft thud
-  kill(p) { // a kill: the cut, a wet "bleh" / "blah" / "bluh" / "uhh" / "ahh" / quick "mm" / "OW! I'M DEAD" (short or drawn out, as the breath goes out of him), then light gurgling
+  kill(p) { // a kill: the cut, a wet "bleh" / "blah" / "bluh" / "uhh" / "ahh" / quick "mm" (short or drawn out, as the breath goes out of him), then light gurgling
     const a = att(p); this.slice(p);
-    const k = Math.random() * 7 | 0; // bleh, blah, bluh, or just a groan: uhh or ahh, or a quick closed-mouth mm, or the spoken line
+    const k = Math.random() * 6 | 0; // bleh, blah, bluh, or just a groan: uhh or ahh, or a quick closed-mouth mm (the spoken "OW! I'M DEAD" line, k = 6, is retired)
     if (k === 6) { // a little spoken line: "OW! I'M DEAD" (each syllable a voiced vowel through moving formants, consonants as noise)
       const P = 215 + Math.random() * 30;
       voice(P * 1.05, P * 0.82, 0.36, 0.9 * a, [[360, 6, 780, 0.36], [820, 8, 1220, 0.36]], 0.55); // "OW": ah sliding to oo
