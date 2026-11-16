@@ -137,7 +137,7 @@ export function buildTendrils(A, pts) {
         vec3 cen = vec3(uB.x * pow(ts, 2.6), ts * uH - ${DROP.toFixed(1)} * pow(ts, 4.0) - uS * pow(ts, 2.6), uB.y * pow(ts, 2.6));
         transformed = cen + Sd * dot(position.xz, Sd.xz) + Nd * dot(position.xz, Bd.xz);`); };
     mat.customProgramCacheKey = () => 'tendril2';
-    const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; A.scene.add(m);
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; m.frustumCulled = false; A.scene.add(m); // (always drawn: it's bent in the shader, so its own bounds would hide it wrongly)
     // the elbow and the limb (moved and aimed every frame)
     const limb = new THREE.Group(); A.scene.add(limb);
     const joint = new THREE.Mesh(jointGeo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05, emissive: 0x220308 })); joint.scale.set(1, 0.85, 1); limb.add(joint);
@@ -177,12 +177,14 @@ export function buildTendrils(A, pts) {
     if (!dt) return;
     for (const t of list) { t.fx = 0; t.fz = 0; t.fy = 0; }
     for (const f of fighters) { const h = f.hook; if (!h || !h.tend) continue; const t = list[h.tend.i]; if (!t) continue; // whoever hangs on it drags it their way, and pulls it down
-      point(t, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, lev = Math.min(1.3, h.tend.s), k = 70 * lev;
-      t.fx += dx / l * k; t.fz += dz / l * k; t.fy += 26 * lev + Math.max(0, pv.y - f.pos.y) * 0.8 * lev; }
+      point(t, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, lev = Math.min(1.3, h.tend.s), k = 40 * lev, rl = t.rest.length() || 1;
+      point(t, 1, _e); const el = Math.hypot(_e.x, _e.z) || 1, kc = 45 * lev * Math.min(1, el / 12); t.fx -= _e.x / el * kc; t.fz -= _e.z / el * kc; // (it folds toward the middle of the arena, not past it)
+      point(t, h.tend.s, pv);
+      t.fx += dx / l * k; t.fz += dz / l * k; t.fy += 55 * lev + Math.max(0, pv.y - f.pos.y) * 1.2 * lev; } // (and down under your weight)
     for (const t of list) {
-      t.vel.x += (-1.1 * t.bend.x - 0.6 * t.vel.x + t.fx) * dt; t.vel.y += (-1.1 * t.bend.y - 0.6 * t.vel.y + t.fz) * dt; // (soft and springy)
-      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 28) t.bend.multiplyScalar(28 / l);
-      t.sagV += (-1.3 * t.sag - 0.7 * t.sagV + t.fy) * dt; t.sag = Math.max(-4, Math.min(30, t.sag + t.sagV * dt));
+      t.vel.x += (-0.8 * t.bend.x - 0.55 * t.vel.x + t.fx) * dt; t.vel.y += (-0.8 * t.bend.y - 0.55 * t.vel.y + t.fz) * dt; // (soft and springy)
+      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 40) t.bend.multiplyScalar(40 / l);
+      t.sagV += (-1.0 * t.sag - 0.65 * t.sagV + t.fy) * dt; t.sag = Math.max(-4, Math.min(48, t.sag + t.sagV * dt));
       tipOff(t, tmp); t.uB.value.copy(tmp); t.uS.value = t.sag;
       // the limb: from the elbow, angled down and on in toward the middle, swinging back as the arm is dragged
       const L = Math.hypot(tmp.x, tmp.y) || 1; t.dir.set(tmp.x / L * 0.42 - t.vel.x * 0.02, -1, tmp.y / L * 0.42 - t.vel.y * 0.02).normalize();
@@ -191,6 +193,19 @@ export function buildTendrils(A, pts) {
     }
     for (const f of fighters) { const h = f.hook; if (h && h.tend) point(list[h.tend.i], h.tend.s, h.p); } // ropes stay attached as it moves
   };
+  // the spiked limbs are deadly: touch one (anywhere below its first stretch) and it runs you through
+  const _s0 = new THREE.Vector3(), _s1 = new THREE.Vector3(), _c = new THREE.Vector3();
+  A.spikeAt = (q, slack = 0) => {
+    _c.set(q.x, q.y + 1.0, q.z);
+    for (const t of list) {
+      point(t, 1, _s0); _s0.addScaledVector(t.dir, SPIKE * 0.3); _s1.copy(_s0).addScaledVector(t.dir, SPIKE * 0.7);
+      if (Math.abs(_c.x - _s0.x) > SPIKE && Math.abs(_c.z - _s0.z) > SPIKE) continue;
+      const ab = _e.subVectors(_s1, _s0), u = Math.max(0, Math.min(1, _c.clone().sub(_s0).dot(ab) / ab.lengthSq())), d = _c.distanceTo(_s0.clone().addScaledVector(ab, u));
+      if (d < 0.55 + 0.75 * (1 - u) + slack) return true;
+    }
+    return false;
+  };
+  { const ft = A.fallText, fb = A.fallBy; A.fallText = (q) => (A.spikeAt(q, 1.5) ? 'was impaled on a tendril' : ft ? ft(q) : 'fell'); A.fallBy = (q) => (A.spikeAt(q, 1.5) ? 'Impaled on a tendril' : fb ? fb(q) : 'Fell'); }
   A.tendrilTick(1e-4, []); // (place the hookable boxes)
   return list;
 }

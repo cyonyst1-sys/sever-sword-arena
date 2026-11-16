@@ -3,16 +3,16 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116001528';
-import { buildFoundry } from './foundry.js?v=20261116001528';
-import { buildBamboo } from './bamboo.js?v=20261116001528';
-import { buildCity } from './city.js?v=20261116001528';
-import { buildDojo } from './dojo.js?v=20261116001528';
-import { buildComet } from './comet.js?v=20261116001528';
-import { buildLava } from './lava.js?v=20261116001528';
-import { addScenery } from './scenery.js?v=20261116001528';
-import { addAtmosphere } from './atmos.js?v=20261116001528';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116001528';
+import { buildTilt } from './tilt.js?v=20261116002002';
+import { buildFoundry } from './foundry.js?v=20261116002002';
+import { buildBamboo } from './bamboo.js?v=20261116002002';
+import { buildCity } from './city.js?v=20261116002002';
+import { buildDojo } from './dojo.js?v=20261116002002';
+import { buildComet } from './comet.js?v=20261116002002';
+import { buildLava } from './lava.js?v=20261116002002';
+import { addScenery } from './scenery.js?v=20261116002002';
+import { addAtmosphere } from './atmos.js?v=20261116002002';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116002002';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -1012,6 +1012,7 @@ export class Arena {
     }
     for (const list of [this.boxes, this.rayBoxes, brk]) for (const b of list) {
       if (b.noHook) continue; // (walls you can't hook, like the crater's)
+      if (this.rayOnlyTend && b.tend === undefined) continue; // (Colosseum, aiming up: only the tendrils)
       if (this.rayThin && b.danger) continue; // (bots won't hook the saw columns and gantries)
       let t0 = 0, t1 = best;
       for (const [oa, da, lo, hi] of [[o.x, d.x, b.x0, b.x1], [o.y, d.y, b.y0, b.y1], [o.z, d.z, b.z0, b.z1]]) {

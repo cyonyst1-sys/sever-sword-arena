@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116001528';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116001528';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116001528';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116001528';
-import * as net from './net.js?v=20261116001528';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116001528';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116001528';
-import { makeKillFx } from './killfx.js?v=20261116001528';
-import { makeGrapple } from './grapple.js?v=20261116001528';
-import { initShop } from './shop.js?v=20261116001528';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116001528';
-import { portal } from './portal.js?v=20261116001528';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116001528';
-import { makePost } from './post.js?v=20261116001528';
+import { Arena, MAPS } from './arena.js?v=20261116002002';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116002002';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116002002';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116002002';
+import * as net from './net.js?v=20261116002002';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116002002';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116002002';
+import { makeKillFx } from './killfx.js?v=20261116002002';
+import { makeGrapple } from './grapple.js?v=20261116002002';
+import { initShop } from './shop.js?v=20261116002002';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116002002';
+import { portal } from './portal.js?v=20261116002002';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116002002';
+import { makePost } from './post.js?v=20261116002002';
 
 // ---------- settings ----------
 const store = {
@@ -326,16 +326,18 @@ function fireHook(f, origin, dir) {
     if (S.host) yankStart(e.id, f.id); else net.send({ t: 'yank', v: e.id });
     sfx.hookFire(f.pos); sfx.hookHit(f.hook.p); return true;
   } }
-  arena.rayThin = !!f.isBot && !f.hookGlass; const h = arena.grappleTarget(origin, dir, HOOK_MAX * upm(f, 'rope')); arena.rayThin = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
+  arena.rayOnlyTend = !!arena.tendrilAt && dir.y > 0.25; // (Colosseum: a grapple aimed upward only catches the tendrils)
+  arena.rayThin = !!f.isBot && !f.hookGlass; const h = arena.grappleTarget(origin, dir, HOOK_MAX * upm(f, 'rope')); arena.rayThin = false; arena.rayOnlyTend = false; // (bots aim past glass and steel beams: they swing through the glass anyway)
   f.hookCd = 0.25;
   if (!h) { sfx.hookFire(f.pos); return false; }
   { const g = gateFor(f); if (g && h.point.y > g.y - 0.2) { sfx.hookFire(f.pos); return false; } } // (a shut gate: nothing above it can be hooked)
   if (barrierFor(f, h.point)) { sfx.hookFire(f.pos); return false; } // (a shut arena: nothing inside it can be hooked)
-  const lh = lipHook(f, h.point); if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead)
+  if (h.box && h.box.tend !== undefined && arena.tendrilPoint) { h.tendHit = { i: h.box.tend, s: h.box.ts }; arena.tendrilPoint(h.tendHit.i, h.tendHit.s, h.point); } // (a tendril's own box: hook that tendril, right on it)
+  const onT = h.tendHit || (arena.tendrilAt && arena.tendrilAt(h.point)), lh = onT ? null : lipHook(f, h.point); if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead; never moves a tendril hook)
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const L = h.point.distanceTo(chest);
   if (L > HOOK_MAX * upm(f, 'rope') || L < 1.4) return false;
-  f.hook = { p: h.point, len: L, via: lh && lh.via, tend: arena.tendrilAt ? arena.tendrilAt(h.point) : null }; // (tend: hooked onto a Colosseum tendril)
+  f.hook = { p: h.point, len: L, via: lh && lh.via, tend: h.tendHit || (arena.tendrilAt ? arena.tendrilAt(h.point) : null) }; // (tend: hooked onto a Colosseum tendril)
   if (f.hook.via) f.hook.len = f.hook.via.distanceTo(chest) + 0.5; // (round the edge first)
   f.dashT = 0; f.onGround = false;
   sfx.hookFire(f.pos); sfx.hookHit(h.point);
@@ -2218,7 +2220,8 @@ function tick(rdt, tt) {
       f.pose(rdt);
       if (isLocal(f)) {
         bladeSweep(f, rdt); dashSweep(f);
-        if (f.pos.y < (arena.killAt ? arena.killAt(f.pos) : arena.killY)) selfFell(f); // (Colosseum: the maw's flesh kills on touch)
+        if (f.pos.y < (arena.killAt ? arena.killAt(f.pos) : arena.killY)) selfFell(f);
+        else if (arena.spikeAt && f.prot <= 0 && arena.spikeAt(f.pos)) selfFell(f); // (Colosseum: run through by a tendril's spiked limb) // (Colosseum: the maw's flesh kills on touch)
         else if (arena.lilyNear && f.alive && f.prot <= 0 && arena.lilyNear(f.pos)) selfFell(f); // (Moonlit Isles: over a lily pad, it strikes)
         else if (arena.hazardHit && f.alive && f.prot <= 0) { const h = arena.hazardHit(f.pos); if (h) sawKill(f, h.n, h.pt); } // Saw Foundry: walked into a blade
       }
