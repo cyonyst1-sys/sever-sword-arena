@@ -159,11 +159,13 @@ export function buildRun(A, T) {
     Z = clock() * V; assign(Z);
     for (const [f, t, k, z, y] of riders) if (t.k === k) { f.pos.z += t.oz - z; f.pos.y += t.oy - y; f.runOn = true; f.runTree = t; } // (ride along)
     for (const f of fighters) if (mine(f) && f.runOn && !f.onGround && !riders.some((rr) => rr[0] === f)) { if (f.vel.y > 2) f.vel.z += V; f.runOn = false; f.runTree = null; } // (jump off: keep the tree's speed; just stepping off adds nothing)
-    for (const f of fighters) if (mine(f) && f.isBot && f.alive && !f.runOn && f.pos.z < -50) f.pos.z += Math.min(6, (-50 - f.pos.z) * 0.3) * dt; // (bots that run on too far ahead get eased back so the fight stays together; never a player, never anyone standing on a tree)
+    for (const f of fighters) if (mine(f) && f.isBot && f.alive && f.pos.z < -55) f.pos.z += Math.min(6, (-50 - f.pos.z) * 0.3) * dt; // (bots that run on too far ahead get eased back so the fight stays together; never a player, never anyone standing on a tree)
   };
   A.fallText = () => 'fell into the forest'; A.fallBy = () => 'Fell into the forest';
   A.killAt = (q) => (q.z > 50 ? 1e9 : A.killY); // (left behind: the forest swallows you)
   /** The surface ahead of q worth heading for next (for the bots): a branch or leaf of the tree coming. */
-  A.nextBranch = (q) => { let best = null, bs = Infinity; for (const p of allPlats) { if (p.z > q.z - 3 || p.z < q.z - 32 || (p.z < -45 && q.z > -45)) continue; const sc = (q.z - p.z) * 0.6 + Math.abs(p.x - q.x) + Math.abs(p.y - q.y) * 2; if (sc < bs) { bs = sc; best = p; } } return best; };
+  // (bots stay in the middle of the action: 10 to 45 m short of where the trees sink, heading on to the next tree when
+  // they're at the back of that band, and holding where they are, or dropping back, when they're at the front)
+  A.nextBranch = (q) => { let best = null, bs = Infinity; const goal = Math.min(-12, Math.max(-42, q.z - 14)); for (const p of allPlats) { if (p.z > 2 || p.z < -52 || Math.abs(p.x) > LANE + 5) continue; const sc = Math.abs(p.z - goal) * 0.7 + Math.abs(p.x - q.x) * 0.6 + Math.abs(p.y - q.y) * 1.5 + Math.hypot(p.x - q.x, p.z - q.z) * 0.2; if (sc < bs) { bs = sc; best = p; } } return best; };
   A.finishNav();
 }
