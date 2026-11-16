@@ -9,7 +9,7 @@ export const MODES = {
   lbs: { name: 'Last Blade Standing', blurb: 'No respawns, and always at least 12 fighters (bots fill the rest). Platforms glow red, then crumble into the clouds, from the outside in. Last fighter alive wins.' },
   hunt: { name: 'Headhunter', blurb: 'Every kill drops gold heads. Carry them to an altar floating in open air and swing through its glowing ring to bank them; die and you drop them all. First to 20 banked.' },
   lava: { name: 'Lava Climb', blurb: 'The lava rises: race up the volcano to the summit. No respawns. Three checkpoint arenas on the way, each under a gate that only opens for you once you have eliminated enough fighters (1, then 2, then 3 in all). First to stand on the summit wins, or the last one alive. Always played on Lava Climb.' },
-  run: { name: 'Branch Run', blurb: 'You never stop running: race through a giant forest as its branches stream toward you. Land, fight whoever is on the branch, and leap or grapple on to the next before yours falls away. Respawns; most kills wins. Always played on Branch Run.' },
+  run: { name: 'Branch Run', blurb: 'Whole Great Canopy trees stream toward you through a giant forest. Stop and fight on a limb, then jump, dash or swing on to the next tree before yours sinks away. Respawns; most kills wins. Always played on Branch Run.' },
   horde: { name: 'Horde', blurb: 'Co-op: everyone together against waves of oni.' },
   boss: { name: 'ChopSocky', solo: true, blurb: 'Solo, 1v1: fight through one boss after another, each with its own tricks. Bosses take several cuts to bring down. You have 3 lives, and beating a boss gives one back. After the eighth they come round again, harder. How far can you get?' },
 };

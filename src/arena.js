@@ -3,18 +3,18 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116025322';
-import { buildFoundry } from './foundry.js?v=20261116025322';
-import { buildBamboo } from './bamboo.js?v=20261116025322';
-import { buildCity } from './city.js?v=20261116025322';
-import { buildDojo } from './dojo.js?v=20261116025322';
-import { buildComet } from './comet.js?v=20261116025322';
-import { buildLava } from './lava.js?v=20261116025322';
-import { buildRun } from './run.js?v=20261116025322';
-import { buildGrove } from './grove.js?v=20261116025322';
-import { addScenery } from './scenery.js?v=20261116025322';
-import { addAtmosphere } from './atmos.js?v=20261116025322';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116025322';
+import { buildTilt } from './tilt.js?v=20261116030410';
+import { buildFoundry } from './foundry.js?v=20261116030410';
+import { buildBamboo } from './bamboo.js?v=20261116030410';
+import { buildCity } from './city.js?v=20261116030410';
+import { buildDojo } from './dojo.js?v=20261116030410';
+import { buildComet } from './comet.js?v=20261116030410';
+import { buildLava } from './lava.js?v=20261116030410';
+import { buildRun } from './run.js?v=20261116030410';
+import { buildGrove } from './grove.js?v=20261116030410';
+import { addScenery } from './scenery.js?v=20261116030410';
+import { addAtmosphere } from './atmos.js?v=20261116030410';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116030410';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -153,7 +153,7 @@ export const MAPS = {
   tilt: { name: 'Swinging Decks', blurb: 'six big round decks hanging on chains from a spinning crown, swinging outward as it turns like a fairground swing ride: cut a chain and the deck flies off with whoever is on it' },
   comet: { name: 'Comet Crash', blurb: 'a cluster of asteroids riding a comet toward a planet: jump across them, swing from the small rocks floating round, and watch the planet loom closer until the comet hits it' },
   lava: { name: 'Lava Climb', blurb: 'the inside of a volcano: the lava rises, so climb a course of floating rock to the summit. Hop, dash, grapple up and swing across. Three checkpoint arenas on the way, each under a gate that only opens once you have eliminated enough fighters' },
-  run: { name: 'Branch Run', blurb: 'a giant forest: branches stream toward you and you never stop running, leaping branch to branch and fighting on each' },
+  run: { name: 'Branch Run', blurb: 'a giant forest: whole Great Canopy trees stream toward you, their limbs and big leaves reaching across the lane' },
   grove: { name: 'Topiary Grove', blurb: 'two rows of huge, ancient cloud-pruned trees facing each other over a gulf of sunset mist: no floor, just the clipped foliage pads to fight on and swing between' },
 };
 

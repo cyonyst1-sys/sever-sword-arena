@@ -5,7 +5,7 @@
 // them (and come back a few seconds later for the next fighter).
 import * as THREE from 'three';
 import { deck, prop, stalk, drift, farRing } from './maps2.js';
-import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116025322';
+import { kindMats, chunk, join, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116030410';
 
 const TAU = Math.PI * 2, HALF = 30, TILE = 1.5;
 

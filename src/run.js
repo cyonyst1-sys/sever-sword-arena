@@ -1,10 +1,10 @@
-// Branch Run: racing forward through a giant forest. Huge trunks stand on both sides of a lane, and their branches
-// stream toward you; you're always running forward, land on a branch, fight whoever's on it for a moment, and leap
-// (or grapple) on to the next one coming before yours carries you back past the trunk and drops away into the mist.
-// Everything moves by the wall clock, so every player sees the same branches in the same places.
+// Branch Run: racing through a giant forest. Whole Great Canopy trees come at you one after another, wide apart, their
+// limbs and big leaves reaching across the lane. Land on a limb, stop and fight whoever's there, then jump, dash or swing
+// on to the next tree before yours carries you back past and sinks into the mist. Everything moves by the wall clock,
+// so every player sees the same trees in the same places.
 import * as THREE from 'three';
 
-const TAU = Math.PI * 2, N = 46, C = 8.5, V = 8, LANE = 9; // pooled branches, one branch every C m, coming at V m/s, lane half-width
+const TAU = Math.PI * 2, N = 12, C = 34, V = 8, LANE = 10; // pooled trees, one tree every C m (wide apart), coming at V m/s, lane half-width
 export const RUN = { speed: V };
 const hash = (k, s = 0) => { const x = Math.sin(k * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
 
@@ -38,73 +38,109 @@ export function buildRun(A, T) {
     const mist = new THREE.Mesh(new THREE.PlaneGeometry(700, 700).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xc8d8c0, transparent: true, opacity: 0.9 })); mist.position.y = -26; S.add(mist);
   }
 
-  // ---- the branches: a pool of N, each showing the branch due in its slot. A branch grows out of a huge trunk at the
-  // side of the lane and reaches in across it toward the middle (thick at the trunk, tapering to its tip, its top worn
-  // flat to walk on), with a twig forking up near the tip and leaves round it. You cross them as you run.
-  const logGeo = new THREE.CylinderGeometry(0.62, 1, 1, 14, 8, false).rotateZ(Math.PI / 2); // (along x: thin end at -x, thick at +x)
-  { const p = logGeo.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y > 0.5) p.setY(i, 0.5 + (y - 0.5) * 0.25); } logGeo.computeVertexNormals(); } // (a flattened top)
-  const twigGeo = new THREE.CylinderGeometry(0.12, 0.32, 1, 8).translate(0, 0.5, 0);
-  const trunkGeo = new THREE.CylinderGeometry(1, 1.1, 1, 16, 1, true), leafGeo = new THREE.IcosahedronGeometry(1, 1);
-  const slots = [];
-  for (let i = 0; i < N; i++) {
-    const p = { kind: 'branch', x: 0, z: 0, y: 0, w: 10, d: 3, ang: 0, i: A.plats.length, meshes: [], boxes: [], ramps: [], rays: [], slot: i, k: null };
-    A.plats.push(p); p.node = A.node('P' + p.i, 0, 0, 0); p.node.plat = p.i;
-    p.box = { x0: 0, x1: 0, y0: 0, y1: 0, z0: 0, z1: 0 }; A.boxes.push(p.box); A.rayBoxes.push(p.box); p.boxes.push(p.box);
-    p.tbox = { x0: 0, x1: 0, y0: -40, y1: 70, z0: 0, z1: 0 }; A.rayBoxes.push(p.tbox); // (the trunk: hook it, never stand on it)
-    const g = new THREE.Group(); S.add(g); p.group = g;
-    p.log = new THREE.Mesh(logGeo, barkM); p.log.castShadow = p.log.receiveShadow = true; g.add(p.log);
-    p.twig = new THREE.Mesh(twigGeo, barkM); p.twig.castShadow = true; g.add(p.twig);
-    p.trunk = new THREE.Mesh(trunkGeo, barkM); p.trunk.castShadow = true; S.add(p.trunk);
-    p.leaves = [0, 1, 2].map((j) => { const m = new THREE.Mesh(leafGeo, j % 2 ? leafM2 : leafM); m.castShadow = true; g.add(m); return m; });
-    p.sp = new THREE.Vector3(); p.sp.plat = p.i; A.spawns.push(p.sp);
-    slots.push(p);
-  }
-  for (let i = 0; i < N; i++) A.link('P' + slots[i].i, 'P' + slots[(i + 1) % N].i, 'swing');
-
-  // branch k: which side its trunk is on (mostly alternating), how far it reaches across, its height and girth
-  const shape = (k) => {
-    const side = (k % 2 ? 1 : -1) * (hash(k, 1) < 0.2 ? -1 : 1), len = 10 + hash(k, 4) * 5.5;
-    const y = 3 + 2.2 * Math.sin(k * 0.45) + hash(k, 3) * 1.0; // (rising and falling, never far from the last)
-    return { side, len, y, girth: 2.0 + hash(k, 5) * 1.0, jit: (hash(k, 6) - 0.5) * 2, twigA: 0.5 + hash(k, 8) * 0.5 };
+  // ---- the trees: a pool of N, each a whole Great Canopy tree (a huge trunk beside the lane with its limbs: oval bark
+  // logs climbing and dipping segment by segment, with knots at the joints, side arms and big curled leaves you can run
+  // across), built once in its own space and then carried toward you, the next tree due taking the place of one gone by
+  const leafM3 = new THREE.MeshStandardMaterial({ color: 0x4f8f3a, roughness: 0.7, side: THREE.DoubleSide }), veinM = new THREE.MeshStandardMaterial({ color: 0x9ccf74, roughness: 0.7 });
+  const trees = [], allPlats = [];
+  const mkTree = (slot) => {
+    const q = T.rng(900 + slot * 37), side = slot % 2 ? 1 : -1, tree = { slot, side, group: new THREE.Group(), plats: [], ramps: [], rays: [], k: null, oz: 0, oy: 0 };
+    S.add(tree.group);
+    const tx = side * (LANE + 4), tR = 3.4 + q() * 1.6;
+    { const g = new THREE.CylinderGeometry(tR * 0.85, tR * 1.2, 160, 18, 8), gp = g.attributes.position; for (let i = 0; i < gp.count; i++) { const s = 1 + (q() - 0.5) * 0.12; gp.setX(i, gp.getX(i) * s); gp.setZ(i, gp.getZ(i) * s); }
+      const m = new THREE.Mesh(g, barkM); m.position.set(tx, 20, 0); m.castShadow = true; tree.group.add(m);
+      tree.tbox = { lx0: tx - tR * 0.8, lx1: tx + tR * 0.8, lz0: -tR * 0.8, lz1: tR * 0.8, x0: 0, x1: 0, y0: -60, y1: 80, z0: 0, z1: 0 }; A.rayBoxes.push(tree.tbox); }
+    const addPlat = (p) => { p.i = A.plats.length; p.meshes = []; p.boxes = []; p.ramps = []; p.rays = []; p.tree = tree; A.plats.push(p); tree.plats.push(p); allPlats.push(p);
+      p.l = { x: p.x, z: p.z, y: p.y, ya: p.ya, yb: p.yb }; p.node = A.node('P' + p.i, p.x, p.y, p.z); p.node.plat = p.i; p.sp = new THREE.Vector3(); p.sp.plat = p.i; A.spawns.push(p.sp); return p; };
+    const ramp = (p, lx, lz, hx, hz, hL, hH, w, base, o = {}) => { const r0 = A.addRamp(lx, lz, hx, hz, hL, hH, w, base, null, { visual: false, noWall: true, ...o }); r0.l = { lz: r0.lz, z0: r0.z0, z1: r0.z1, hL, hH, base }; p.ramps.push(r0); tree.ramps.push(r0); return r0; };
+    const ray = (p, b) => { b.l = { y0: b.y0, y1: b.y1, z0: b.z0, z1: b.z1 }; A.rayBoxes.push(b); tree.rays.push(b); p.rays.push(b); };
+    // one segment of a limb, A to B (Great Canopy's branch): the walkable top, the oval log, a knot at its end, hook boxes
+    const branch = (a, b, wA, wB) => {
+      const width = (wA + wB) / 2, dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz), ang = Math.atan2(dz, dx);
+      const p = addPlat({ kind: 'branch', x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, y: (a.y + b.y) / 2, ya: a.y, yb: b.y, w: L, d: width, ang });
+      ramp(p, a.x, a.z, b.x, b.z, a.y, b.y, width, Math.min(a.y, b.y) - 1.2);
+      const OV = 1.8, R = width * 0.39, Ra = wA * 0.39, Rb = wB * 0.39, k = Math.hypot(L, b.y - a.y) / L;
+      const a3 = new THREE.Vector3(a.x, a.y - Ra * (k - 0.15), a.z), b3 = new THREE.Vector3(b.x, b.y - Rb * (k - 0.15), b.z), dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(Rb, Ra, len + R * 0.15, 12, 1), barkM); log.geometry.scale(OV, 1, 1);
+      const sx = new THREE.Vector3(-dir.z, 0, dir.x).normalize(), sz = new THREE.Vector3().crossVectors(sx, dir), qb = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(sx, dir, sz));
+      log.position.copy(a3).add(b3).multiplyScalar(0.5); log.quaternion.copy(qb); log.castShadow = log.receiveShadow = true; tree.group.add(log);
+      const knot = new THREE.Mesh(new THREE.SphereGeometry(Rb * 1.02, 12, 8), barkM); knot.scale.set(OV, 1, 1); knot.quaternion.copy(qb); knot.position.copy(b3); knot.castShadow = true; tree.group.add(knot);
+      for (let s = 0; s <= len; s += 5) { const c = a3.clone().addScaledVector(dir, s); ray(p, { x0: c.x - R * 0.7, x1: c.x + R * 0.7, y0: c.y - R * 0.7, y1: c.y + R * 0.9, z0: c.z - R * 0.7, z1: c.z + R * 0.7 }); }
+      return p;
+    };
+    // a big leaf (Great Canopy's): a curled walkable blade with a midrib, on a stalk from the branch
+    const leaf = (Cc, len, wid, ang, y) => {
+      const p = addPlat({ kind: 'leaf', x: Cc.x, z: Cc.z, y, w: len, d: wid, ang }), ux = Math.cos(ang), uz = Math.sin(ang);
+      const F = Math.min(0.9, wid * 0.12), kf = F / Math.pow(wid * 0.75, 2), kv = 0.07;
+      ramp(p, Cc.x - ux * len * 0.42, Cc.z - uz * len * 0.42, Cc.x + ux * len * 0.42, Cc.z + uz * len * 0.42, y, y, wid * 0.78, y - 0.6, { foldK: kf, foldV: kv });
+      const NU = 24, NV = 10, pos = [], idx = [];
+      for (let sd = 0; sd < 2; sd++) for (let i = 0; i <= NU; i++) for (let j = 0; j <= NV; j++) {
+        const u = i / NU * 2 - 1, v = j / NV * 2 - 1, x = u * len / 2, hw = wid * 0.62 * Math.pow(Math.sin(Math.PI * (u + 1) / 2), 0.75) * (1 - 0.18 * u), z = v * hw;
+        const tip = Math.pow(Math.max(0, u), 2); pos.push(x, -tip * 0.6 + (kf * z * z + kv * Math.abs(z)) * (1 - tip * 0.5) - sd * 0.18 * (1 - Math.abs(v) * 0.8), z);
+      }
+      const row = NV + 1, off = (NU + 1) * row;
+      for (let i = 0; i < NU; i++) for (let j = 0; j < NV; j++) { const a = i * row + j, b = a + row; idx.push(a, a + 1, b, a + 1, b + 1, b, off + a, off + b, off + a + 1, off + a + 1, off + b, off + b + 1); }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, leafM3); m.rotation.y = -ang; m.position.set(Cc.x, y + 0.06, Cc.z); m.castShadow = m.receiveShadow = true; tree.group.add(m);
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(len * 0.92, 0.08, 0.2), veinM); rib.rotation.y = -ang; rib.position.set(Cc.x, y + 0.1, Cc.z); tree.group.add(rib);
+      ray(p, { x0: Cc.x - 2, x1: Cc.x + 2, y0: y - 0.6, y1: y + 0.15, z0: Cc.z - 2, z1: Cc.z + 2 });
+      return p;
+    };
+    // limbs (Great Canopy's grow): level, climbing or dipping a stretch at a time, side arms now and then, leaves
+    const inLane = (P) => Math.abs(P.x) < LANE + 3 && Math.abs(P.z) < 15;
+    const grow = (start, angle, segs, depth) => {
+      let a = angle, A0 = start, mode = 'level';
+      for (let s = 0; s < segs; s++) {
+        if (s % 2 === 0) { const rr = q(); mode = rr < 0.45 ? 'level' : rr < 0.75 ? 'up' : 'down'; }
+        let dy = mode === 'level' ? 0 : (mode === 'up' ? 1 : -1) * (1.5 + q() * 2.5);
+        const L = 8 + q() * 4; a += (q() - 0.5) * 0.4;
+        const B0 = { x: A0.x + Math.cos(a) * L, y: A0.y + dy, z: A0.z + Math.sin(a) * L };
+        if (!inLane(B0)) break;
+        const wA = Math.max(2.4, (depth ? 3.0 : 3.8) * (1 - s / segs * 0.4)), wB = Math.max(2.2, (depth ? 3.0 : 3.8) * (1 - (s + 1) / segs * 0.4));
+        branch(A0, B0, wA, wB);
+        if (q() < 0.3) { const sdd = q() < 0.5 ? 1 : -1, la = a + sdd * (1.1 + q() * 0.5), len = 10 + q() * 4, wid = 6.5 + q() * 2.5, Cc = { x: B0.x + Math.cos(la) * (wB / 2 + len * 0.45), z: B0.z + Math.sin(la) * (wB / 2 + len * 0.45) }; if (inLane(Cc)) leaf(Cc, len, wid, la, B0.y + 0.25); }
+        if (depth < 1 && s >= 1 && q() < 0.3) grow(B0, a + (q() < 0.5 ? 1 : -1) * (0.6 + q() * 0.5), 2, depth + 1);
+        A0 = B0;
+      }
+      if (q() < 0.6) { const len = 12 + q() * 3, wid = 7 + q() * 2, Cc = { x: A0.x + Math.cos(a) * len * 0.48, z: A0.z + Math.sin(a) * len * 0.48 }; if (inLane(Cc)) leaf(Cc, len, wid, a, A0.y + 0.3); }
+    };
+    const toLane = side > 0 ? Math.PI : 0, ys = [0, 4.5, 9, 13.5];
+    ys.forEach((y0, n) => { const a = toLane + (n - 1.5) * 0.45 + (q() - 0.5) * 0.3; grow({ x: tx + Math.cos(a) * tR * 0.7, y: y0 + (q() - 0.5) * 2, z: Math.sin(a) * tR * 0.7 }, a, 2 + (q() * 2 | 0), 0); });
+    return tree;
   };
-  const place = (p, k, Z) => {
-    const sh = p.k === k ? p.shape : (p.shape = shape(k)); p.k = k;
-    const z = -k * C + Z + sh.jit, drop = z > 18 ? (z - 18) * (z - 18) * 0.035 : 0, y = sh.y - drop;
-    const root = sh.side * (LANE + 1.5), tip = root - sh.side * sh.len, mid = (root + tip) / 2, depth = sh.girth * 1.7;
-    p.prev = { x: p.x, y: p.y, z: p.z };
-    p.x = mid; p.z = z; p.y = y; p.w = sh.len; p.d = depth;
-    const b = p.box; b.x0 = Math.min(root, tip); b.x1 = Math.max(root, tip); b.z0 = z - depth / 2; b.z1 = z + depth / 2; b.y1 = y; b.y0 = y - sh.girth * 1.2;
-    p.group.position.set(mid, y - sh.girth * 0.5 * 0.62, z); p.group.rotation.y = sh.side > 0 ? 0 : Math.PI; // (thick end at the trunk)
-    p.log.scale.set(sh.len, sh.girth * 0.62, sh.girth);
-    // a twig forking up and forward near the tip, and leaves round the tip and up the twig (soft: you pass through them)
-    p.twig.position.set(-sh.len * 0.3, sh.girth * 0.25, 0); p.twig.rotation.set(-0.5, 0, 0.6 * sh.twigA); p.twig.scale.set(1, 3.5 + sh.twigA * 2, 1);
-    p.leaves.forEach((m, j) => { m.position.set(-sh.len * 0.3 - 1.2 - j * 0.9, 3.6 + j * 0.9 + sh.twigA, -1.6 - j * 0.5); m.scale.set(1.0 + j * 0.25, 0.75 + j * 0.15, 1.0 + j * 0.2); }); // (up on the twig, out of the way)
-    // the trunk it grows from, beside the lane
-    const tx = sh.side * (LANE + 3.5), tR = 2.6 + hash(k, 7) * 1.4; p.trunk.position.set(tx, 20, z); p.trunk.scale.set(tR, 120, tR);
-    p.tbox.x0 = tx - tR * 0.8; p.tbox.x1 = tx + tR * 0.8; p.tbox.z0 = z - tR * 0.8; p.tbox.z1 = z + tR * 0.8;
-    const sx = Math.max(Math.min(root, tip) + 1.5, Math.min(Math.max(root, tip) - 1.5, 0));
-    p.node.p.set(sx, y, z); p.sp.set(sx, y + 0.1, z);
+  for (let i = 0; i < N; i++) trees.push(mkTree(i));
+  for (const t of trees) for (let i = 0; i < t.plats.length; i++) for (let j = i + 1; j < t.plats.length; j++) A.link('P' + t.plats[i].i, 'P' + t.plats[j].i, 'swing');
+  for (let i = 0; i < N; i++) { const a = trees[i], b = trees[(i + 1) % N]; for (const p of a.plats) for (const q2 of b.plats) A.link('P' + p.i, 'P' + q2.i, 'swing'); }
+
+  // ---- move tree slot t to show tree k: everything in it shifts along z (and sinks once it's gone by)
+  const placeTree = (t, k, Zz) => {
+    t.k = k; const z = -k * C + Zz + (hash(k, 6) - 0.5) * 6, drop = z > 22 ? (z - 22) * (z - 22) * 0.03 : 0;
+    t.prev = { z: t.oz, y: t.oy }; t.oz = z; t.oy = -drop; t.group.position.set(0, -drop, z);
+    for (const r0 of t.ramps) { r0.lz = r0.l.lz + z; r0.z0 = r0.l.z0 + z; r0.z1 = r0.l.z1 + z; r0.hL = r0.l.hL - drop; r0.hH = r0.l.hH - drop; r0.base = r0.l.base - drop; }
+    for (const b of t.rays) { b.z0 = b.l.z0 + z; b.z1 = b.l.z1 + z; b.y0 = b.l.y0 - drop; b.y1 = b.l.y1 - drop; }
+    const tb = t.tbox; tb.x0 = tb.lx0; tb.x1 = tb.lx1; tb.z0 = tb.lz0 + z; tb.z1 = tb.lz1 + z;
+    for (const p of t.plats) { p.x = p.l.x; p.z = p.l.z + z; p.y = p.l.y - drop; if (p.l.ya !== undefined) { p.ya = p.l.ya - drop; p.yb = p.l.yb - drop; } p.node.p.set(p.x, p.y, p.z); p.sp.set(p.x, p.y + 0.1, p.z); }
   };
   const clock = () => (Date.now() / 1000) % 20000;
   let Z = clock() * V;
-  const kAt = (Zz) => Math.floor((Zz - 60) / C); // the oldest branch still in play
-  const assign = (Zz) => { const k0 = kAt(Zz); for (const p of slots) { const k = k0 + ((((p.slot - k0) % N) + N) % N); place(p, k, Zz); } };
-  assign(Z); for (const p of slots) p.prev = { x: p.x, y: p.y, z: p.z };
+  const kAt = (Zz) => Math.floor((Zz - 60) / C); // the oldest tree still in play
+  const assign = (Zz) => { const k0 = kAt(Zz); for (const t of trees) { const k = k0 + ((((t.slot - k0) % N) + N) % N); placeTree(t, k, Zz); } };
+  assign(Z);
 
-  // ---- each frame: move the branches, carry whoever stands on one along with it
-  const onIt = (f, p) => f.alive && f.onGround && f.pos.x > p.box.x0 - 0.4 && f.pos.x < p.box.x1 + 0.4 && f.pos.z > p.box.z0 - 0.4 && f.pos.z < p.box.z1 + 0.4 && Math.abs(f.pos.y - p.y) < 0.7;
+  // ---- each frame: move the trees, carry whoever stands on one along with it
+  const standing = (f, t) => f.alive && f.onGround && f.pos.z > t.oz - 18 && f.pos.z < t.oz + 18 && t.ramps.some((r0) => { const h = A.rampWalk(r0, f.pos.x, f.pos.z); return h !== null && Math.abs(f.pos.y - h) < 0.6; });
   A.tickTilt = (fighters, mine, dt) => {
     dt = Math.min(0.05, dt || 0);
     const riders = [];
-    for (const f of fighters) if (mine(f)) for (const p of slots) if (onIt(f, p)) { riders.push([f, p, p.k, p.x, p.y, p.z]); break; }
+    for (const f of fighters) if (mine(f)) for (const t of trees) if (standing(f, t)) { riders.push([f, t, t.k, t.oz, t.oy]); break; }
     Z = clock() * V; assign(Z);
-    for (const [f, p, k, x, y, z] of riders) if (p.k === k) { f.pos.x += p.x - x; f.pos.y += p.y - y; f.pos.z += p.z - z; f.runOn = true; } // (ride along)
-    for (const f of fighters) if (mine(f) && f.runOn && !f.onGround) { f.vel.z += V; f.runOn = false; } // (leap off: keep the branch's speed)
-    for (const f of fighters) if (mine(f) && f.alive && f.pos.z < -30) f.pos.z += Math.min(8, (-30 - f.pos.z) * 0.3) * dt; // (run too far ahead and the forest's current eases you back: the fight stays together)
+    for (const [f, t, k, z, y] of riders) if (t.k === k) { f.pos.z += t.oz - z; f.pos.y += t.oy - y; f.runOn = true; } // (ride along)
+    for (const f of fighters) if (mine(f) && f.runOn && !f.onGround) { f.vel.z += V; f.runOn = false; } // (leap off: keep the tree's speed)
+    for (const f of fighters) if (mine(f) && f.alive && f.pos.z < -30) f.pos.z += Math.min(8, (-30 - f.pos.z) * 0.3) * dt; // (get too far ahead and the forest's current eases you back: the fight stays together)
   };
   A.fallText = () => 'fell into the forest'; A.fallBy = () => 'Fell into the forest';
-  A.killAt = (q) => (q.z > 46 ? 1e9 : A.killY); // (left behind: the forest swallows you)
-  /** The branch ahead of q worth heading for next (for the bots). */
-  A.nextBranch = (q) => { let best = null, bs = Infinity; for (const p of slots) { if (p.z + p.d / 2 > q.z - 0.5 || p.z < q.z - 30 || (p.z < -45 && q.z > -45)) continue; const cx = Math.max(p.box.x0 + 1, Math.min(p.box.x1 - 1, q.x)), sc = (q.z - p.z) * 0.8 + Math.abs(cx - q.x) + Math.abs(p.y - q.y) * 2; if (sc < bs) { bs = sc; best = p; } } return best; };
+  A.killAt = (q) => (q.z > 50 ? 1e9 : A.killY); // (left behind: the forest swallows you)
+  /** The surface ahead of q worth heading for next (for the bots): a branch or leaf of the tree coming. */
+  A.nextBranch = (q) => { let best = null, bs = Infinity; for (const p of allPlats) { if (p.z > q.z - 3 || p.z < q.z - 32 || (p.z < -45 && q.z > -45)) continue; const sc = (q.z - p.z) * 0.6 + Math.abs(p.x - q.x) + Math.abs(p.y - q.y) * 2; if (sc < bs) { bs = sc; best = p; } } return best; };
   A.finishNav();
 }
