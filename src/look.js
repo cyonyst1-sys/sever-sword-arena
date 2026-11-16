@@ -10,7 +10,7 @@ const TAU = Math.PI * 2;
 // arena's height; add 'n' for ordinary blending rather than glowing). shafts: [colour, opacity, how many]. lights:
 // [colour, power, reach, x, y, z].
 const LOOK = {
-  spire: { env: 0.45, wet: 0.72, haze: [[0xdcecff, 0.3, -0.6]], shafts: [0xfff4dc, 0.1, 7] },
+  spire: { env: 0.6, wet: 0.55, haze: [[0x8a6aff, 0.3, -0.6]], shafts: [0xffb0d8, 0.09, 7], custom: spireLook },
   plateaus: { env: 0.35, haze: [[0xffe2b8, 0.28, -0.5]], shafts: [0xffeecc, 0.08, 6] },
   tilt: { env: 0.7, wet: 0.5, haze: [[0x4a6aff, 0.3, -0.7]] },
   canopy: { bump: 3, env: 0.55, wet: 0.6, haze: [[0xc8f0a0, 0.3, -0.3], [0x9ad0a0, 0.18, 0.2]], shafts: [0xf4ffc0, 0.16, 12] },
@@ -102,6 +102,7 @@ export function applyLook(A, T) {
   }
   // ---- a few coloured lights where the map has a reason for them (lanterns, the forge, the moon on the water)
   for (const [color, power, reach, x, y, z] of L.lights || []) { const p = new THREE.PointLight(color, power, reach, 1.6); p.position.set(x, y, z); S.add(p); }
+  if (L.custom) L.custom(A, T);
   if (anims.length) A.anim.push((t) => { for (const f of anims) f(t); });
 }
 
@@ -134,4 +135,21 @@ let glowT = null;
 export function glow(color, size, opacity = 0.9) {
   if (!glowT) { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), d = g.createRadialGradient(32, 32, 0, 32, 32, 32); d.addColorStop(0, 'rgba(255,255,255,1)'); d.addColorStop(0.25, 'rgba(255,255,255,0.45)'); d.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = d; g.fillRect(0, 0, 64, 64); glowT = new THREE.CanvasTexture(c); }
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowT, color, opacity, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); s.scale.setScalar(size); return s;
+}
+
+/** Sky Spires at dusk: stars and an aurora, a ring of cold light round the rim of every dish, clusters of glowing ice
+ *  crystals on some of them, and the stone washed blue and rain-slick. */
+function spireLook(A, T) {
+  const S = A.scene, r = T.rng(2024);
+  aurora(A, 0x40e0ff, 0xff60c0, 1.6);
+  { const n = 1200, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const u = r() * TAU, v = Math.acos(1 - r() * 0.8); pos[i * 3] = Math.sin(v) * Math.cos(u) * 480; pos[i * 3 + 1] = Math.cos(v) * 480; pos[i * 3 + 2] = Math.sin(v) * Math.sin(u) * 480; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); S.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xe0d8ff, size: 1.4, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.8 }))); }
+  if (A.mats.dishFloor) { A.mats.dishFloor.color.setHex(0xc4ccf0); A.mats.dishFloor.roughness = 0.42; A.mats.dishFloor.envMapIntensity = 0.9; }
+  const ringM = new THREE.MeshBasicMaterial({ color: 0x6ad8ff, toneMapped: false }), crysG = new THREE.OctahedronGeometry(1, 0);
+  const crysM = [0x7ae0ff, 0xc08aff, 0xff8ad0].map((c) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.2, roughness: 0.12, flatShading: true }));
+  for (const p of A.plats) { if (!p.round) continue;
+    const R = p.round, D = p.dish || 0, ring = new THREE.Mesh(new THREE.TorusGeometry(R + 0.12, 0.06, 6, 64), ringM); ring.rotation.x = Math.PI / 2; ring.position.set(p.x, p.y + D + 0.06, p.z); S.add(ring); A.own(p, ring);
+    if (p.i % 3 === 1 || R > 9) { const a = r() * TAU, cx = p.x + Math.cos(a) * R * 0.78, cz = p.z + Math.sin(a) * R * 0.78, cy = p.y + D * 0.61, m = crysM[p.i % 3]; // a cluster of ice crystals near the rim
+      for (let k = 0; k < 4; k++) { const c = new THREE.Mesh(crysG, m), sc = 0.35 + r() * 0.6; c.scale.set(sc * 0.45, sc * 1.6, sc * 0.45); c.rotation.set((r() - 0.5) * 0.7, r() * 3, (r() - 0.5) * 0.7); c.position.set(cx + (r() - 0.5) * 1.1, cy + sc * 0.8, cz + (r() - 0.5) * 1.1); S.add(c); A.own(p, c); }
+      const gl = glow(m.color.getHex(), 6, 0.7); gl.position.set(cx, cy + 0.9, cz); S.add(gl); A.own(p, gl); } }
 }

@@ -3,20 +3,20 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116052826';
-import { buildFoundry } from './foundry.js?v=20261116052826';
-import { buildBamboo } from './bamboo.js?v=20261116052826';
-import { buildCity } from './city.js?v=20261116052826';
-import { buildDojo } from './dojo.js?v=20261116052826';
-import { buildComet } from './comet.js?v=20261116052826';
-import { buildLava } from './lava.js?v=20261116052826';
-import { buildRun } from './run.js?v=20261116052826';
-import { buildGrove } from './grove.js?v=20261116052826';
-import { buildTransport } from './transport.js?v=20261116052826';
-import { applyLook } from './look.js?v=20261116052826';
-import { addScenery } from './scenery.js?v=20261116052826';
-import { addAtmosphere } from './atmos.js?v=20261116052826';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116052826';
+import { buildTilt } from './tilt.js?v=20261116180145';
+import { buildFoundry } from './foundry.js?v=20261116180145';
+import { buildBamboo } from './bamboo.js?v=20261116180145';
+import { buildCity } from './city.js?v=20261116180145';
+import { buildDojo } from './dojo.js?v=20261116180145';
+import { buildComet } from './comet.js?v=20261116180145';
+import { buildLava } from './lava.js?v=20261116180145';
+import { buildRun } from './run.js?v=20261116180145';
+import { buildGrove } from './grove.js?v=20261116180145';
+import { buildTransport } from './transport.js?v=20261116180145';
+import { applyLook } from './look.js?v=20261116180145';
+import { addScenery } from './scenery.js?v=20261116180145';
+import { addAtmosphere } from './atmos.js?v=20261116180145';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116180145';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -603,12 +603,13 @@ export class Arena {
     if (this.mapId === 'transport') return buildTransport(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
-    this.realScene.background = new THREE.Color(0x9cc4e4);
-    this.realScene.fog = new THREE.Fog(0xa9cbe6, 90, 320);
+    const SP = this.mapId === 'spire'; // (Sky Spires: dusk, rose and violet, the first stars out)
+    this.realScene.background = new THREE.Color(SP ? 0x44357e : 0x9cc4e4);
+    this.realScene.fog = new THREE.Fog(SP ? 0x58408a : 0xa9cbe6, 90, SP ? 380 : 320);
     const big = this.mapId === 'plateaus';
     const dish = this.mapId === 'spire'; // Sky Spires: round dish platforms and no jump pads (bots grapple and dash between them)
-    S.add(new THREE.HemisphereLight(0xd8ecff, 0x5a4a38, 0.85));
-    const sun = new THREE.DirectionalLight(0xfff0d8, 2.0);
+    S.add(SP ? new THREE.HemisphereLight(0xb0b8ff, 0x5a3068, 1.35) : new THREE.HemisphereLight(0xd8ecff, 0x5a4a38, 0.85));
+    const sun = new THREE.DirectionalLight(SP ? 0xffd4e4 : 0xfff0d8, SP ? 2.3 : 2.0);
     this.sun = sun; this.sunOff = new THREE.Vector3(30, 50, 18);
     sun.position.copy(this.sunOff);
     if (this.quality !== 'low') {
@@ -619,12 +620,12 @@ export class Arena {
     S.add(sun); S.add(sun.target);
     const dome = new THREE.Mesh(new THREE.SphereGeometry(520, 24, 12), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: new THREE.Color(0x3f7fc4) }, mid: { value: new THREE.Color(0xa9cbe6) }, bot: { value: new THREE.Color(0xe7eef3) } },
+      uniforms: { top: { value: new THREE.Color(SP ? 0x0a1040 : 0x3f7fc4) }, mid: { value: new THREE.Color(SP ? 0x8a5cae : 0xa9cbe6) }, bot: { value: new THREE.Color(SP ? 0x3a2460 : 0xe7eef3) } },
       vertexShader: 'varying vec3 vp; void main(){ vp = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: 'uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vp; void main(){ float h = normalize(vp).y; vec3 c = h > 0.0 ? mix(mid, top, pow(h, 0.6)) : mix(mid, bot, min(1.0, -h * 3.0)); gl_FragColor = vec4(c, 1.0); }',
     }));
     S.add(dome);
-    const clouds = new THREE.Mesh(new THREE.CircleGeometry(600, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf2f5f8, fog: false, transparent: true, opacity: 0.92 }));
+    const clouds = new THREE.Mesh(new THREE.CircleGeometry(600, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: SP ? 0x7a5aa8 : 0xf2f5f8, fog: false, transparent: true, opacity: 0.92 }));
     clouds.position.y = -75; S.add(clouds);
     this.killY = -45;
 
