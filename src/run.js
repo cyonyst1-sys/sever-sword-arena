@@ -28,10 +28,19 @@ export function buildRun(A, T) {
 
   // ---- the backdrop: rows of giant trunks receding into the fog on both sides, a canopy overhead, mist below
   { const g = new THREE.CylinderGeometry(1, 1.15, 1, 14, 1, true);
+    const farLimb = new THREE.CylinderGeometry(0.55, 1, 1, 7), farLeaf = new THREE.IcosahedronGeometry(1, 1), limbM = [], leafMx = [], trunkMx = [];
     for (let i = 0; i < 70; i++) {
-      const side = i % 2 ? 1 : -1, x = side * (26 + r() * 90), z = 60 - r() * 300, R = 3 + r() * 6;
-      const m = new THREE.Mesh(g, barkM); m.position.set(x, 40, z); m.scale.set(R, 200, R); S.add(m);
+      const side = i % 2 ? 1 : -1, x = side * (26 + r() * 90), z = 60 - r() * 300, R = 1.1 + r() * 1.3; // (slender)
+      trunkMx.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 40, z), new THREE.Quaternion(), new THREE.Vector3(R, 200, R)));
+      // a few branches, reaching up and in toward the middle, each with a clump of leaves at its tip
+      for (let j = 0, n = 2 + (r() * 3 | 0); j < n; j++) {
+        const y0 = 6 + r() * 34, len = 8 + r() * 12, a = (side > 0 ? Math.PI : 0) + (r() - 0.5) * 1.0, up = 0.2 + r() * 0.4;
+        const tip = new THREE.Vector3(x + Math.cos(a) * len, y0 + len * up, z + Math.sin(a) * len), base = new THREE.Vector3(x, y0, z), d = tip.clone().sub(base), L = d.length();
+        limbM.push(new THREE.Matrix4().compose(base.clone().addScaledVector(d, 0.5), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()), new THREE.Vector3(R * 0.45, L, R * 0.45)));
+        leafMx.push(new THREE.Matrix4().compose(tip, new THREE.Quaternion(), new THREE.Vector3(3 + r() * 2.5, 1.4 + r(), 3 + r() * 2.5)));
+      }
     }
+    for (const [geo, mat, list] of [[g, barkM, trunkMx], [farLimb, barkM, limbM], [farLeaf, leafM, leafMx]]) { const im = new THREE.InstancedMesh(geo, mat, list.length); list.forEach((m, i) => im.setMatrixAt(i, m)); S.add(im); } // (one draw each)
     const canopy = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), leafM, 160), mm = new THREE.Matrix4();
     for (let i = 0; i < 160; i++) { mm.compose(new THREE.Vector3((r() - 0.5) * 260, 55 + r() * 30, 60 - r() * 320), new THREE.Quaternion(), new THREE.Vector3(14 + r() * 16, 8 + r() * 8, 14 + r() * 16)); canopy.setMatrixAt(i, mm); }
     S.add(canopy);
