@@ -11,20 +11,20 @@ const TAU = Math.PI * 2;
 // [colour, power, reach, x, y, z].
 const LOOK = {
   spire: { env: 0.6, wet: 0.55, haze: [[0x8a6aff, 0.3, -0.6]], shafts: [0xffb0d8, 0.09, 7], custom: spireLook },
-  plateaus: { env: 0.35, haze: [[0xffe2b8, 0.28, -0.5]], shafts: [0xffeecc, 0.08, 6] },
+  plateaus: { env: 0.45, haze: [[0xffb070, 0.34, -0.5]], shafts: [0xffc080, 0.13, 8], custom: plateauLook },
   tilt: { env: 0.7, wet: 0.5, haze: [[0x4a6aff, 0.3, -0.7]] },
-  canopy: { bump: 3, env: 0.55, wet: 0.6, haze: [[0xc8f0a0, 0.3, -0.3], [0x9ad0a0, 0.18, 0.2]], shafts: [0xf4ffc0, 0.16, 12] },
-  grove: { bump: 1.6, env: 0.5, wet: 0.7, haze: [[0xffc890, 0.32, -0.5]], shafts: [0xffd0a0, 0.15, 9], flat: true },
-  run: { bump: 2.2, env: 0.5, wet: 0.65, shafts: [0xe8ffb0, 0.13, 10], flat: true },
+  canopy: { custom: fireflies(0xb8ff70, 420, 1.3), bump: 3, env: 0.6, wet: 0.5, haze: [[0xc8f0a0, 0.3, -0.3], [0x9ad0a0, 0.18, 0.2]], shafts: [0xf4ffc0, 0.16, 12] },
+  grove: { custom: fireflies(0xffc060, 260, 1.2), bump: 1.6, env: 0.5, wet: 0.7, haze: [[0xffc890, 0.32, -0.5]], shafts: [0xffd0a0, 0.15, 9], flat: true },
+  run: { custom: (A, T) => motes(A, T, { n: 300, color: 0xb8ff70, size: 1.2, flat: true }), bump: 2.2, env: 0.5, wet: 0.65, shafts: [0xe8ffb0, 0.13, 10], flat: true },
   isles: { env: 0.7, wet: 0.45, haze: [[0x6a58ff, 0.34, -0.5]] },
-  bamboo: { env: 0.5, wet: 0.6, haze: [[0xd8f0a8, 0.26, -0.4]], shafts: [0xf0ffc0, 0.14, 9] },
-  pagoda: { env: 0.55, wet: 0.6, haze: [[0xffb890, 0.3, -0.5]], shafts: [0xffc8a0, 0.13, 8], lights: [[0xffa050, 300, 70, 0, 9, 0]] },
-  dojo: { env: 0.45, wet: 0.75, haze: [[0xe8f0ff, 0.28, -0.4]], shafts: [0xffffff, 0.08, 6], lights: [[0xffb060, 260, 60, 0, 6, 0]] },
+  bamboo: { custom: fireflies(0xe0ff80, 300, 1.0), env: 0.55, wet: 0.6, haze: [[0xd8f0a8, 0.26, -0.4]], shafts: [0xf0ffc0, 0.14, 9] },
+  pagoda: { custom: lanterns, env: 0.6, wet: 0.6, haze: [[0xffb890, 0.3, -0.5]], shafts: [0xffc8a0, 0.13, 8], lights: [[0xffa050, 300, 70, 0, 9, 0]] },
+  dojo: { custom: lanterns, env: 0.5, wet: 0.75, haze: [[0xe8f0ff, 0.28, -0.4]], shafts: [0xffffff, 0.08, 6], lights: [[0xffb060, 260, 60, 0, 6, 0]] },
   city: { env: 0.9, wet: 0.4, haze: [[0x6a50ff, 0.3, -0.7]], lights: [[0xff40c0, 520, 130, -22, 22, 4], [0x40d0ff, 520, 130, 26, 30, 10]], custom: stars },
   foundry: { env: 0.8, wet: 0.4, haze: [[0xff6a20, 0.36, -0.7]], lights: [[0xff6a20, 800, 150, 0, -16, 0], [0xffa040, 260, 80, 0, 26, 0]], custom: foundryLook },
-  comet: { env: 0.6, wet: 0.6, lights: [[0x8ac8ff, 300, 120, 0, 30, 0]], flat: true },
-  lava: { env: 0.45, wet: 0.6, flat: true },
-  transport: { env: 0.35, shafts: [0xffe2b0, 0.1, 8], flat: true },
+  comet: { custom: nebula, env: 0.7, wet: 0.5, lights: [[0x8ac8ff, 300, 120, 0, 30, 0]], flat: true },
+  lava: { env: 0.7, wet: 0.4, bump: 1.5, flat: true },
+  transport: { custom: transportLook, env: 0.4, shafts: [0xffe2b0, 0.1, 8], flat: true },
 };
 
 /** What a surface on this map mirrors: its sky from zenith to horizon, the ground colour below, and the sun. */
@@ -168,3 +168,31 @@ function foundryLook(A, T) {
     const spout = new THREE.Mesh(new THREE.CylinderGeometry(w * 2.2, w * 2.2, 5, 10), new THREE.MeshStandardMaterial({ color: 0x2a2428, metalness: 0.7, roughness: 0.4 })); spout.position.set(x, top + 2, z); S.add(spout);
     for (const [y, sz] of [[top - 1, 16], [-54, 34]]) { const gl = glow(0xff7a20, sz, 0.8); gl.position.set(x, y, z); S.add(gl); } }
 }
+
+/** Glowing motes drifting through a map (fireflies, spores, paper lanterns): one set of points, slowly wheeling and bobbing. */
+function motes(A, T, o) {
+  let R = 40, y0 = 1e9, y1 = -1e9; for (const p of A.plats) { R = Math.max(R, Math.hypot(p.x, p.z)); const y = p.ya !== undefined ? (p.ya + p.yb) / 2 : p.y; y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const r = T.rng(o.seed || 606), n = o.n, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const a = r() * TAU, d = Math.sqrt(r()) * (R + 25) * (o.spread || 1); pos[i * 3] = o.flat ? (r() - 0.5) * 60 : Math.cos(a) * d; pos[i * 3 + 1] = y0 - 6 + r() * (y1 - y0 + (o.up || 24)); pos[i * 3 + 2] = o.flat ? (r() - 0.5) * 2 * Math.min(R, 170) : Math.sin(a) * d; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  glow(0, 1); // (makes sure the soft round texture exists)
+  const m = new THREE.PointsMaterial({ map: glowT, color: o.color, size: o.size, sizeAttenuation: true, transparent: true, opacity: o.opacity || 0.9, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false });
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; A.scene.add(pts);
+  A.anim.push((t) => { if (!o.flat) pts.rotation.y = t * (o.turn || 0.01); pts.position.y = Math.sin(t * 0.5) * 0.8 + (o.rise ? (t * o.rise) % 6 : 0); m.opacity = (o.opacity || 0.9) * (0.75 + 0.25 * Math.sin(t * 2.3)); });
+}
+function fireflies(c, n = 260, size = 0.55) { return (A, T) => motes(A, T, { n, color: c, size }); }
+function lanterns(A, T) { motes(A, T, { n: 110, color: 0xffa040, size: 2.2, up: 60, rise: 0.25, spread: 1.3, seed: 707 }); motes(A, T, { n: 160, color: 0xffd080, size: 0.5, seed: 708 }); }
+/** Comet Crash: great clouds of coloured gas far off in space, and many more stars. */
+function nebula(A, T) { const r = T.rng(1212);
+  for (const [c, s] of [[0x6a30ff, 520], [0x2060ff, 440], [0xff3aa0, 380], [0x20c0ff, 300], [0x8a40ff, 460]]) { const a = r() * TAU, e = (r() - 0.3) * 1.2, gl = glow(c, s, 0.5); gl.material.fog = false; gl.position.set(Math.cos(a) * Math.cos(e) * 430, Math.sin(e) * 430, Math.sin(a) * Math.cos(e) * 430); gl.renderOrder = -2; A.scene.add(gl); }
+  const n = 1500, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const u = r() * TAU, v = Math.acos(1 - r() * 2); pos[i * 3] = Math.sin(v) * Math.cos(u) * 470; pos[i * 3 + 1] = Math.cos(v) * 470; pos[i * 3 + 2] = Math.sin(v) * Math.sin(u) * 470; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); A.scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfd8ff, size: 1.3, sizeAttenuation: false, fog: false }))); }
+/** A burning torch or brazier at each of the given spots: a dark post, a flickering flame glow. */
+function fires(A, spots, h = 2.4) { const post = new THREE.MeshStandardMaterial({ color: 0x241a14, roughness: 0.8 }), gs = [];
+  const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.09, 0.13, h, 6).translate(0, h / 2, 0), post, spots.length), mt = new THREE.Matrix4();
+  spots.forEach(([x, y, z], i) => { mt.makeTranslation(x, y, z); im.setMatrixAt(i, mt); const gl = glow(0xff8a30, 3.6, 0.9); gl.position.set(x, y + h + 0.35, z); A.scene.add(gl); gs.push(gl); });
+  A.scene.add(im); A.anim.push((t) => { for (let i = 0; i < gs.length; i++) gs[i].scale.setScalar(3.6 + Math.sin(t * 9 + i * 2.1) * 0.5 + Math.sin(t * 23 + i) * 0.3); }); }
+/** Sky Plateaus: braziers burning round the rim of every plateau. */
+function plateauLook(A) { const s = []; for (const p of A.plats) { if ((p.w || 0) < 20) continue; for (let k = 0; k < 4; k++) { const a = k / 4 * TAU + p.i, rr = Math.min(p.w, p.d) / 2 - 1.5; s.push([p.x + Math.cos(a) * rr, p.y, p.z + Math.sin(a) * rr]); } } fires(A, s); }
+/** Transport: torches burning down both sides of the road. */
+function transportLook(A) { const C = A.caravan; if (!C) return; const s = []; for (let d = 6; d < C.len; d += 26) { const w = C.at(d), side = (d / 26 | 0) % 2 ? 1 : -1; s.push([w.x + Math.cos(w.a) * side * 5.2, 0, w.z - Math.sin(w.a) * side * 5.2]); } fires(A, s, 2.8); }
