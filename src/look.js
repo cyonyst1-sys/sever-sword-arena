@@ -21,7 +21,7 @@ const LOOK = {
   pagoda: { env: 0.55, wet: 0.6, haze: [[0xffb890, 0.3, -0.5]], shafts: [0xffc8a0, 0.13, 8], lights: [[0xffa050, 300, 70, 0, 9, 0]] },
   dojo: { env: 0.45, wet: 0.75, haze: [[0xe8f0ff, 0.28, -0.4]], shafts: [0xffffff, 0.08, 6], lights: [[0xffb060, 260, 60, 0, 6, 0]] },
   city: { env: 0.9, wet: 0.4, haze: [[0x6a50ff, 0.3, -0.7]], lights: [[0xff40c0, 520, 130, -22, 22, 4], [0x40d0ff, 520, 130, 26, 30, 10]], custom: stars },
-  foundry: { env: 0.6, wet: 0.55, haze: [[0xff9a50, 0.3, -0.7]], lights: [[0xff7a30, 420, 110, 0, -14, 0]] },
+  foundry: { env: 0.8, wet: 0.4, haze: [[0xff6a20, 0.36, -0.7]], lights: [[0xff6a20, 800, 150, 0, -16, 0], [0xffa040, 260, 80, 0, 26, 0]], custom: foundryLook },
   comet: { env: 0.6, wet: 0.6, lights: [[0x8ac8ff, 300, 120, 0, 30, 0]], flat: true },
   lava: { env: 0.45, wet: 0.6, flat: true },
   transport: { env: 0.35, shafts: [0xffe2b0, 0.1, 8], flat: true },
@@ -155,3 +155,16 @@ function spireLook(A, T) {
 }
 function stars(A, T) { const r = T.rng(909), n = 1300, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const u = r() * TAU, v = Math.acos(1 - r() * 0.85); pos[i * 3] = Math.sin(v) * Math.cos(u) * 480; pos[i * 3 + 1] = Math.cos(v) * 480; pos[i * 3 + 2] = Math.sin(v) * Math.sin(u) * 480; }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); A.scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xd8dcff, size: 1.4, sizeAttenuation: false, fog: false }))); }
+/** Saw Foundry: streams of molten metal pouring down all round the works, each with a white-hot glow where it starts
+ *  and where it lands in the smog. */
+function foundryLook(A, T) {
+  const S = A.scene, tx = T.canvasTex((g, s) => { const q = T.rng(55); const b = g.createLinearGradient(0, 0, s, 0); b.addColorStop(0, '#7a1c04'); b.addColorStop(0.5, '#ffd27a'); b.addColorStop(1, '#7a1c04'); g.fillStyle = b; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(${q() < 0.5 ? '255,255,220' : '160,40,0'},${0.25 + q() * 0.4})`; g.fillRect(q() * s, q() * s, 2 + q() * 5, 20 + q() * 70); } }, 128);
+  tx.repeat.set(1, 6);
+  const m = new THREE.MeshBasicMaterial({ map: tx, toneMapped: false, fog: false });
+  A.anim.push((t) => { tx.offset.y = t * 0.9; });
+  for (let k = 0; k < 7; k++) { const a = k / 7 * TAU + 0.4, R = 118 + (k % 3) * 14, x = Math.cos(a) * R, z = Math.sin(a) * R, top = 46 + (k % 4) * 12, w = 1.1 + (k % 3) * 0.5;
+    const f = new THREE.Mesh(new THREE.CylinderGeometry(w, w * 0.7, top + 58, 10, 1, true), m); f.position.set(x, (top - 58) / 2, z); S.add(f);
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(w * 2.2, w * 2.2, 5, 10), new THREE.MeshStandardMaterial({ color: 0x2a2428, metalness: 0.7, roughness: 0.4 })); spout.position.set(x, top + 2, z); S.add(spout);
+    for (const [y, sz] of [[top - 1, 16], [-54, 34]]) { const gl = glow(0xff7a20, sz, 0.8); gl.position.set(x, y, z); S.add(gl); } }
+}

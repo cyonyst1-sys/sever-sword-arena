@@ -30,7 +30,7 @@ export function bladeMesh(R, mats) {
 export function buildFoundry(A, T) {
   const S = A.scene, M = A.mats, r = T.rng(6161);
   A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -45; // (below: a floor of grinders; all round the outside: spikes)
-  A.setSky({ top: 0x2a1c3a, mid: 0xd7703a, bot: 0x5a3430, fog: 0xa0583a, near: 90, far: 360, hemiSky: 0xffe0c0, hemiGround: 0x5a4040, hemi: 1.5, sunColor: 0xffc890, sun: 2.8, sunOff: new THREE.Vector3(-50, 40, 30) });
+  A.setSky({ top: 0x0a0609, mid: 0x5a2010, bot: 0x200a06, fog: 0x42180c, near: 100, far: 420, hemiSky: 0xd0a090, hemiGround: 0xff5a1e, hemi: 1.35, sunColor: 0xffb070, sun: 2.0, sunOff: new THREE.Vector3(-50, 40, 30) });
   const plate = std(0xffffff, { map: T.canvasTex((g, s) => {
     g.fillStyle = '#7a7d86'; g.fillRect(0, 0, s, s);
     g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = 3; for (let i = -s; i < s * 2; i += 16) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + s, s); g.stroke(); g.beginPath(); g.moveTo(i + s, 0); g.lineTo(i, s); g.stroke(); } // diamond tread
@@ -38,7 +38,7 @@ export function buildFoundry(A, T) {
     g.fillStyle = '#8a8c92'; for (const [x, y] of [[10, 10], [s - 10, 10], [10, s - 10], [s - 10, s - 10]]) { g.beginPath(); g.arc(x, y, 4, 0, TAU); g.fill(); } // rivets
   }), roughness: 0.5, metalness: 0.4 });
   const stripe = std(0xffffff, { map: T.canvasTex((g, s) => { g.fillStyle = '#1a1a1a'; g.fillRect(0, 0, s, s); g.fillStyle = '#e8b31a'; for (let i = -s; i < s * 2; i += s / 4) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + s / 8, 0); g.lineTo(i + s / 8 + s, s); g.lineTo(i + s, s); g.fill(); } }), roughness: 0.5 });
-  const steel = std(0x3a3c42, { metalness: 0.6, roughness: 0.45 }), rust = std(0x7a4a2a, { roughness: 0.9 }), dark = std(0x1c1c20, { roughness: 0.7 });
+  const steel = std(0x4a4c54, { metalness: 0.8, roughness: 0.3 }), rust = std(0x8a4a26, { roughness: 0.75, metalness: 0.3 }), dark = std(0x1c1c20, { roughness: 0.5, metalness: 0.5 });
   const mats = { blade: std(0xf2f4f8, { metalness: 0.3, roughness: 0.2, emissive: 0x6a3010, emissiveIntensity: 0.9 }), hub: std(0xff3a14, { emissive: 0xff2a00, emissiveIntensity: 1.6 }) };
   const warnMat = new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0.6, depthWrite: false });
   M.wood = steel; // (bridges use it for their planks)
@@ -211,7 +211,7 @@ export function buildFoundry(A, T) {
     let reach = 0; for (const p of A.plats) reach = Math.max(reach, Math.hypot(p.x, p.z) + Math.max(p.w || 0, p.d || 0) / 2);
     const R0 = reach + 10, spikes = [], cone = new THREE.ConeGeometry(1, 1, 6); cone.translate(0, 0.5, 0);
     const RW = R0 + 34; // a ring wall all round the arena, bristling with spikes that point in at you
-    const WH = 92; { const wall = new THREE.Mesh(new THREE.CylinderGeometry(RW + 1, RW + 6, WH, 64, 1, true), std(0x7a5a4c, { metalness: 0.55, roughness: 0.55, emissive: 0x3a1408, side: THREE.BackSide })); wall.position.y = GY + WH / 2; S.add(wall); } // (rusty plate, lit from the grinders below; open sky above)
+    const WH = 92; { const wall = new THREE.Mesh(new THREE.CylinderGeometry(RW + 1, RW + 6, WH, 64, 1, true), std(0x6a4a3e, { metalness: 0.6, roughness: 0.45, emissive: 0x5a1c08, side: THREE.BackSide })); wall.position.y = GY + WH / 2; S.add(wall); } // (rusty plate, lit from the grinders below; open sky above)
     for (let i = 0; i < 300; i++) {
       const a = r() * TAU, y = GY + 4 + r() * (WH - 10), len = 12 + r() * 22, w = 2.2 + r() * 3.2, x = Math.cos(a) * RW, z = Math.sin(a) * RW;
       const dir = new THREE.Vector3(-Math.cos(a) + (r() - 0.5) * 0.35, (r() - 0.5) * 0.5, -Math.sin(a) + (r() - 0.5) * 0.35).normalize(); // inward, a little up or down or sideways
@@ -240,7 +240,7 @@ export function buildFoundry(A, T) {
     m.position.set(x, -60 + h / 2, z); S.add(m);
     const glow = new THREE.Mesh(new THREE.CylinderGeometry(7 + (i % 3) * 2, 7 + (i % 3) * 2, 3, 10), new THREE.MeshBasicMaterial({ color: 0xff7a2a, fog: false })); glow.position.set(x, -60 + h - 2, z); S.add(glow);
   });
-  const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x4a2a24, transparent: true, opacity: 0.95 })); sea.position.y = -55; S.add(sea);
+  const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x2a100a, transparent: true, opacity: 0.95 })); sea.position.y = -55; S.add(sea);
   drift(A, 380, 0xffa040, 0.12, [0.4, 1.2, 0.3], 0.5);
   void r;
 }
