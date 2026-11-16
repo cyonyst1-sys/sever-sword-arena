@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261116035154">
+<meta name="build" content="20261116035239">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -125,12 +125,12 @@ window.severVersion.check();
   .homeRight .controls { font-size:12px; margin-top:10px; }
   .mapStrip { display:flex; gap:16px; overflow-x:auto; padding-bottom:4px; }
   .mapGroup { flex:0 0 auto; }
-  .mapStrip .maps { display:grid; grid-auto-flow:column; grid-template-columns:none; grid-auto-columns:168px; gap:8px; }
+  .mapStrip .maps { display:grid; grid-auto-flow:column; grid-template-columns:none; grid-template-rows:repeat(2, auto); grid-auto-columns:132px; gap:6px; } /* (two rows) */
   .mapGroup.special { padding-left:16px; border-left:1px solid var(--line); }
   @media (max-width:900px) {
     #home .panel.homeGrid { height:auto; grid-template-columns:1fr; grid-template-rows:auto; grid-template-areas:"right" "left" "bottom"; }
     .homeLeft { max-height:none; } .homeLeft .modes { grid-template-columns:repeat(3, 1fr); }
-    .mapStrip .maps { grid-auto-columns:140px; }
+    .mapStrip .maps { grid-auto-columns:118px; }
   }
   .controls.small { font-size:11px; gap:3px 10px; line-height:1.3; }
   .controls.small b { font-size:11px; }
@@ -191,12 +191,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261116035154",
-  "./src/arena.js": "./src/arena.js?v=20261116035154",
-  "./src/fighter.js": "./src/fighter.js?v=20261116035154",
-  "./src/slice.js": "./src/slice.js?v=20261116035154",
-  "./src/audio.js": "./src/audio.js?v=20261116035154",
-  "./src/net.js": "./src/net.js?v=20261116035154"
+  "./src/main.js": "./src/main.js?v=20261116035239",
+  "./src/arena.js": "./src/arena.js?v=20261116035239",
+  "./src/fighter.js": "./src/fighter.js?v=20261116035239",
+  "./src/slice.js": "./src/slice.js?v=20261116035239",
+  "./src/audio.js": "./src/audio.js?v=20261116035239",
+  "./src/net.js": "./src/net.js?v=20261116035239"
 } }
 </script>
 </head>
@@ -352,6 +352,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261116035154"></script>
+<script type="module" src="src/main.js?v=20261116035239"></script>
 </body>
 </html>
