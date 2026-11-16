@@ -3,16 +3,16 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261115180941';
-import { buildFoundry } from './foundry.js?v=20261115180941';
-import { buildBamboo } from './bamboo.js?v=20261115180941';
-import { buildCity } from './city.js?v=20261115180941';
-import { buildDojo } from './dojo.js?v=20261115180941';
-import { buildComet } from './comet.js?v=20261115180941';
-import { buildLava } from './lava.js?v=20261115180941';
-import { addScenery } from './scenery.js?v=20261115180941';
-import { addAtmosphere } from './atmos.js?v=20261115180941';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261115180941';
+import { buildTilt } from './tilt.js?v=20261115215632';
+import { buildFoundry } from './foundry.js?v=20261115215632';
+import { buildBamboo } from './bamboo.js?v=20261115215632';
+import { buildCity } from './city.js?v=20261115215632';
+import { buildDojo } from './dojo.js?v=20261115215632';
+import { buildComet } from './comet.js?v=20261115215632';
+import { buildLava } from './lava.js?v=20261115215632';
+import { addScenery } from './scenery.js?v=20261115215632';
+import { addAtmosphere } from './atmos.js?v=20261115215632';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261115215632';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -176,6 +176,25 @@ export class Arena {
   }
 
   // ---------- building ----------
+  /** Sky Plateaus: dress a cover box as a weathered sandstone boulder (same footprint, so collision is unchanged). */
+  rockify(m, x0, x1, y0, y1, z0, z1, r) {
+    if (!this.mats.boulder) this.mats.boulder = new THREE.MeshStandardMaterial({ color: 0xe8c49a, roughness: 0.95, flatShading: true, map: canvasTex((g, S) => {
+      const q = rng(71); g.fillStyle = '#d2b48e'; g.fillRect(0, 0, S, S);
+      for (let i = 0; i < 400; i++) { const v = 120 + q() * 80 | 0; g.fillStyle = `rgba(${v + 20},${v},${v - 30},0.35)`; g.beginPath(); g.arc(q() * S, q() * S, 2 + q() * 10, 0, 7); g.fill(); }
+      for (let y = 0; y < S; y += 6 + q() * 8) { g.fillStyle = `rgba(80,50,30,${0.08 + q() * 0.12})`; g.fillRect(0, y, S, 1 + q() * 3); } // sandstone bands
+      speckle(g, S, q, 3000, 0.2);
+    }) });
+    const h = y1 - y0, w = Math.max(x1 - x0, h * 0.75), d = Math.max(z1 - z0, h * 0.65), geo = new THREE.IcosahedronGeometry(1, 1), p = geo.attributes.position, ph = [r() * 9, r() * 9, r() * 9], tilt = (r() - 0.5) * 0.5;
+    for (let i = 0; i < p.count; i++) {
+      let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const n = 1 + 0.24 * Math.sin(x * 2.3 + ph[0]) * Math.sin(z * 2.1 + ph[1]) + 0.14 * Math.sin(y * 3.1 + x * 1.7 + ph[2]); x += y * tilt;
+      x *= n; z *= n; y = y * n; if (y < -0.35) y = -0.35 - (y + 0.35) * 0.15; // (a flat-ish base sitting on the ground)
+      p.setXYZ(i, (x0 + x1) / 2 + x * (w / 2 + 0.25), y0 + (y + 0.4) / 1.4 * h * 1.05, (z0 + z1) / 2 + z * (d / 2 + 0.25));
+    }
+    geo.computeVertexNormals(); worldUV(geo, 0.35);
+    m.geometry.dispose(); m.geometry = geo; m.material = this.mats.boulder;
+    return m;
+  }
   addBox(x0, x1, y0, y1, z0, z1, mat, opts = {}) {
     const w = x1 - x0, h = y1 - y0, d = z1 - z0, rough = this.quality !== 'low' && opts.plain !== true && !PLAIN_MAPS.includes(this.mapId) && Math.min(w, d) > 0.5;
     const sg = (v, per, max) => (rough ? Math.max(1, Math.min(max, Math.round(v / per))) : 1);
@@ -752,7 +771,7 @@ export class Arena {
           const x = p.x + (r() - 0.5) * (p.w - tw - 4), z = p.z + (r() - 0.5) * (p.d - td - 4);
           const near = (q, m) => Math.abs(q.x - x) < tw / 2 + m && Math.abs(q.z - z) < td / 2 + m;
           if (keep.some((q) => near(q, 2.5)) || this.arcPts.some((q) => q.y < p.y + 4 && near(q, 1.5))) continue;
-          this.addBox(x - tw / 2, x + tw / 2, p.y, p.y + 0.45, z - td / 2, z + td / 2, M.stone);
+          this.rockify(this.addBox(x - tw / 2, x + tw / 2, p.y, p.y + 0.45, z - td / 2, z + td / 2, M.stone), x - tw / 2, x + tw / 2, p.y - 0.3, p.y + 0.45, z - td / 2, z + td / 2, r); // (a low shelf of rock)
           keep.push(new THREE.Vector3(x, p.y, z)); k++;
         }
       }
@@ -763,8 +782,8 @@ export class Arena {
         if (p.round && Math.hypot(x - p.x, z - p.z) > p.round - (p.hf ? 3 : 1.8)) continue; // (inside the dish or mesa top)
         const py = p.hf ? p.hf(x, z) - 0.3 : p.dish ? p.y + p.dish * ((x - p.x) ** 2 + (z - p.z) ** 2) / p.round ** 2 - 0.25 : p.y; // (sits on the curve)
         if (this.arcPts.some((q) => q.y < p.y + 4 && Math.hypot(q.x - x, q.z - z) < 2.4)) continue; // under a pad's flight path
-        if (r() < 0.55) { const along = r() < 0.5, L = 1.5 + r(); this.addBox(x - (along ? L : 0.3), x + (along ? L : 0.3), py, py + 1.1, z - (along ? 0.3 : L), z + (along ? 0.3 : L), M.stone); }
-        else this.addBox(x - 0.55, x + 0.55, py, py + 2.3, z - 0.55, z + 0.55, M.dark);
+        if (r() < 0.55) { const along = r() < 0.5, L = 1.5 + r(), b = [x - (along ? L : 0.3), x + (along ? L : 0.3), py, py + 1.1, z - (along ? 0.3 : L), z + (along ? 0.3 : L)]; const m = this.addBox(...b, M.stone); if (big) this.rockify(m, ...b, r); }
+        else { const b = [x - 0.55, x + 0.55, py, py + 2.3, z - 0.55, z + 0.55], m = this.addBox(...b, M.dark); if (big) this.rockify(m, ...b, r); }
         keep.push(new THREE.Vector3(x, p.y, z)); k++;
       }
       // glowing crystal on each corner for readability from afar
