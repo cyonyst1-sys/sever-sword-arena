@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116032838';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116032838';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116032838';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116032838';
-import * as net from './net.js?v=20261116032838';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116032838';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116032838';
-import { makeKillFx } from './killfx.js?v=20261116032838';
-import { makeGrapple } from './grapple.js?v=20261116032838';
-import { initShop } from './shop.js?v=20261116032838';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116032838';
-import { portal } from './portal.js?v=20261116032838';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116032838';
-import { makePost } from './post.js?v=20261116032838';
+import { Arena, MAPS } from './arena.js?v=20261116033151';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116033151';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116033151';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116033151';
+import * as net from './net.js?v=20261116033151';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116033151';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116033151';
+import { makeKillFx } from './killfx.js?v=20261116033151';
+import { makeGrapple } from './grapple.js?v=20261116033151';
+import { initShop } from './shop.js?v=20261116033151';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116033151';
+import { portal } from './portal.js?v=20261116033151';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116033151';
+import { makePost } from './post.js?v=20261116033151';
 
 // ---------- settings ----------
 const store = {
@@ -1262,6 +1262,7 @@ function botThink(b, dt) {
       if (!b.onGround && !b.hook) return { wish: w, jump: b.vel.y < 1 && b.pos.y < nb.y + 1 && (b.airJumps || 0) < 2 && Math.random() < 0.5, sprint: false };
       const front = cur && cur.tree ? b.pos.z - (cur.z - Math.abs(Math.sin(cur.ang || 0)) * cur.w / 2 - 1) : 0; // (how far the bot is from the front end of what it's standing on)
       if (cur && cur.launch && b.onGround && b.pos.y > cur.yb - 0.8 && nb.tree !== cur.tree && tryDash(b, new THREE.Vector3(ddx / l, 0.35, ddz / l))) return { wish: w, jump: false, sprint: false }; // (at the lip of a launch spur: dash off it for the next tree)
+      if (b.onGround && b.pos.z > 4 && nb.tree !== (cur && cur.tree)) { b.yaw = Math.atan2(-ddx, -ddz); if (tryDash(b, new THREE.Vector3(ddx / l, 0.3, ddz / l))) return { wish: w, jump: false, sprint: true }; return { wish: w, jump: true, sprint: true }; } // (riding toward the drop: get off now)
       if (b.onGround && front < 1.6 && (!cur || !cur.tree || nb.tree !== cur.tree || nb.y > b.pos.y + 1.5)) { b.yaw = Math.atan2(-ddx, -ddz); return { wish: w, jump: true, sprint: true }; }
     }
   }
@@ -1679,8 +1680,8 @@ function modeTick(dt) {
 // what a bot should go for besides fighting: the throne, a shrine or loose heads, or away from a crumbling platform
 function botObjective(b) {
   if (S.mode === 'run' && arena.nextBranch) { // Branch Run: always on to the next branch coming (fighting whoever's close on the way)
-    const p = arena.nextBranch(b.pos); if (!p) return null; const e = b.target, eng = e && e.alive ? 3.2 : 0;
-    return { pos: new THREE.Vector3(p.x, p.y, p.z), plat: p.i, engage: eng, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null };
+    const p = arena.nextBranch(b.pos); if (!p) return null; const e = b.target, late = b.pos.z > -2, eng = e && e.alive && !late ? 3.2 : 0; // (too near where the trees sink: stop fighting, get moving)
+    return { pos: new THREE.Vector3(p.x, p.y, p.z), plat: p.i, engage: eng, flee: late, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null };
   }
   if (S.mode === 'lava' && arena.summitPos) { // Lava Climb: up to the summit, unless a shut gate is in the way (then: fight)
     if (gateFor(b)) return null;
