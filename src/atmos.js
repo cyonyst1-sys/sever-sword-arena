@@ -5,7 +5,7 @@ import * as THREE from 'three';
 // what drifts in the air on each map: colour, how many, size (m), drift (m/s), sway, and whether it glows (additive)
 const AIR = {
   spire: { c: 0xffffff, n: 380, size: 0.07, vel: [0.5, 0.06, 0.25], sway: 0.5, glow: true, a: 0.55 }, // ice sparkle
-  tilt: { c: 0xfff4dc, n: 320, size: 0.07, vel: [0.4, 0.05, -0.3], sway: 0.5, glow: true, a: 0.5 },
+  tilt: { c: 0x9ab8ff, n: 320, size: 0.07, vel: [0.4, 0.05, -0.3], sway: 0.5, glow: true, a: 0.5 },
   city: { c: 0xdfeaff, n: 300, size: 0.06, vel: [0.8, 0.02, 0.3], sway: 0.4, glow: true, a: 0.4 },
   plateaus: { c: 0xf2d9a4, n: 520, size: 0.1, vel: [2.2, 0.08, 0.5], sway: 0.8, a: 0.5 }, // blown sand
   colosseum: { c: 0xc090ff, n: 520, size: 0.09, vel: [0.3, 0.5, -0.2], sway: 1.0, glow: true, a: 0.7 }, // (violet motes drifting up out of the maw)
@@ -19,7 +19,7 @@ const AIR = {
   lava: { c: 0xff7a26, n: 700, size: 0.11, vel: [0.2, 2.2, 0.15], sway: 1.0, glow: true, a: 0.95 }, // embers rising off the lava
   foundry: { c: 0xff8a2e, n: 460, size: 0.1, vel: [0.2, 1.5, 0.1], sway: 0.9, glow: true, a: 0.9 }, // embers
 };
-const NO_SUN = ['colosseum', 'comet', 'lava', 'run', 'isles', 'pagoda', 'canopy']; // (space, a moon of its own, a sun of its own, a roof of leaves)
+const NO_SUN = ['tilt', 'colosseum', 'comet', 'lava', 'run', 'isles', 'pagoda', 'canopy']; // (space, a moon of its own, a sun of its own, a roof of leaves)
 
 let glowTex = null;
 function sunTexture() {

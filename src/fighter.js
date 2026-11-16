@@ -2,8 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261116050315';
-import { item, cleanLook } from './cosmetics.js?v=20261116050315';
+import { buildBody, poseBody } from './body.js?v=20261116051652';
+import { item, cleanLook } from './cosmetics.js?v=20261116051652';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -47,6 +47,37 @@ const M = {
 };
 for (const m of Object.values(M)) regMat(m);
 CAP.flesh.userData.flesh = true; M.skin.userData.flesh = true; M.skinShade.userData.flesh = true;
+// armour: small tiling patterns used as both colour and relief (light grey, so the material's colour tints them)
+function armorTex(kind, rx, ry) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  if (kind === 'lamellar') { // rows of small lacquered plates, each row overlapping the one below, laced together
+    g.fillStyle = '#2e2e2e'; g.fillRect(0, 0, 128, 128);
+    for (let y = 0; y < 4; y++) for (let x = 0; x < 8; x++) { const px = x * 16, py = y * 32;
+      const gr = g.createLinearGradient(0, py, 0, py + 32); gr.addColorStop(0, '#b4b4b4'); gr.addColorStop(0.7, '#7c7c7c'); gr.addColorStop(1, '#1a1a1a'); g.fillStyle = gr;
+      g.beginPath(); if (g.roundRect) g.roundRect(px + 1, py + 1, 14, 30, [2, 2, 6, 6]); else g.rect(px + 1, py + 1, 14, 30); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.4)'; g.fillRect(px + 2, py + 2, 2, 20); // a glint down one edge
+      g.fillStyle = '#ffffff'; g.fillRect(px + 4, py + 6, 8, 3); g.fillRect(px + 4, py + 13, 8, 3); // the lacing
+      g.fillStyle = 'rgba(0,0,0,0.55)'; g.fillRect(px + 7, py + 5, 2, 12); }
+  } else if (kind === 'splint') { // polished metal splints riveted over dark padding
+    g.fillStyle = '#3c3c3c'; g.fillRect(0, 0, 128, 128);
+    for (let y = 0; y < 128; y += 4) { g.fillStyle = 'rgba(0,0,0,' + (y % 8 ? 0.15 : 0.32) + ')'; g.fillRect(0, y, 128, 1); }
+    for (let x = 0; x < 4; x++) { const px = x * 32 + 5, gr = g.createLinearGradient(px, 0, px + 22, 0); gr.addColorStop(0, '#8a8a8a'); gr.addColorStop(0.4, '#ffffff'); gr.addColorStop(1, '#6e6e6e'); g.fillStyle = gr; g.fillRect(px, 0, 22, 128);
+      for (let y = 12; y < 128; y += 34) { g.fillStyle = '#262626'; g.beginPath(); g.arc(px + 11, y, 3.4, 0, 7); g.fill(); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(px + 10, y - 1, 1.3, 0, 7); g.fill(); } }
+    g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, 128, 6); g.fillRect(0, 122, 128, 6); g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(0, 6, 128, 2); g.fillRect(0, 120, 128, 2); // a rolled rim top and bottom
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const armorCache = new Map();
+/** Armour in a colour: 'lamellar' (lacquered plates laced in rows) or 'splint' (riveted metal strips). */
+function armor(color, kind, rx, ry, k = 1) {
+  const key = kind + ':' + color + ':' + rx + ':' + ry + ':' + k;
+  if (!armorCache.has(key)) {
+    const t = armorTex(kind, rx, ry), lam = kind === 'lamellar';
+    const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(k), map: t, bumpMap: t, bumpScale: lam ? 1.6 : 1.3, roughness: lam ? 0.36 : 0.26, metalness: lam ? 0.45 : 0.85 });
+    regMat(m); shine(m); armorCache.set(key, m);
+  }
+  return armorCache.get(key);
+}
 const clothCache = new Map();
 function cloth(color, k = 1, glow = 0) { // (glow: the trim of a legendary outfit lights up)
   const key = color + ':' + k + ':' + glow;
@@ -241,11 +272,15 @@ export class Fighter {
     this.meshes = [];
     const O = L.outfit.gi !== undefined && !horde ? L.outfit : null;
     const gi = cloth(horde ? HORDE_COLOR : O ? O.gi : color), trim = cloth(horde ? 0x8e1717 : O ? O.trim : color, O ? 1 : 0.55, O && O.glow || 0), pants = horde ? M.dark : cloth(O ? O.pants : 0x2c2f3a);
+    // armour, in the outfit's colours: lacquered plates for the shoulders, chest and skirt; steel splints for the bracers and greaves
+    const tc = horde ? 0x8e1717 : O ? O.trim : color, gc = horde ? HORDE_COLOR : O ? O.gi : color;
+    const lamPad = armor(tc, 'lamellar', 2, 1, 1.25), lamSkirt = armor(tc, 'lamellar', 5, 1.5, 1.1), lamDou = armor(gc, 'lamellar', 4, 2.5, 0.85), splint = armor(horde ? 0x6a6a72 : 0xc4c8d0, 'splint', 2, 1);
     const mk = (geo, mat, cap = CAP.flesh) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.userData.cap = cap; this.group.add(m); this.meshes.push(m); return m; };
     this.p = {
       // trunk
-      pelvis: mk(GEO.sph, pants), skirt: mk(GEO.skirt, pants), abdomen: mk(GEO.cyl, gi), obi: mk(GEO.cyl, trim), chest: mk(GEO.chest, gi),
-      collar: mk(GEO.round, trim), padL: mk(GEO.round, trim), padR: mk(GEO.round, trim), delL: mk(GEO.sphLo, gi), delR: mk(GEO.sphLo, gi),
+      pelvis: mk(GEO.sph, pants), skirt: mk(GEO.skirt, lamSkirt, CAP.steel), abdomen: mk(GEO.cyl, gi), obi: mk(GEO.cyl, trim), chest: mk(GEO.chest, gi),
+      collar: mk(GEO.round, trim), padL: mk(GEO.round, lamPad, CAP.steel), padR: mk(GEO.round, lamPad, CAP.steel), pad2L: mk(GEO.round, lamPad, CAP.steel), pad2R: mk(GEO.round, lamPad, CAP.steel),
+      dou: mk(GEO.chest, lamDou, CAP.steel), buckle: mk(GEO.round, M.gold, CAP.steel), delL: mk(GEO.sphLo, gi), delR: mk(GEO.sphLo, gi),
       // head
       neck: mk(GEO.neck, M.skinShade), head: mk(GEO.headS, M.skin), jaw: mk(GEO.sph, M.skin), nose: mk(GEO.round, M.skinShade),
       earL: mk(GEO.sphLo, M.skinShade), earR: mk(GEO.sphLo, M.skinShade), eyeL: mk(GEO.sph, M.eye), eyeR: mk(GEO.sph, M.eye),
@@ -260,7 +295,7 @@ export class Fighter {
       // sword
       // detail: crossed lapels, the obi knot and its tails at the back, wrist guards, shin wraps, a scabbard
       lapL: mk(GEO.round, trim), lapR: mk(GEO.round, trim), obiK: mk(GEO.round, trim), tailL: mk(GEO.round, trim), tailR: mk(GEO.round, trim),
-      wrL: mk(GEO.cyl, M.dark), wrR: mk(GEO.cyl, M.dark), kyL: mk(GEO.taper, horde ? M.dark : cloth(0xd2cab8)), kyR: mk(GEO.taper, horde ? M.dark : cloth(0xd2cab8)),
+      wrL: mk(GEO.cyl, splint, CAP.steel), wrR: mk(GEO.cyl, splint, CAP.steel), kyL: mk(GEO.taper, splint, CAP.steel), kyR: mk(GEO.taper, splint, CAP.steel),
       saya: mk(GEO.cyl, M.saya, CAP.wood), kojiri: mk(GEO.cyl, M.gold, CAP.steel),
       grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(bladeGeo(item('shape', this.look.shape).id), L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
     };
@@ -349,6 +384,8 @@ export class Fighter {
     seg(P.abdomen, at(0, 0.0, 0), at(0, 0.2, 0), 0.128, 0.74);
     seg(P.obi, at(0, 0.04, 0), at(0, 0.12, 0), 0.134, 0.78); // (a belt that hugs the waist)
     seg(P.chest, at(0, 0.15, 0), at(0, 0.5, 0), 0.17, 0.6); P.chest.rotateY(twist);
+    seg(P.dou, at(0, 0.13, 0), at(0, 0.47, 0), 0.194, 0.67); P.dou.rotateY(twist); // (the chest plate, just proud of the body)
+    P.buckle.position.copy(at(0, 0.08, -0.13)); P.buckle.scale.set(0.075, 0.06, 0.03); P.buckle.rotation.set(-lean, 0, 0);
     // the gi's crossed lapels, the obi knot and its tails, and the scabbard thrust through the obi on the left
     seg(P.lapL, at(-0.088, 0.45, -0.088), at(0.03, 0.15, -0.104), 0.05, 0.22); seg(P.lapR, at(0.088, 0.45, -0.09), at(-0.012, 0.22, -0.108), 0.045, 0.22);
     P.obiK.position.copy(at(0, 0.085, 0.118)); P.obiK.scale.set(0.085, 0.06, 0.04); P.obiK.rotation.set(-lean, 0, 0);
@@ -359,7 +396,8 @@ export class Fighter {
     for (const [n, side] of [['L', -1], ['R', 1]]) {
       const S = sh(side);
       P['del' + n].position.copy(S); P['del' + n].scale.set(0.084, 0.076, 0.086);
-      P['pad' + n].position.copy(S).add(V(0.035 * side, 0.03, 0)); P['pad' + n].scale.set(0.13, 0.05, 0.2); P['pad' + n].rotation.set(-lean, twist, -0.45 * side);
+      P['pad' + n].position.copy(S).add(V(0.035 * side, 0.035, 0)); P['pad' + n].scale.set(0.15, 0.05, 0.21); P['pad' + n].rotation.set(-lean, twist, -0.4 * side);
+      P['pad2' + n].rotation.set(-lean, twist, -0.95 * side); P['pad2' + n].position.copy(S).add(V(0.105 * side, -0.035, 0)); P['pad2' + n].scale.set(0.13, 0.045, 0.2); // (a second plate hanging below the first)
     }
     // ---- head
     const neckBase = at(0, 0.5, 0), headC = at(0, 0.68, -0.01);

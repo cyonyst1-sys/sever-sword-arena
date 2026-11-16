@@ -3,7 +3,8 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116050315';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116051652';
+import { glow, aurora } from './look.js?v=20261116051652';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -201,11 +202,18 @@ export function buildPagoda(A, T) {
 export function buildIsles(A, T) {
   const S = A.scene, M = A.mats, r = T.rng(9091);
   A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -45;
-  A.setSky({ top: 0x050a22, mid: 0x26406e, bot: 0x14203a, fog: 0x1f2f55, near: 90, far: 400, hemiSky: 0x8aa2d8, hemiGround: 0x1a1a2a, hemi: 1.0, sunColor: 0xc8dcff, sun: 1.7, sunOff: new THREE.Vector3(-40, 60, -70) });
+  A.setSky({ top: 0x04051a, mid: 0x1c1648, bot: 0x0c0a24, fog: 0x161236, near: 90, far: 400, hemiSky: 0x9098e8, hemiGround: 0x3a1450, hemi: 1.0, sunColor: 0xc8dcff, sun: 1.7, sunOff: new THREE.Vector3(-40, 60, -70) });
   M.bamboo = new THREE.MeshStandardMaterial({ map: T.bambooTex(), roughness: 0.55 });
-  const grass = std(0x4b7a3c, { roughness: 1 }), rock = std(0x4a4658, { roughness: 1, flatShading: true }), rope = std(0x9a7a50, { roughness: 0.9 });
-  const lantern = new THREE.MeshBasicMaterial({ color: 0xffd27a }), bark = std(0x4a3226, { roughness: 1 }), blossom = std(0xf2a6c8, { roughness: 0.8, emissive: 0x3a1020, emissiveIntensity: 0.6, flatShading: true });
+  const grass = std(0x2c3c58, { roughness: 0.55 }), rock = std(0x2e2a40, { roughness: 1, flatShading: true }), rope = std(0x9a7a50, { roughness: 0.9 });
+  const lantern = new THREE.MeshBasicMaterial({ color: 0xff7ae0 }), bark = std(0x4a3226, { roughness: 1 }), blossom = std(0xff8ae0, { roughness: 0.8, emissive: 0xd030a0, emissiveIntensity: 1.0, flatShading: true });
 
+  // glowing crystals, and the falls of light that pour off every island into the dark water
+  const crysG = new THREE.OctahedronGeometry(1, 0), crysM = [0xff50d0, 0x50a8ff, 0x9a60ff].map((c) => std(c, { roughness: 0.15, emissive: c, emissiveIntensity: 1.3, flatShading: true }));
+  const fallT = T.canvasTex((g, s) => { const q = T.rng(77); g.fillStyle = '#000'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 70; i++) { const x = q() * s, w = 1 + q() * 2.5, y0 = q() * s, L = s * (0.3 + q() * 0.7), c = q() < 0.5 ? '90,160,255' : '170,110,255'; for (const oy of [-s, 0]) { const d = g.createLinearGradient(0, y0 + oy, 0, y0 + oy + L); d.addColorStop(0, 'rgba(' + c + ',0)'); d.addColorStop(0.5, 'rgba(' + c + ',' + (0.35 + q() * 0.5) + ')'); d.addColorStop(1, 'rgba(' + c + ',0)'); g.fillStyle = d; g.fillRect(x, y0 + oy, w, L); } } }, 256);
+  fallT.repeat.set(3, 1.5);
+  const fallM = new THREE.MeshBasicMaterial({ map: fallT, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false });
+  A.anim.push((t) => { fallT.offset.y = t * 0.22; });
   // an island: grass top, a rough rock cone hanging under it, a lantern and a few stones
   const island = (x, z, y, w, d) => {
     const p = deck(A, { x, z, y, w, d, mat: grass, kind: 'island', thick: 1.6 });
@@ -213,6 +221,9 @@ export function buildIsles(A, T) {
     const lx = x + w * 0.32, lz = z + d * 0.3;
     prop(A, p, new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.0, 0.6), rock), lx, y + 0.5, lz); prop(A, p, new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), lantern), lx, y + 1.25, lz);
     for (let i = 0; i < 3; i++) prop(A, p, new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + r() * 0.6, 0), rock), x + (r() - 0.5) * w * 0.7, y + 0.2, z + (r() - 0.5) * d * 0.7);
+    { const gl = glow(0xff60d8, 5, 0.8); gl.position.set(lx, y + 1.3, lz); S.add(gl); p.meshes.push(gl); }
+    for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(crysG, crysM[(r() * 3) | 0]), sc = 0.45 + r() * 0.7; c.scale.set(sc * 0.5, sc * 1.5, sc * 0.5); c.rotation.set((r() - 0.5) * 0.6, r() * 3, (r() - 0.5) * 0.6); prop(A, p, c, x + (r() - 0.5) * w * 0.75, y + sc * 0.7, z + (r() - 0.5) * d * 0.75); }
+    if (A.quality !== 'low') { const R = (w + d) / 4, h = y + 24, f = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.9, 1, 28, 1, true), fallM); f.scale.y = h; f.position.set(x, y - 1.2 - h / 2, z); f.renderOrder = 2; S.add(f); p.meshes.push(f); }
     return p;
   };
   // the big middle island and its great cherry tree (the trunk is solid; you can hook the blossom)
@@ -222,6 +233,7 @@ export function buildIsles(A, T) {
   for (let i = 0; i < 7; i++) { const a = i / 7 * TAU, m = new THREE.Mesh(new THREE.IcosahedronGeometry(4 + r() * 2, 1), blossom); prop(A, C, m, Math.cos(a) * 4.5, 14 + r() * 3, Math.sin(a) * 4.5); }
   prop(A, C, new THREE.Mesh(new THREE.IcosahedronGeometry(5.5, 1), blossom), 0, 18, 0);
   { const box = { x0: -8, x1: 8, y0: 12, y1: 21, z0: -8, z1: 8 }; A.rayBoxes.push(box); C.rays.push(box); }
+  { const gl = glow(0xff50c8, 34, 0.55); gl.position.set(0, 15, 0); S.add(gl); if (A.quality !== 'low') { const pl = new THREE.PointLight(0xff50c8, 520, 85, 1.6); pl.position.set(0, 9, 0); S.add(pl); } } // (the tree glows, and lights its island pink)
   const ring1 = [6, -6, 10, -2, 3].map((y, k) => { const a = (k / 5) * TAU + 0.3; return island(Math.round(Math.cos(a) * 46), Math.round(Math.sin(a) * 46), y, 18, 16); });
   const ring2 = [16, -10, 22, -4, 12, -14, 20, 2].map((y, k) => { const a = (k / 8) * TAU; return island(Math.round(Math.cos(a) * 86), Math.round(Math.sin(a) * 86), y, 11 + (k % 3), 11); });
   for (const k of [0, 2, 3]) bridge(A, C, ring1[k], 2.6, M.wood, rope);
@@ -254,8 +266,8 @@ export function buildIsles(A, T) {
   let n = 0;
   for (let gx = -108; gx <= 108; gx += step) for (let gz = -108; gz <= 108; gz += step) { const x = gx + (r() - 0.5) * step * 1.3, z = gz + (r() - 0.5) * step * 1.3; if (Math.hypot(x, z) < 112 && clear(A, x, z, 0.7)) blade(x, z, (n++ % 7) === 0); }
   for (const [gx, gz] of groves) for (let i = 0; i < (low ? 60 : 160); i++) { const a = r() * TAU, d = Math.sqrt(r()) * 12, x = gx + Math.cos(a) * d, z = gz + Math.sin(a) * d; if (clear(A, x, z, 0.6)) blade(x, z, (n++ % 7) === 0); }
-  M.bamboo = new THREE.MeshStandardMaterial({ roughness: 0.7, emissive: 0x0c2410, side: THREE.DoubleSide, map: T.canvasTex((g, s) => { // grass: green with fine veins
-    g.fillStyle = '#3f7a34'; g.fillRect(0, 0, s, s); for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '20,50,20' : '120,180,90'},${0.15 + r() * 0.25})`; g.fillRect(r() * s, 0, 1 + r() * 2, s); }
+  M.bamboo = new THREE.MeshStandardMaterial({ roughness: 0.7, emissive: 0x2030b0, emissiveIntensity: 0.4, side: THREE.DoubleSide, map: T.canvasTex((g, s) => { // the reeds: threads of blue light
+    g.fillStyle = '#2a3c9a'; g.fillRect(0, 0, s, s); for (let i = 0; i < 60; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '20,20,90' : '150,190,255'},${0.15 + r() * 0.25})`; g.fillRect(r() * s, 0, 1 + r() * 2, s); }
   }, 64) });
   A.plantStalks(WATER - 0.5, 70, false, true);
   A.mow = true; // (moving through the grass cuts it)
@@ -307,7 +319,9 @@ export function buildIsles(A, T) {
   { const n = 1600, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const u = r() * TAU, v = Math.acos(1 - r() * 1.05); pos[i * 3] = Math.sin(v) * Math.cos(u) * 470; pos[i * 3 + 1] = Math.cos(v) * 470; pos[i * 3 + 2] = Math.sin(v) * Math.sin(u) * 470; }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); S.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, fog: false }))); }
   const md = A.sunOff.clone().normalize();
-  const moon = new THREE.Mesh(new THREE.CircleGeometry(26, 40), flat(0xf4f1e2)); moon.position.copy(md).multiplyScalar(470); moon.lookAt(0, 0, 0); S.add(moon);
+  const moon = new THREE.Mesh(new THREE.CircleGeometry(26, 40), flat(0xf0e8ff)); moon.position.copy(md).multiplyScalar(470); moon.lookAt(0, 0, 0); S.add(moon);
+  { const sh = new THREE.Mesh(new THREE.CircleGeometry(24, 40), flat(0x0a0a26)); sh.position.set(10, 5, 1); moon.add(sh); } // (a crescent: the dark of the moon across it)
+  aurora(A, 0x8a40ff, 0x30a0ff, 2.2);
   const haloTex = T.canvasTex((g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, 'rgba(200,220,255,0.55)'); gr.addColorStop(1, 'rgba(200,220,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); }, 128);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })); halo.position.copy(moon.position).multiplyScalar(0.99); halo.scale.set(190, 190, 1); S.add(halo);
   farRing(A, 12, 360, (x, z, i) => {

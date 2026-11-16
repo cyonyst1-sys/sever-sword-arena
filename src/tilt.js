@@ -5,7 +5,8 @@
 // whoever is on it; a new one is hung back on 10 s later.
 import * as THREE from 'three';
 import { drift } from './maps2.js';
-import { cloudHeaps } from './scenery.js?v=20261116050315';
+import { glow, aurora } from './look.js?v=20261116051652';
+import { cloudHeaps } from './scenery.js?v=20261116051652';
 
 const TAU = Math.PI * 2, N = 6, R = 14, DISH = 1.9, ARM = 25, L = 22, HUB = 40, MAXOFF = 2; // platforms, radius, dish depth, crown arm, chain, crown height, extra swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
@@ -18,25 +19,36 @@ const lean = (w) => 0.26 + (w - (W0 - W1)) / (2 * W1) * 0.36; // radians out fro
 export function buildTilt(A, T) {
   const S = A.scene, r = T.rng(8181);
   A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -40;
-  A.setSky({ top: 0x3d6a9a, mid: 0xc9d8e6, bot: 0xe8eef4, fog: 0xc4d4e2, near: 90, far: 380, hemiSky: 0xeef4ff, hemiGround: 0x5a5a6a, hemi: 1.1, sunColor: 0xfff2dc, sun: 2.4, sunOff: new THREE.Vector3(35, 60, 25) });
+  A.setSky({ top: 0x040820, mid: 0x18245a, bot: 0x0c1230, fog: 0x1a2452, near: 110, far: 460, hemiSky: 0x9ab0f0, hemiGround: 0x283060, hemi: 1.5, sunColor: 0xbcccff, sun: 2.2, sunOff: new THREE.Vector3(35, 60, 25) });
   const planks = std(0xffffff, { map: T.canvasTex((g, s) => {
     for (let i = 0; i < 8; i++) { const c = 120 + Math.random() * 40 | 0; g.fillStyle = `rgb(${c},${c * 0.72 | 0},${c * 0.45 | 0})`; g.fillRect(0, i * s / 8, s, s / 8 - 2); g.fillStyle = 'rgba(40,24,10,0.6)'; g.fillRect(0, (i + 1) * s / 8 - 2, s, 2); }
     for (let i = 0; i < 160; i++) { g.fillStyle = 'rgba(50,30,14,0.25)'; g.fillRect(Math.random() * s, Math.random() * s, 8 + Math.random() * 30, 1); }
-  }), roughness: 0.85 });
-  const iron = std(0x2c2e34, { metalness: 0.7, roughness: 0.35 }), brass = std(0xc79a3a, { metalness: 0.8, roughness: 0.3 });
+  }), roughness: 0.38, metalness: 0.15, color: 0xb8bce0 }); // (dark polished boards, shining under the lights)
+  const iron = std(0x141a3c, { metalness: 0.75, roughness: 0.28 }), brass = std(0xd8aa48, { metalness: 0.9, roughness: 0.25 }), runeM = new THREE.MeshBasicMaterial({ color: 0x5a8cff, toneMapped: false });
   const up = new THREE.Vector3(0, 1, 0), wall = () => Date.now() / 1000;
 
   // ---- the mast and its turning crown (red and cream stripes, gold trim, bulbs round the rim)
   { const mast = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 2.4, HUB + 60, 16), iron); mast.position.y = (HUB - 60) / 2; mast.castShadow = true; S.add(mast);
     A.rayBoxes.push({ x0: -1.6, x1: 1.6, y0: -60, y1: HUB, z0: -1.6, z1: 1.6 }); A.pillars.push({ x: 0, z: 0, w: 3.2 });
-    for (const y of [4, 14, 24]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(1.9, 0.18, 8, 24), brass); ring.rotation.x = Math.PI / 2; ring.position.y = y; S.add(ring); } }
+    for (const y of [4, 14, 24]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(1.9, 0.18, 8, 24), brass); ring.rotation.x = Math.PI / 2; ring.position.y = y; S.add(ring); }
+    for (let y = -40; y < HUB - 2; y += 5) { const k = 1.6 + (HUB - y) / (HUB + 60) * 0.8 * 0.6, ring = new THREE.Mesh(new THREE.TorusGeometry(k + 0.12, 0.07, 6, 24), runeM); ring.rotation.x = Math.PI / 2; ring.position.y = y + 1.5; S.add(ring); } // (bands of blue light up the mast)
+    for (let k = 0; k < 8; k++) { const a = k / 8 * TAU + 0.2, x = Math.cos(a) * 74, z = Math.sin(a) * 74, top = 16 + (k % 3) * 5; // lantern poles standing round the ride: navy and gold, a blue lantern hanging from each
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.0, top + 70, 10), iron); pole.position.set(x, top - (top + 70) / 2, z); S.add(pole);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(1.3, 12, 8), brass); cap.scale.y = 0.75; cap.position.set(x, top + 0.6, z); S.add(cap);
+      for (const y of [top - 6, top - 22, top - 40]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.07, 6, 16), runeM); ring.rotation.x = Math.PI / 2; ring.position.set(x, y, z); S.add(ring); }
+      const lx = x - Math.cos(a) * 2.2, lz = z - Math.sin(a) * 2.2, lan = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.38, 1.3, 6), new THREE.MeshBasicMaterial({ color: 0x8ab0ff, toneMapped: false })); lan.position.set(lx, top - 2.6, lz); S.add(lan);
+      const lc = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.5, 6), brass); lc.position.set(lx, top - 1.7, lz); S.add(lc);
+      const gl = glow(0x5a84ff, 9, 0.8); gl.position.set(lx, top - 2.6, lz); S.add(gl); }
+    aurora(A, 0x30ffb0, 0x6a50ff, 2.2);
+    { const n = 1500, pos = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const u = r() * TAU, v = Math.acos(1 - r() * 0.95); pos[i * 3] = Math.sin(v) * Math.cos(u) * 480; pos[i * 3 + 1] = Math.cos(v) * 480; pos[i * 3 + 2] = Math.sin(v) * Math.sin(u) * 480; }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); S.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xd0d8ff, size: 1.5, sizeAttenuation: false, fog: false }))); } }
   const crown = new THREE.Group(); crown.position.y = HUB; S.add(crown);
-  { const stripes = T.canvasTex((g, s) => { for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#f2e6cc' : '#c8322a'; g.fillRect(i * s / 16, 0, s / 16, s); } }, 256);
+  { const stripes = T.canvasTex((g, s) => { for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#1c2a6e' : '#101844'; g.fillRect(i * s / 16, 0, s / 16, s); g.fillStyle = '#d8aa48'; g.fillRect(i * s / 16, 0, 2, s); g.strokeStyle = '#7aa8ff'; g.lineWidth = 2; g.beginPath(); const cx = (i + 0.5) * s / 16; g.moveTo(cx, s * 0.25); g.bezierCurveTo(cx - 6, s * 0.4, cx + 6, s * 0.55, cx, s * 0.7); g.moveTo(cx - 4, s * 0.47); g.lineTo(cx + 4, s * 0.47); g.stroke(); } }, 256);
     const roof = new THREE.Mesh(new THREE.ConeGeometry(ARM + 2, 9, 32, 1, true), std(0xffffff, { map: stripes, side: THREE.DoubleSide, roughness: 0.6 })); roof.position.y = 5.5; roof.castShadow = true; crown.add(roof);
     const skirt = new THREE.Mesh(new THREE.CylinderGeometry(ARM + 2, ARM + 2, 1.6, 32, 1, true), std(0xffffff, { map: stripes, side: THREE.DoubleSide })); skirt.position.y = 0.6; crown.add(skirt);
     const trim = new THREE.Mesh(new THREE.TorusGeometry(ARM + 2, 0.2, 8, 64), brass); trim.rotation.x = Math.PI / 2; trim.position.y = -0.2; crown.add(trim);
     const flag = new THREE.Mesh(new THREE.ConeGeometry(0.6, 3, 8), brass); flag.position.y = 11.5; crown.add(flag);
-    const bulb = new THREE.MeshBasicMaterial({ color: 0xfff1b0, toneMapped: false });
+    const bulb = new THREE.MeshBasicMaterial({ color: 0x7a9cff, toneMapped: false });
     for (let k = 0; k < 32; k++) { const a = k / 32 * TAU, b = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), bulb); b.position.set(Math.cos(a) * (ARM + 2.2), 0.6, Math.sin(a) * (ARM + 2.2)); crown.add(b); }
     for (let k = 0; k < N; k++) { const a = k / N * TAU, arm = new THREE.Mesh(new THREE.BoxGeometry(ARM, 0.5, 0.5), iron); arm.position.set(Math.cos(a) * ARM / 2, -0.4, Math.sin(a) * ARM / 2); arm.rotation.y = -a; crown.add(arm); }
     A.rayBoxes.push({ x0: -6, x1: 6, y0: HUB - 1, y1: HUB + 4, z0: -6, z1: 6 }); } // (the crown's hub: hook it)
@@ -168,7 +180,7 @@ export function buildTilt(A, T) {
   A.finishNav();
 
   // ---- backdrop: towering clouds, a sea of cloud, drifting specks
-  cloudHeaps(S, r, { n: 16, rMin: 330, rMax: 400, y: -32, depth: 8, sMin: 26, sMax: 42, stack: 4, fog: false }); // towering clouds round the horizon
-  const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf4f7fa, transparent: true, opacity: 0.97 })); sea.position.y = -45; S.add(sea);
-  drift(A, 120, 0xffffff, 0.2, [1.4, 0, 0.6], 0.4);
+  cloudHeaps(S, r, { n: 16, rMin: 330, rMax: 400, y: -32, depth: 8, sMin: 26, sMax: 42, stack: 4, fog: false, tint: new THREE.Color(0x5a6cc0) }); // towering clouds round the horizon
+  const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x3a4a98, transparent: true, opacity: 0.97 })); sea.position.y = -45; S.add(sea);
+  drift(A, 120, 0x9ab8ff, 0.2, [1.4, 0, 0.6], 0.4);
 }

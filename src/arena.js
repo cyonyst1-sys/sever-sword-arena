@@ -3,19 +3,20 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116050315';
-import { buildFoundry } from './foundry.js?v=20261116050315';
-import { buildBamboo } from './bamboo.js?v=20261116050315';
-import { buildCity } from './city.js?v=20261116050315';
-import { buildDojo } from './dojo.js?v=20261116050315';
-import { buildComet } from './comet.js?v=20261116050315';
-import { buildLava } from './lava.js?v=20261116050315';
-import { buildRun } from './run.js?v=20261116050315';
-import { buildGrove } from './grove.js?v=20261116050315';
-import { buildTransport } from './transport.js?v=20261116050315';
-import { addScenery } from './scenery.js?v=20261116050315';
-import { addAtmosphere } from './atmos.js?v=20261116050315';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116050315';
+import { buildTilt } from './tilt.js?v=20261116051652';
+import { buildFoundry } from './foundry.js?v=20261116051652';
+import { buildBamboo } from './bamboo.js?v=20261116051652';
+import { buildCity } from './city.js?v=20261116051652';
+import { buildDojo } from './dojo.js?v=20261116051652';
+import { buildComet } from './comet.js?v=20261116051652';
+import { buildLava } from './lava.js?v=20261116051652';
+import { buildRun } from './run.js?v=20261116051652';
+import { buildGrove } from './grove.js?v=20261116051652';
+import { buildTransport } from './transport.js?v=20261116051652';
+import { applyLook } from './look.js?v=20261116051652';
+import { addScenery } from './scenery.js?v=20261116051652';
+import { addAtmosphere } from './atmos.js?v=20261116051652';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116051652';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -172,7 +173,7 @@ export class Arena {
       wood: new THREE.MeshStandardMaterial({ map: woodTex(), roughness: 0.85 }),
       rock: new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 1, flatShading: true }),
     };
-    this.build(); addScenery(this); addAtmosphere(this);
+    this.build(); addScenery(this); addAtmosphere(this); applyLook(this, TEX);
     this.bird = ['spire', 'plateaus', 'pagoda', 'dojo', 'city', 'tilt'].includes(this.mapId); // (a sky map with clouds below: fall to them and a giant bird gets you)
   }
   dispose() {
