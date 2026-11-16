@@ -103,6 +103,7 @@ export function buildMaw(A, T) {
 
 // Tendrils: fleshy arms rising from the maw to swing on. Each sways on a spring; a fighter hooked onto one drags its
 // tip toward them (so it bends as they swing) and it springs back when they let go. Their hookable boxes follow the bend.
+const DROP = 26; // how far a tendril's tip hooks back down (m)
 export function buildTendrils(A, pts) {
   const tex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
     g.fillStyle = '#6e2233'; g.fillRect(0, 0, 128, 128);
@@ -116,7 +117,16 @@ export function buildTendrils(A, pts) {
     const uB = { value: new THREE.Vector2() };
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05, emissive: 0x220308 });
     mat.onBeforeCompile = (sh) => { sh.uniforms.uB = uB; sh.uniforms.uH = { value: H };
-      sh.vertexShader = 'uniform vec2 uB; uniform float uH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat ts = clamp(position.y / uH, 0.0, 1.0); transformed.xz += uB * pow(ts, 2.6); transformed.y -= 14.0 * pow(ts, 5.0);'); };
+      // bend the straight tube along its curve: rising, sweeping in, and hooking down at the tip; each ring of the tube
+      // turned square to the curve (so it stays round and thick all the way along), normals turned with it
+      sh.vertexShader = 'uniform vec2 uB; uniform float uH;\n' + sh.vertexShader.replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+        float ts = clamp(position.y / uH, 0.0, 1.0);
+        vec3 Bd = length(uB) > 0.001 ? normalize(vec3(uB.x, 0.0, uB.y)) : vec3(1.0, 0.0, 0.0), Sd = vec3(-Bd.z, 0.0, Bd.x);
+        float bwp = 2.6 * pow(max(ts, 0.0001), 1.6) / uH, dpp = ${DROP.toFixed(1)} * 4.0 * pow(ts, 3.0) / uH;
+        vec3 Tg = normalize(vec3(uB.x * bwp, 1.0 - dpp, uB.y * bwp)), Nd = normalize(cross(Tg, Sd));
+        objectNormal = normalize(Sd * dot(objectNormal.xz, Sd.xz) + Nd * dot(objectNormal.xz, Bd.xz) + Tg * objectNormal.y);`).replace('#include <begin_vertex>', `#include <begin_vertex>
+        vec3 cen = vec3(uB.x * pow(ts, 2.6), ts * uH - ${DROP.toFixed(1)} * pow(ts, 4.0), uB.y * pow(ts, 2.6));
+        transformed = cen + Sd * dot(position.xz, Sd.xz) + Nd * dot(position.xz, Bd.xz);`); };
     mat.customProgramCacheKey = () => 'tendril';
     const m = new THREE.Mesh(geo, mat); m.position.set(x, by, z); m.castShadow = A.quality !== 'low'; A.scene.add(m);
     const ph = i * 1.7, dl = Math.hypot(x, z) || 1, inw = dl - 6 - (i % 4) * 5, rest = new THREE.Vector2(-x / dl * inw + Math.cos(ph * 2.3) * 2, -z / dl * inw + Math.sin(ph * 1.9) * 2); // (curling right in: the tips hang over the centre platform) // a natural curve at rest
@@ -124,9 +134,9 @@ export function buildTendrils(A, pts) {
     list.push({ x, z, by, H, R0, uB, rest, ph, bend: new THREE.Vector2(), vel: new THREE.Vector2(), boxes });
     { const s = 0.55, k = Math.pow(s, 2.6); A.pillars.push({ x: x + rest.x * k, z: z + rest.y * k, w: 2.8 }); } // (for the bots: aim at the middle of its curve, not its base)
   });
-  const tipOff = (t, out) => out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin((A.lastT || 0) * 0.4 + t.ph) * 3, Math.cos((A.lastT || 0) * 0.33 + t.ph * 1.3) * 3));
+  const tipOff = (t, out) => { const c = A.lastT || 0; return out.copy(t.rest).add(t.bend).add(new THREE.Vector2(Math.sin(c * 0.55 + t.ph) * 6 + Math.sin(c * 1.3 + t.ph * 2.1) * 2.5, Math.cos(c * 0.47 + t.ph * 1.3) * 6 + Math.cos(c * 1.1 + t.ph * 0.7) * 2.5)); }; // (always writhing a little)
   const tmp = new THREE.Vector2();
-  const bw = (s) => Math.pow(s, 2.6), dropY = (s) => 14 * Math.pow(s, 5); // (the shape: rising, then hooking in hard over the top, the tip drooping like a claw)
+  const bw = (s) => Math.pow(s, 2.6), dropY = (s) => DROP * Math.pow(s, 4); // (the shape: rising, then hooking in hard over the top, the tip drooping like a claw)
   A.tendrilPoint = (i, s, out) => { const t = list[i]; tipOff(t, tmp); return out.set(t.x + tmp.x * bw(s), t.by + s * t.H - dropY(s), t.z + tmp.y * bw(s)); };
   A.tendrilAt = (p) => { // which tendril (and how far up it) a hook point is on
     for (let i = 0; i < list.length; i++) { const t = list[i]; let s = (p.y - t.by) / t.H; s = (p.y - t.by + dropY(Math.min(1, Math.max(0, s)))) / t.H; if (s < 0 || s > 1) continue; tipOff(t, tmp);
@@ -141,8 +151,8 @@ export function buildTendrils(A, pts) {
       A.tendrilPoint(h.tend.i, h.tend.s, pv); const dx = f.pos.x - pv.x, dz = f.pos.z - pv.z, l = Math.hypot(dx, dz) || 1, k = 28 * h.tend.s;
       t.fx += dx / l * k; t.fz += dz / l * k; }
     for (const t of list) {
-      t.vel.x += (-2 * t.bend.x - 1.1 * t.vel.x + t.fx) * dt; t.vel.y += (-2 * t.bend.y - 1.1 * t.vel.y + t.fz) * dt;
-      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 12) t.bend.multiplyScalar(12 / l);
+      t.vel.x += (-1.1 * t.bend.x - 0.55 * t.vel.x + t.fx) * dt; t.vel.y += (-1.1 * t.bend.y - 0.55 * t.vel.y + t.fz) * dt; // (soft and springy)
+      t.bend.x += t.vel.x * dt; t.bend.y += t.vel.y * dt; const l = t.bend.length(); if (l > 28) t.bend.multiplyScalar(28 / l);
       tipOff(t, tmp); t.uB.value.copy(tmp);
       for (const b of t.boxes) { const s = b.ts, cx = t.x + tmp.x * bw(s), cz = t.z + tmp.y * bw(s), cy = t.by + s * t.H - dropY(s), r = t.R0 * (1 - s * 0.4) + 0.3; b.x0 = cx - r; b.x1 = cx + r; b.z0 = cz - r; b.z1 = cz + r; b.y0 = cy - t.H * 0.05; b.y1 = cy + t.H * 0.05; }
     }
