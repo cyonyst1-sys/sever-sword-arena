@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261117000231">
+<meta name="build" content="20261117000651">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -191,12 +191,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261117000231",
-  "./src/arena.js": "./src/arena.js?v=20261117000231",
-  "./src/fighter.js": "./src/fighter.js?v=20261117000231",
-  "./src/slice.js": "./src/slice.js?v=20261117000231",
-  "./src/audio.js": "./src/audio.js?v=20261117000231",
-  "./src/net.js": "./src/net.js?v=20261117000231"
+  "./src/main.js": "./src/main.js?v=20261117000651",
+  "./src/arena.js": "./src/arena.js?v=20261117000651",
+  "./src/fighter.js": "./src/fighter.js?v=20261117000651",
+  "./src/slice.js": "./src/slice.js?v=20261117000651",
+  "./src/audio.js": "./src/audio.js?v=20261117000651",
+  "./src/net.js": "./src/net.js?v=20261117000651"
 } }
 </script>
 </head>
@@ -242,6 +242,7 @@ window.severVersion.check();
       <button class="primary" id="playSolo">Play solo</button>
     </div>
     <button id="toShop" class="shopBig"><img id="shopThumb" alt=""><span class="shopTxt"><b>Shop</b><small>Masks, swords, outfits, upgrades</small></span><span class="shopCoins"><span class="coin"></span><span id="coinBadge">0</span></span></button>
+    <div id="progBox" style="margin:10px 2px 4px"></div>
     <div class="row"><button id="toSettings" class="wide">Settings</button></div>
     </div>
     <div class="homeBottom">
@@ -298,6 +299,11 @@ window.severVersion.check();
     <label style="margin-top:10px">Sword sensitivity <div class="rng"><input type="range" id="sBlade" min="0.2" max="3" step="0.05"><span id="sBladeV"></span></div></label>
     <label style="margin-top:10px">Graphics <select id="sQuality"><option value="high">High (shadows)</option><option value="low">Low (faster)</option></select></label>
     <label style="margin-top:10px">Volume <div class="rng"><input type="range" id="sVol" min="0" max="1" step="0.05"><span id="sVolV"></span></div></label>
+    <label style="margin-top:10px">Field of view <div class="rng"><input type="range" id="sFov" min="60" max="100" step="1"><span id="sFovV"></span></div></label>
+    <label style="margin-top:10px;flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="sAuto"> Automatic quality: lower the resolution when the frame rate drops</label>
+    <label style="margin-top:10px;flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="sCb"> Colourblind team colours (orange against blue)</label>
+    <div class="muted" style="margin-top:12px">Keys: click one, then press its new key</div>
+    <div id="sKeys" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
     <div class="row"><button class="primary" id="settingsDone">Done</button></div>
     <div class="muted">Graphics changes apply the next time the page loads.</div>
   </div>
@@ -352,6 +358,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261117000231"></script>
+<script type="module" src="src/main.js?v=20261117000651"></script>
 </body>
 </html>

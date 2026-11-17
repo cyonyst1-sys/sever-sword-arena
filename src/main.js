@@ -1,26 +1,26 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117000231';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117000231';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117000231';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117000231';
-import * as net from './net.js?v=20261117000231';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117000231';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117000231';
-import { makeKillFx } from './killfx.js?v=20261117000231';
-import { makeGrapple } from './grapple.js?v=20261117000231';
-import { initShop } from './shop.js?v=20261117000231';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117000231';
-import { portal } from './portal.js?v=20261117000231';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117000231';
-import { makePost } from './post.js?v=20261117000231';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117000231';
+import { Arena, MAPS } from './arena.js?v=20261117000651';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117000651';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117000651';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117000651';
+import * as net from './net.js?v=20261117000651';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117000651';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117000651';
+import { makeKillFx } from './killfx.js?v=20261117000651';
+import { makeGrapple } from './grapple.js?v=20261117000651';
+import { initShop } from './shop.js?v=20261117000651';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117000651';
+import { portal } from './portal.js?v=20261117000651';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117000651';
+import { makePost } from './post.js?v=20261117000651';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117000651';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117000651';
 
 // ---------- settings ----------
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } },
 };
-const settings = Object.assign({ name: '', look: 1, blade: 1, quality: 'high', vol: 0.6 }, store.get('sever-settings', {}));
+const settings = Object.assign({ name: '', look: 1, blade: 1, quality: 'high', vol: 0.6, fov: 72, autoQ: true, aqScale: 1, cb: false, keys: {} }, store.get('sever-settings', {}));
 THREE.Texture.DEFAULT_ANISOTROPY = settings.quality === 'low' ? 2 : 8; // crisp floors and walls at glancing angles, no shimmer
 const saveSettings = () => store.set('sever-settings', settings);
 const $ = (id) => document.getElementById(id);
@@ -28,7 +28,8 @@ const $ = (id) => document.getElementById(id);
 // ---------- three ----------
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, settings.quality === 'low' ? 1 : 2));
+const basePR = Math.min(window.devicePixelRatio || 1, settings.quality === 'low' ? 1 : 2);
+renderer.setPixelRatio(basePR * (settings.autoQ ? Math.max(0.5, Math.min(1, settings.aqScale || 1)) : 1));
 renderer.shadowMap.enabled = settings.quality !== 'low';
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -113,6 +114,8 @@ const upm = (f, id) => upMul(id, upLv(f, id)) * ((f && f.bossMul && f.bossMul[id
 const isEnemy = (a, b) => a.team !== b.team;
 // Team Battle: two sides, red (A) and blue (B)
 const TEAMS = { A: { name: 'Red', col: 0xd23b3b, css: '#e0524a' }, B: { name: 'Blue', col: 0x2f7ae0, css: '#4a8fe8' } };
+function teamColours() { Object.assign(TEAMS.A, settings.cb ? { name: 'Orange', col: 0xf0981a, css: '#f2a43a' } : { name: 'Red', col: 0xd23b3b, css: '#e0524a' }); } // (colourblind option: orange against blue)
+teamColours();
 const teamMode = () => S.mode === 'team' || S.mode === 'transport';
 // Transport: blue escorts the wagon, red raids it
 const ESCORT = 'B', RAID = 'A', CART = { hp: 100, speed: 2.3, hit: 1.5 };
@@ -153,11 +156,15 @@ function syncFighters() {
 }
 function clearWorld() {
   for (const id of [...fighters.keys()]) dropFighter(id);
-  pieces.clear(); piranhas.clear(); saws.clear(); birds.clear();
+  pieces.clear(); piranhas.clear(); saws.clear(); birds.clear(); killCamEnd(); for (const g of ghosts.values()) g.removeFrom(scene); ghosts.clear(); rec.length = 0;
 }
 
 // ---------- input ----------
 const keys = {};
+// rebindable keys: each action is known by its default key's code; settings.keys maps an action to the key now bound to it
+const ACTIONS = [['KeyW', 'Forward'], ['KeyS', 'Back'], ['KeyA', 'Left'], ['KeyD', 'Right'], ['Space', 'Jump'], ['ShiftLeft', 'Dash'], ['Tab', 'Scores']];
+const keyOf = (a) => settings.keys[a] || a;
+const actOf = (code) => { for (const [a] of ACTIONS) if (keyOf(a) === code) return a; return ACTIONS.some(([a]) => a === code) ? '' : code; }; // (a default key that has been given away does nothing)
 const mouse = { lmb: false, lmbT: 0, drag: 0, rmb: false, gx: 0, gy: 0 };
 // A tap is a quick slash; only holding the button past HOLD takes manual control of the sword. Until then
 // the mouse keeps turning the camera, so you can spam quick slashes while you look around.
@@ -205,14 +212,14 @@ const view = { yaw: 0, pitch: 0 }, twist = { yaw: 0, pitch: 0 };
 function viewDir(out) { const c = Math.cos(view.pitch); return out.set(-Math.sin(view.yaw) * c, Math.sin(view.pitch), -Math.cos(view.yaw) * c); }
 window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
-  keys[e.code] = true;
+  const code = actOf(e.code); if (code) keys[code] = true;
   if (['Space', 'Tab'].includes(e.code)) e.preventDefault();
   if (S.phase !== 'game' || !me) return;
-  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) { // dash: where you're looking; holding A or D, a side dash to the left or right (still carrying you forward if you hold W too)
+  if ((code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) { // dash: where you're looking; holding A or D, a side dash to the left or right (still carrying you forward if you hold W too)
     const st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), fw = keys.KeyW || keys.ArrowUp ? 1 : 0, v = viewDir(new THREE.Vector3());
     if (st) { const l = Math.hypot(v.x, v.z) || 1, fx = v.x / l, fz = v.z / l; if (tryDash(me, new THREE.Vector3(-fz * st + fx * fw * 0.55, 0.06, fx * st + fz * fw * 0.55))) { me.dashT *= 0.32; me.sideDash = true; } } else tryDash(me, v); } // (side dash: a short side-step, about a third of a dash, ending at a walk)
 });
-window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+window.addEventListener('keyup', (e) => { const code = actOf(e.code); if (code) keys[code] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.lmb = false; if (me && me.hook) releaseHook(me, false); });
 function lockPointer() { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } }
 document.addEventListener('pointerlockchange', () => {
@@ -819,12 +826,12 @@ function selfFell(f) {
   if (S.host) { if (applyKill(f.id, null, null, null, null, true)) net.broadcast({ t: 'kill', v: f.id, k: null, fell: 1 }); }
   else if (f === me) { if (applyKill(f.id, null, null, null, null, true)) net.send({ t: 'fell' }); }
 }
-let shake = 0, hitstop = 0, punch = 0;
+let shake = 0, hitstop = 0, punch = 0, myStreak = 0;
 function applyKill(vId, kId, n, pt, imp, fell) {
   const v = fighters.get(vId); if (!v || !v.alive) return false;
   if (v.boss && S.host && now() < (v.hitGrace || 0)) return false; // (the same swing can't cut a boss twice)
   if (v.boss && v.bossHp > 1 && S.host) { bossHurt(v, pt, imp, fell, kId); return false; } // (Boss Rush: bosses take several cuts)
-  v.alive = false; v.hook = null; v.diedAt = now(); v.anim = null;
+  v.alive = false; v.hook = null; v.diedAt = now(); v.anim = null; lastKill = { t: now(), at: (pt || v.pos).clone() };
   if (!fell && n) {
     v.pose(0);
     const soup = bakeMeshes(v.meshes);
@@ -864,9 +871,13 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
   feed(fell ? (sawn ? `${vn} was sawn in half` : lily ? `${vn} was snapped up by a lily pad` : birdy ? `${vn} was snatched by a giant bird` : eaten ? `${vn} was eaten by the piranha` : arena.fallText ? `${vn} ${arena.fallText(v.pos)}` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
-  if (vId === S.myId) { deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; deathA = ca; deathLook.copy(deathAt); overviewFrom(deathAt, deathOv); }
+  if (vId === S.myId) { myStreak = 0; deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; deathA = ca; deathLook.copy(deathAt); overviewFrom(deathAt, deathOv);
+    if (!fell && n && pt && kId && kId !== vId && killCamStart(kId, vId, n, pt, imp)) deathBy = 'Kill cam · ' + deathBy; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
+    if (vId !== S.myId) { myStreak++; // today's challenges
+      const done = [...track('kills'), ...track('streak', myStreak), ...(me && !me.onGround ? track('air') : []), ...(me && me.hook ? track('hook') : []), ...(me && now() - (me.dashAt || -9) < 1 ? track('dash') : [])];
+      for (const d of done) { feed(`<span style="color:var(--gold)">Daily challenge done: ${esc(d)}</span>`); sfx.gong(); } }
     const st = rosterGet(S.myId)?.streak || 0; if (bladeFor(st + 1) > bladeFor(st)) showBanner('BLADE GROWS');
   }
   if (S.host) {
@@ -1509,7 +1520,7 @@ function checkEnd() {
 function endMatch(winner) {
   S.ended = true;
   const res = { mode: S.mode, list: S.roster, wave: S.wave, winner: winner || null, q: !!(S.quick && S.online) };
-  net.broadcast({ t: 'end', res });
+  net.broadcast({ t: 'end', res }); finishMoment();
   const at = S.matchStart; setTimeout(() => { if (S.matchStart === at) showEnd(res); }, res.q ? 900 : 1500); // (not if a new match has started since)
   if (res.q) { // quick match: the next round (a new random mode and map) starts straight away, no waiting on a results screen
     const code = net.net.code;
@@ -1900,7 +1911,7 @@ function clientMsg(d) {
     for (const s of d.f) { const f = fighters.get(s[0]); if (f && f !== me) applyState(f, s.slice(1)); }
   } else if (d.t === 'spawn') { const f = fighters.get(d.id); if (f) spawn(f, vec(d.p), d.y); }
   else if (d.t === 'kill') { applyKill(d.v, d.k, d.n ? vec(d.n).normalize() : null, d.p ? vec(d.p) : null, d.i ? vec(d.i) : new THREE.Vector3(), !!d.fell); }
-  else if (d.t === 'end') { S.ended = true; const at = S.matchStart; setTimeout(() => { if (S.matchStart === at) showEnd(d.res); }, d.res && d.res.q ? 900 : 1500); } // (a quick match's next round may already be under way)
+  else if (d.t === 'end') { S.ended = true; finishMoment(); const at = S.matchStart; setTimeout(() => { if (S.matchStart === at) showEnd(d.res); }, d.res && d.res.q ? 900 : 1500); } // (a quick match's next round may already be under way)
   else if (d.t === 'lobby') { S.phase = 'lobby'; clearWorld(); showLobby(); }
   else if (d.t === 'wave') { S.wave = d.n; showBanner('WAVE ' + d.n); sfx.gong(); }
   else if (d.t === 'banner') showBanner(d.s);
@@ -1938,6 +1949,7 @@ const shop = initShop({ show, onClose: () => { setMetalEnv(gameEnv); show('home'
   for (const [x, y] of [[30, 112], [46, 118], [150, 114], [166, 106], [24, 96]]) { g.fillStyle = '#ffc23d'; g.beginPath(); g.ellipse(x, y, 9, 6, 0, 0, 7); g.fill(); g.fillStyle = '#b07e1c'; g.beginPath(); g.ellipse(x, y, 4, 2.5, 0, 0, 7); g.fill(); }
   $('shopThumb').src = c.toDataURL('image/jpeg', 0.88); }
 function updateCoinBadge() { $('coinBadge').textContent = profile.coins; }
+function renderProgress() { const el = $('progBox'); if (el) el.innerHTML = progressHtml(); }
 $('toShop').addEventListener('click', () => shop.open());
 updateCoinBadge();
 function show(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
@@ -1972,10 +1984,19 @@ $('pauseSettings').onclick = () => { settingsBack = 'pause'; openSettings(); };
 function openSettings() {
   show('settings');
   for (const [id, key] of [['sLook', 'look'], ['sBlade', 'blade'], ['sVol', 'vol']]) { $(id).value = settings[key]; $(id + 'V').textContent = (+settings[key]).toFixed(2); }
-  $('sQuality').value = settings.quality;
+  $('sQuality').value = settings.quality; $('sFov').value = settings.fov; $('sFovV').textContent = settings.fov; $('sAuto').checked = !!settings.autoQ; $('sCb').checked = !!settings.cb; renderKeys();
 }
 for (const [id, key] of [['sLook', 'look'], ['sBlade', 'blade'], ['sVol', 'vol']]) $(id).addEventListener('input', () => { settings[key] = +$(id).value; $(id + 'V').textContent = (+settings[key]).toFixed(2); if (key === 'vol') setVolume(settings.vol); saveSettings(); });
 $('sQuality').onchange = () => { settings.quality = $('sQuality').value; saveSettings(); };
+$('sFov').addEventListener('input', () => { settings.fov = +$('sFov').value; $('sFovV').textContent = settings.fov; saveSettings(); });
+$('sAuto').onchange = () => { settings.autoQ = $('sAuto').checked; if (!settings.autoQ) { AQ.scale = settings.aqScale = 1; AQ.lite = false; renderer.setPixelRatio(basePR); resize(); } saveSettings(); };
+$('sCb').onchange = () => { settings.cb = $('sCb').checked; teamColours(); saveSettings(); };
+let keyWait = null; // (the action waiting for its new key)
+const keyName = (c) => c.replace(/^Key|^Digit/, '').replace('ShiftLeft', 'Shift').replace('ControlLeft', 'Ctrl').replace('AltLeft', 'Alt').replace(/^Arrow/, 'Arrow ');
+function renderKeys() { $('sKeys').innerHTML = ACTIONS.map(([a, n]) => `<button data-a="${a}" style="padding:6px 10px">${n}: <b>${keyWait === a ? 'press a key…' : keyName(keyOf(a))}</b></button>`).join('') + '<button data-a="" style="padding:6px 10px">Reset</button>';
+  for (const b of $('sKeys').children) b.onclick = () => { if (!b.dataset.a) { settings.keys = {}; keyWait = null; saveSettings(); } else keyWait = b.dataset.a; renderKeys(); }; }
+window.addEventListener('keydown', (e) => { if (!keyWait) return; e.preventDefault(); e.stopImmediatePropagation(); // the next key pressed becomes that action's key (Escape cancels); whatever had it before swaps
+  if (e.code !== 'Escape') { for (const [a] of ACTIONS) if (a !== keyWait && keyOf(a) === e.code) settings.keys[a] = keyOf(keyWait); settings.keys[keyWait] = e.code; saveSettings(); } keyWait = null; renderKeys(); }, true);
 $('settingsDone').onclick = () => show(settingsBack);
 $('resumeBtn').onclick = () => { lockPointer(); };
 $('quitBtn').onclick = () => { leaveRoom(); toMenu(); };
@@ -2154,10 +2175,10 @@ function showEnd(res) {
   $('endTable').innerHTML = `<tr><th></th><th>Name</th>${pts ? `<th>${res.mode === 'hunt' ? 'Heads' : 'Points'}</th>` : ''}<th>Kills</th><th>Deaths</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}</td>${pts ? `<td>${r.pts || 0}</td>` : ''}<td>${r.k}</td><td>${r.d}</td></tr>`).join('');
   // coins: for playing a real match (not quitting straight out), kills, points or waves, and winning
   const mine = res.list.find((r) => r.id === S.myId), top = res.mode === 'lbs' || res.mode === 'lava' ? res.winner : list[0] && list[0].id;
-  let coins = 0; const bonus = [];
+  let coins = 0, won = false, xpLine = ''; const bonus = [];
   if (mine && now() - (S.matchStart || now()) > 40) {
     coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0) + (res.mode === 'boss' ? 25 * (mine.pts || 0) : 0);
-    if (res.mode === 'team' || res.mode === 'transport' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) coins += 30; // (Team Battle: everyone on the winning side)
+    if (res.mode === 'team' || res.mode === 'transport' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) { coins += 30; won = true; } // (Team Battle: everyone on the winning side)
     // bonuses: the bot difficulty (whenever there were bots, solo or online), and +10% per friend in the match (up to +30%)
     const bots = res.mode === 'horde' || res.list.some((r) => !r.human), friends = Math.min(3, res.list.filter((r) => r.human).length - 1);
     const dm = bots ? [0.75, 1, 1.3, 1.6, 2, 2.5, 3, 4][S.diff ?? 1] : 1, fm = 1 + 0.1 * Math.max(0, friends);
@@ -2166,9 +2187,12 @@ function showEnd(res) {
     if (dm !== 1) bonus.push(`${['Easy', 'Normal', 'Hard', 'Brutal', 'Nightmare', 'Shogun', 'Demon', 'Kami'][S.diff ?? 1]} x${dm}`);
     if (friends > 0) bonus.push(`${friends} friend${friends > 1 ? 's' : ''} +${friends * 10}%`);
     addCoins(coins);
+    { const done = [...track('matches'), ...(won ? track('wins') : []), ...(S.online ? track('online') : []), ...(SPECIAL[res.mode] ? track('special') : [])]; // experience, levels and today's challenges
+      const xp = 25 + 8 * mine.k + (won ? 40 : 0), up = addXp(xp);
+      xpLine = ` &middot; <b>+${xp} XP</b>` + (up.ups ? `<br><b style="color:var(--gold)">LEVEL UP: you are level ${up.lv} &middot; +${up.coins} coins</b>` : '') + done.map((d) => `<br><span style="color:var(--gold)">Daily challenge done: ${esc(d)}</span>`).join(''); }
   }
-  $('endCoins').innerHTML = coins ? `<b>+${coins} coins</b>${bonus.length ? ' (' + bonus.join(', ') + ')' : ''} &middot; you have ${profile.coins}` : 'Play a full match to earn coins';
-  updateCoinBadge();
+  $('endCoins').innerHTML = coins ? `<b>+${coins} coins</b>${bonus.length ? ' (' + bonus.join(', ') + ')' : ''} &middot; you have ${profile.coins}${xpLine}` : 'Play a full match to earn coins';
+  updateCoinBadge(); renderProgress();
   $('againBtn').classList.toggle('hidden', S.online && !S.host);
   $('againBtn').textContent = S.online ? 'Back to lobby' : 'Play again';
   if (res.q) { // quick match: no results screen; the result and your coins show as a banner, and the next round loads over it
@@ -2293,7 +2317,10 @@ function updateCamera(dt) {
     return;
   }
   arena.follow(me.alive ? me.pos : deathAt);
+  if (fin) { if (now() > fin.until || S.phase !== 'game') fin = null; else { const a = fin.a + (now() - fin.t0) * 0.6; // the finishing cut: swing round it
+    camPos.set(fin.at.x + Math.cos(a) * 6.5, fin.at.y + 2.4, fin.at.z + Math.sin(a) * 6.5); camera.position.lerp(camPos, 0.07); camera.lookAt(fin.at.x, fin.at.y + 0.8, fin.at.z); return; } }
   if (!me.alive) {
+    if (kcOn) return; // (the kill cam has the camera)
     const longWait = S.mode === 'lbs' || coop() || me.respawnAt === Infinity; // (out until the match or the wave is over)
     const since = now() - (me.diedAt || 0);
     if ((coop() || teamMode()) && (!deathEaten || since > 2.2)) { const g = spectateTarget(); if (g) { // follow a teammate, from behind and a little above
@@ -2325,7 +2352,7 @@ function updateCamera(dt) {
   if (shake > 0.001) camera.position.add(new THREE.Vector3((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake));
   camera.lookAt(pivot.x + look.x * 20, pivot.y + look.y * 20, pivot.z + look.z * 20);
   const sp = me.vel.length();
-  const fov = 72 + Math.min(14, Math.max(0, sp - 8) * 0.7) + punch * 4;
+  const fov = (settings.fov || 72) + Math.min(14, Math.max(0, sp - 8) * 0.7) + punch * 4;
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-6 * dt)); camera.updateProjectionMatrix();
   // crosshair shows when the hook has something to grab
   hookAimT -= dt;
@@ -2336,9 +2363,63 @@ function updateCamera(dt) {
   }
 }
 
+// ---------- kill cam and the slow-motion finish ----------
+// The game keeps a few seconds of everyone's movement (the same compact state the network sends). When a fighter cuts
+// you down, two stand-ins (your killer and you) act it out again at reduced speed, the cut itself slower still, seen
+// from over your killer's shoulder, while the real fight carries on unseen. It ends before you respawn.
+const rec = [], ghosts = new Map(); let recT = 0, kc = null, kcOn = false;
+function record(dt) {
+  recT -= dt; if (recT > 0) return; recT = 0.03; const m = new Map(), t = now();
+  for (const f of fighters.values()) if (f.alive) m.set(f.id, [f.pos.x, f.pos.y, f.pos.z, f.yaw, f.pitch, f.s.x, f.s.y, (f.dashT > 0 ? 2 : 0) | (f.onGround ? 4 : 0) | (f.anim && f.anim.phase === 'wind' ? 16 : 0), f.bladeLen]);
+  rec.push({ t, m }); while (rec.length && rec[0].t < t - 4) rec.shift();
+}
+function ghostOf(f) { let g = ghosts.get(f.id); if (!g) { g = new Fighter({ id: 'ghost', name: null, color: f.color, team: f.team, isBot: f.isBot, horde: f.horde, look: f.look }); g.addTo(scene); ghosts.set(f.id, g); } g.group.visible = false; return g; }
+function killCamStart(kId, vId, n, pt, imp) {
+  killCamEnd(); const k = fighters.get(kId), v = fighters.get(vId), t1 = now(), fr = rec.filter((r) => r.t > t1 - 1.5 && r.m.has(kId) && r.m.has(vId));
+  if (!k || !v || fr.length < 12) return false;
+  kc = { kId, vId, n: n.clone(), pt: pt.clone(), imp: imp ? imp.clone() : new THREE.Vector3(), fr, t: fr[0].t, t1: fr[fr.length - 1].t, at: t1 + 0.5, cut: false, hold: 0, cam: false, gk: ghostOf(k), gv: ghostOf(v) };
+  return true;
+}
+function killCamEnd() { if (kc) { kc.gk.group.visible = kc.gv.group.visible = false; kc.gk.trailMesh.visible = kc.gv.trailMesh.visible = false; } kc = null; }
+function ghostPose(g, id, t, dt) {
+  const fr = kc.fr; let i = 0; while (i < fr.length - 2 && fr[i + 1].t < t) i++;
+  const a = fr[i].m.get(id), b = fr[i + 1].m.get(id), span = fr[i + 1].t - fr[i].t || 1, u = Math.max(0, Math.min(1, (t - fr[i].t) / span)), L = (x, y) => x + (y - x) * u;
+  let dy = b[3] - a[3]; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+  g.pos.set(L(a[0], b[0]), L(a[1], b[1]), L(a[2], b[2])); g.vel.set((b[0] - a[0]) / span, (b[1] - a[1]) / span, (b[2] - a[2]) / span); g.yaw = a[3] + dy * u; g.pitch = L(a[4], b[4]); g.s.x = L(a[5], b[5]); g.s.y = L(a[6], b[6]);
+  g.onGround = !!(a[7] & 4); g.dashT = a[7] & 2 ? 0.1 : 0; g.anim = a[7] & 16 ? { phase: 'wind' } : null; g.bladeLen = a[8]; g.alive = true; g.group.visible = g.trailMesh.visible = true; g.pose(dt); g.updateTrail(t);
+}
+function killCamTick(dt) { // true while the replay is on screen
+  if (!kc) return false; if (!me || me.alive || S.phase !== 'game') { killCamEnd(); return false; } if (now() < kc.at) return false;
+  const sp = kc.cut ? 0.3 : kc.t > kc.t1 - 0.3 ? 0.35 : 0.7; kc.t += dt * sp;
+  if (!kc.cut) { const t = Math.min(kc.t, kc.t1); ghostPose(kc.gk, kc.kId, t, dt * sp); ghostPose(kc.gv, kc.vId, t, dt * sp);
+    if (kc.t >= kc.t1) { kc.cut = true; kc.gv.pose(0); const at = pieces.split(bakeMeshes(kc.gv.meshes), kc.n, -kc.n.dot(kc.pt), kc.gv.vel, kc.imp, 1); kc.gv.group.visible = false; if (at) sliceLines.emit(at, kc.n, camera); sfx.slice(kc.pt); } }
+  else { ghostPose(kc.gk, kc.kId, kc.t1, dt * sp); kc.hold += dt; if (kc.hold > 0.7) { killCamEnd(); return false; } }
+  const k = kc.gk.pos, v = kc.cut ? kc.pt : kc.gv.pos; _t.set(k.x - v.x, 0, k.z - v.z); const l = _t.length() || 1; _t.multiplyScalar(1 / l); // the camera: over the killer's shoulder, looking at you
+  camPos.set(k.x + _t.x * 3.2 - _t.z * 1.1, k.y + 2.1, k.z + _t.z * 3.2 + _t.x * 1.1); camera.position.lerp(camPos, kc.cam ? 0.12 : 1); kc.cam = true; camera.lookAt(v.x, v.y + (kc.cut ? 0 : 1.1), v.z);
+  return true;
+}
+// The cut that ends a match plays out in slow motion, the camera swinging round it.
+let slowUntil = 0, fin = null, lastKill = null;
+function finishMoment() {
+  slowUntil = now() + 1.3;
+  if (lastKill && now() - lastKill.t < 0.7 && me) { const d = _t.subVectors(camera.position, lastKill.at); fin = { at: lastKill.at.clone(), until: now() + 1.35, a: Math.atan2(d.z, d.x), t0: now() }; }
+}
+
 // ---------- main loop ----------
 let last = performance.now(), lastRaf = last, bgTick = false;
+// automatic quality: if the frame rate stays low, draw at a lower resolution (then, at the lowest, without shadows or
+// post-processing); it creeps back up only below a resolution that has already proved too much this session
+const AQ = { scale: settings.autoQ ? Math.max(0.5, Math.min(1, settings.aqScale || 1)) : 1, t0: 0, n: 0, bad: 0, good: 0, fail: 9, lite: false };
+function autoQuality(t) {
+  if (!settings.autoQ) return; if (!AQ.t0) { AQ.t0 = t; AQ.n = 0; return; } AQ.n++;
+  const el = (t - AQ.t0) / 1000; if (el < 2) return; const fps = AQ.n / el; AQ.t0 = t; AQ.n = 0; if (el > 4 || document.hidden) return; // (a stall or a hidden tab says nothing)
+  if (fps < 42) { AQ.good = 0; if (++AQ.bad < 2) return; AQ.bad = 0;
+    if (AQ.scale > 0.5) { AQ.fail = AQ.scale; AQ.scale = Math.max(0.5, AQ.scale - (fps < 28 ? 0.2 : 0.1)); } else if (fps < 30) AQ.lite = true; else return; }
+  else { AQ.bad = 0; if (fps < 57 || AQ.scale >= 1 || AQ.scale + 0.1 >= AQ.fail || ++AQ.good < 8) return; AQ.good = 0; AQ.scale = Math.min(1, AQ.scale + 0.1); }
+  settings.aqScale = AQ.scale; saveSettings(); renderer.setPixelRatio(basePR * AQ.scale); resize();
+}
 function frame(t) {
+  autoQuality(t);
   requestAnimationFrame(frame); lastRaf = performance.now();
   const rdt = Math.min(0.05, Math.max(0.0005, (t - last) / 1000)); last = t;
   tick(rdt, t / 1000);
@@ -2348,7 +2429,9 @@ function tick(rdt, tt) {
   if (arena.caravan) { const c = S.obj && S.obj.cart; if (c && S.phase === 'game') { if (!S.host && c.mv && !S.paused) c.s = Math.min(arena.caravan.len, c.s + CART.speed * c.mv / 2 * rdt); arena.caravan.update(c.s, c.hp, rdt, !!c.dead); } } // (Transport: the wagon follows the road; clients roll it on between the host's updates)
   if (arena.lavaTick) arena.lavaTick(S.phase === 'game' ? now() - (S.matchStart || now()) : 0, tt); // (Lava Climb: the lava rises)
   if (arena.cometTick && arena.cometTick(rdt, matchProgress(), S.ended)) { shake = Math.max(shake, 1.4); sfx.thunder(); sfx.thunder(); } // (Comet Crash: the planet looms; at the end, impact)
+  if (now() < slowUntil) rdt *= 0.3; // (the finishing cut, in slow motion)
   if (S.phase === 'game' && !S.paused) {
+    kcOn = killCamTick(rdt); record(rdt);
     if (S.host) hostTick(rdt);
     if (arena.tickPads) arena.tickPads(fighters.values(), now()); // (Bamboo Fort: spawn pads fall away once left)
     if (arena.tickHazards) arena.tickHazards([...fighters.values()].filter(isLocal));
@@ -2364,6 +2447,7 @@ function tick(rdt, tt) {
         const vy = view.yaw, fx = -Math.sin(vy), fz = -Math.cos(vy), rx = Math.cos(vy), rz = -Math.sin(vy); // move relative to the camera
         let wx = fx * fw + rx * st, wz = fz * fw + rz * st; const l = Math.hypot(wx, wz); if (l > 0) { wx /= l; wz /= l; }
         stepFighter(f, rdt, { x: wx, z: wz }, false, keys.Space && locked);
+        if (f.dashT > 0) f.dashAt = now();
         if (f.hook && !mouse.rmb) releaseHook(f, true);
         updateSword(f, rdt);
       } else if (S.host && f.isBot) {
@@ -2404,7 +2488,7 @@ function tick(rdt, tt) {
           if (w >= 0) gn.set(nx * w, 1, nz * w); f.tiltK = air ? (w === 1 ? 0.3 : 0.07) : 0.22; }
         else gn.set(0, 1, 0);
         f.planted = f.wall ? f.wall.n : null; }
-      f.group.visible = f.alive ? !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0) : f.eatenAt > now(); // (a fighter the piranha is about to eat stays in view)
+      f.group.visible = !kcOn && (f.alive ? !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0) : f.eatenAt > now()); // (a fighter the piranha is about to eat stays in view)
       // rope
       if (f.hook) f.grap.show(f.handL, f.hook.via || f.hook.p, rdt); else f.grap.hide();
       { const g0 = arena.groundHeight(f.pos.x, f.pos.z, f.pos.y + 0.5), h = f.pos.y - g0, bl = f.blob; bl.visible = f.alive && f.group.visible && isFinite(g0) && h < 7 && h > -0.5; // the soft shadow under the feet: wider and fainter the higher they are
@@ -2419,9 +2503,10 @@ function tick(rdt, tt) {
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it
   updateHud(rdt);
   $('vignette').style.boxShadow = me && !me.alive ? 'inset 0 0 200px rgba(140,0,0,.55)' : 'inset 0 0 160px rgba(160,0,0,0)';
-  if (!bgTick) { if (post) post.render(scene, camera, arena.atmo); else renderer.render(scene, camera); } // (a hidden host still runs the match, it just doesn't draw)
+  if (AQ.lite && arena.sun && arena.sun.castShadow) arena.sun.castShadow = false;
+  if (!bgTick) { if (post && !AQ.lite) post.render(scene, camera, arena.atmo); else renderer.render(scene, camera); } // (a hidden host still runs the match, it just doesn't draw)
 }
-show('home');
+show('home'); renderProgress();
 setVolume(settings.vol);
 $('clickPlay').onclick = () => { ensureAudio(); lockPointer(); };
 $('loading').remove();
