@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261117001149">
+<meta name="build" content="20261117001656">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -191,12 +191,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261117001149",
-  "./src/arena.js": "./src/arena.js?v=20261117001149",
-  "./src/fighter.js": "./src/fighter.js?v=20261117001149",
-  "./src/slice.js": "./src/slice.js?v=20261117001149",
-  "./src/audio.js": "./src/audio.js?v=20261117001149",
-  "./src/net.js": "./src/net.js?v=20261117001149"
+  "./src/main.js": "./src/main.js?v=20261117001656",
+  "./src/arena.js": "./src/arena.js?v=20261117001656",
+  "./src/fighter.js": "./src/fighter.js?v=20261117001656",
+  "./src/slice.js": "./src/slice.js?v=20261117001656",
+  "./src/audio.js": "./src/audio.js?v=20261117001656",
+  "./src/net.js": "./src/net.js?v=20261117001656"
 } }
 </script>
 </head>
@@ -242,6 +242,7 @@ window.severVersion.check();
       <button class="primary" id="playSolo">Play solo</button>
     </div>
     <button id="toShop" class="shopBig"><img id="shopThumb" alt=""><span class="shopTxt"><b>Shop</b><small>Masks, swords, outfits, upgrades</small></span><span class="shopCoins"><span class="coin"></span><span id="coinBadge">0</span></span></button>
+    <div class="row"><button id="toTutorial" class="wide">Training: learn the moves (2 min)</button></div>
     <div id="progBox" style="margin:10px 2px 4px"></div>
     <div class="row"><button id="toSettings" class="wide">Settings</button></div>
     </div>
@@ -358,6 +359,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261117001149"></script>
+<script type="module" src="src/main.js?v=20261117001656"></script>
 </body>
 </html>

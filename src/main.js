@@ -1,19 +1,19 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117001149';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117001149';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117001149';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117001149';
-import * as net from './net.js?v=20261117001149';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117001149';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117001149';
-import { makeKillFx } from './killfx.js?v=20261117001149';
-import { makeGrapple } from './grapple.js?v=20261117001149';
-import { initShop } from './shop.js?v=20261117001149';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117001149';
-import { portal } from './portal.js?v=20261117001149';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117001149';
-import { makePost } from './post.js?v=20261117001149';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117001149';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117001149';
+import { Arena, MAPS } from './arena.js?v=20261117001656';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117001656';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117001656';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117001656';
+import * as net from './net.js?v=20261117001656';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117001656';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117001656';
+import { makeKillFx } from './killfx.js?v=20261117001656';
+import { makeGrapple } from './grapple.js?v=20261117001656';
+import { initShop } from './shop.js?v=20261117001656';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117001656';
+import { portal } from './portal.js?v=20261117001656';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117001656';
+import { makePost } from './post.js?v=20261117001656';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117001656';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117001656';
 
 // ---------- settings ----------
 const store = {
@@ -955,7 +955,7 @@ function spawn(f, p, yaw) {
   sfx.spawn(p);
 }
 function hostSpawn(f) {
-  const p = spawnPoint(f), cv = S.mode === 'transport' && arena.caravan ? arena.caravan.pos : null, yaw = arena.runMode || arena.trainMap ? 0 : cv ? Math.atan2(-(cv.x - p.x), -(cv.z - p.z)) : Math.atan2(p.x, p.z); // (Transport: face the wagon) // face the centre (Branch Run: face the way the run goes)
+  const p = spawnPoint(f), cv = S.mode === 'transport' && arena.caravan ? arena.caravan.pos : null, yaw = arena.runMode || arena.trainMap || arena.tutMap ? 0 : cv ? Math.atan2(-(cv.x - p.x), -(cv.z - p.z)) : Math.atan2(p.x, p.z); // (Transport: face the wagon) // face the centre (Branch Run: face the way the run goes)
   spawn(f, p, yaw);
   if (arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo') f.rushUntil = now() + 12; // bots charge the centre after coming in
   net.broadcast({ t: 'spawn', id: f.id, p: arr(p), y: +yaw.toFixed(3) });
@@ -1495,7 +1495,7 @@ function matchProgress() {
   return Math.max(0, Math.min(1, p));
 }
 function checkEnd() {
-  if (S.ended || S.phase !== 'game') return;
+  if (S.ended || S.phase !== 'game' || S.mode === 'tutorial') return;
   if (S.mode === 'transport') { const c = S.obj && S.obj.cart; if (!c) return; if (arena.caravan && c.s >= arena.caravan.len - 0.01) endMatch(ESCORT); else if (c.hp <= 0 || S.timeLeft <= 0) endMatch(RAID); return; } // (the wagon home, or wrecked, or out of time)
   if (teamMode()) {
     const a = teamKills('A'), b = teamKills('B');
@@ -1529,7 +1529,7 @@ function endMatch(winner) {
   }
 }
 function hostTick(dt) {
-  const t = now();
+  const t = now(); if (S.mode === 'tutorial') tutorialTick();
   for (const f of fighters.values()) if (!f.alive && f.respawnAt <= t) hostSpawn(f);
   if (!coop()) {
     if (S.mode === 'boss') bossTick(dt);
@@ -1954,7 +1954,8 @@ const shop = initShop({ show, onClose: () => { setMetalEnv(gameEnv); show('home'
   for (const [x, y] of [[30, 112], [46, 118], [150, 114], [166, 106], [24, 96]]) { g.fillStyle = '#ffc23d'; g.beginPath(); g.ellipse(x, y, 9, 6, 0, 0, 7); g.fill(); g.fillStyle = '#b07e1c'; g.beginPath(); g.ellipse(x, y, 4, 2.5, 0, 0, 7); g.fill(); }
   $('shopThumb').src = c.toDataURL('image/jpeg', 0.88); }
 function updateCoinBadge() { $('coinBadge').textContent = profile.coins; }
-function renderProgress() { const el = $('progBox'); if (el) el.innerHTML = progressHtml(); }
+function renderProgress() { const el = $('progBox'); if (el) el.innerHTML = progressHtml(); $('toTutorial').classList.toggle('primary', !profile.tutDone); }
+$('toTutorial').onclick = () => startTutorial();
 $('toShop').addEventListener('click', () => shop.open());
 updateCoinBadge();
 function show(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
@@ -1973,7 +1974,7 @@ $('name').addEventListener('input', () => { settings.name = $('name').value.trim
 $('map').value = MAPS[settings.map] ? settings.map : 'spire';
 $('map').onchange = () => { settings.map = $('map').value; saveSettings(); }; // remember the map you picked
 // mode menus (home, host, lobby) all come from the one list of modes
-for (const id of ['mode', 'hostMode', 'lobbyModeSel']) $(id).innerHTML = Object.entries(MODES).filter(([k]) => id === 'mode' || !MODES[k].solo).map(([k, m]) => `<option value="${k}">${m.name}</option>`).join('');
+for (const id of ['mode', 'hostMode', 'lobbyModeSel']) $(id).innerHTML = Object.entries(MODES).filter(([k]) => k !== 'tutorial' && (id === 'mode' || !MODES[k].solo)).map(([k, m]) => `<option value="${k}">${m.name}</option>`).join('');
 $('mode').value = MODES[settings.mode] ? settings.mode : 'ffa';
 const showBlurb = () => { $('modeBlurb').textContent = MODES[$('mode').value].blurb; };
 $('mode').onchange = () => { settings.mode = $('mode').value; saveSettings(); $('hostMode').value = $('mode').value; showBlurb(); };
@@ -2147,7 +2148,7 @@ function enterGame() {
   lockPointer();
 }
 function toMenu() {
-  fx.clear(); S.obj = null; hideVote(); vote = null;
+  fx.clear(); S.obj = null; hideVote(); vote = null; tut = null; updateCoinBadge(); renderProgress();
   portal.gameplayStop(); S.phase = 'menu'; S.ended = false; clearWorld(); S.roster = [];
   $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
@@ -2236,6 +2237,7 @@ function updateHud(dt) {
     $('topbar').innerHTML = `Transport · ${clock(S.timeLeft)} · Wagon <span style="color:${hp > 50 ? '#5ad06a' : hp > 25 ? '#f0c040' : '#e04a3a'}">${hp}%</span> · ${pct}% of the way`;
     if (me && me.alive && mr) status = mr.team === ESCORT ? (c && !c.mv ? 'The wagon waits for its escort: walk beside it' : c && c.mv === 1 ? 'Raiders at the wagon: drive them off' : `You <span style="color:${TEAMS.B.css}">ESCORT</span> the wagon: keep it rolling, fight off the raiders`) : `You <span style="color:${TEAMS.A.css}">RAID</span>: hack the wagon apart before it reaches the village`; }
   else if (teamMode()) { const a = teamKills('A'), b = teamKills('B'), mt = mr && TEAMS[mr.team]; $('topbar').innerHTML = `Team Battle · ${clock(S.timeLeft)} · <span style="color:${TEAMS.A.css}">Red ${a}</span> – <span style="color:${TEAMS.B.css}">${b} Blue</span> · first to ${MODE_GOAL.team}`; if (me && me.alive && mt) status = `You are on <span style="color:${mt.css}">${mt.name.toUpperCase()}</span>`; }
+  else if (S.mode === 'tutorial') $('topbar').textContent = tut && !tut.done ? `Training · step ${Math.min(TUT.length, tut.step + 1)} of ${TUT.length}` : 'Training';
   else if (S.mode === 'ffa' || S.mode === 'run' || S.mode === 'train') $('topbar').innerHTML = `${S.mode === 'run' ? 'Branch Run · ' : S.mode === 'train' ? 'Bullet Train · ' : ''}${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
   else if (S.mode === 'koth') {
     $('topbar').innerHTML = `King of the Platform · ${clock(S.timeLeft)} · Throne moves in ${Math.ceil(Math.max(0, until.throne - now()))} s · ${lead}/${MODE_GOAL.koth}`;
@@ -2279,6 +2281,7 @@ function updateHud(dt) {
     const left = [...fighters.values()].filter((f) => f.isBot && f.alive).length + (S.host ? S.queue : 0);
     $('topbar').textContent = `Wave ${Math.max(1, S.wave)} · ${left} oni left`;
   }
+  if (S.mode === 'tutorial' && tut && !tut.done && TUT[tut.step]) status = TUT[tut.step][0];
   if (S.mode === 'train' && me && me.alive && arena.trainDanger) { // Bullet Train: warn of the tunnel coming (a horn and a banner), and of the arms
     const d = arena.trainDanger(me.pos), warn = d.tunnel > 0 && d.tunnel < 6;
     if (warn) status = `<span style="color:#ffb040;font-size:22px"><b>TUNNEL IN ${Math.ceil(d.tunnel)}</b></span> · get down into the flatbeds`;
@@ -2366,6 +2369,44 @@ function updateCamera(dt) {
     const o = camera.position.clone(), d = new THREE.Vector3(); camera.getWorldDirection(d); o.addScaledVector(d, camDist);
     $('xhair').classList.toggle('hook', !!arena.grappleTarget(o, d, HOOK_MAX));
   }
+}
+
+// ---------- training: the tutorial course (solo; see tutorial.js for the course itself) ----------
+// One prompt at a time. Each step ends when you have done the thing, or have reached the next platform anyway. The
+// one bot stands still as a dummy until the last step, when it is let loose as a sparring partner (on Easy).
+const TUT = [
+  ['Move with <b>W A S D</b> and look around with the <b>mouse</b>', (t) => me.pos.distanceTo(t.from) > 4],
+  ['Press <b>SPACE</b> to jump: cross the gap to the next platform', () => me.onGround && me.plat >= 1],
+  ['<b>Click</b> to slash, or <b>hold the left button and drag</b> to swing the blade yourself: cut the dummy in the gold ring', (t) => t.bot && rosterGet(t.bot.id).d > t.d0],
+  ['Press <b>SHIFT</b> to dash where you are looking', (t) => t.dash > 0],
+  ['Hold <b>A</b> or <b>D</b> and press <b>SHIFT</b> for a short side dash', (t) => t.dash === 2],
+  ['Aim at the gold ledge ahead and <b>hold the right mouse button</b>: your hook pulls you up to it', () => me.onGround && me.plat >= 2],
+  ['Cross to the last platform: <b>jump at the wall</b> to plant on it, then <b>SPACE</b> again to push off (or dash, or hook across)', () => me.onGround && me.plat >= 3],
+  ['Your sparring partner is ready: <b>cut them down</b>', (t) => t.bot && rosterGet(t.bot.id).d > t.d0],
+];
+let tut = null;
+function startTutorial() {
+  S.noUp = false; ensureAudio(); leaveRoom(); net.dirStop();
+  S.mode = 'tutorial'; S.map = 'tutorial'; S.bots = 1; S.diff = 0;
+  S.roster = [newRosterEntry('host', settings.name || 'Ronin', true, profile.equip, profile.up)];
+  startMatch(); tut = { step: -1, cp: 0 }; tutNext();
+}
+function tutNext() {
+  const t = tut; t.step++; t.from = me ? me.pos.clone() : new THREE.Vector3(); t.bot = [...fighters.values()].find((f) => f.isBot) || null; t.d0 = t.bot ? rosterGet(t.bot.id).d : 0; t.dash = 0;
+  if (t.step > 0) sfx.gong();
+  if (t.step === 7 && t.bot) { t.bot.pos.copy(arena.arenaAt); t.bot.vel.set(0, 0, 0); if (!t.bot.alive) t.bot.respawnAt = now() + 0.5; }
+  if (t.step < TUT.length) return;
+  showBanner('TRAINING COMPLETE'); t.done = now();
+  if (!profile.tutDone) { profile.tutDone = true; addCoins(100); const up = addXp(60); feed(`<span style="color:var(--gold)">Training complete: +100 coins, +60 XP${up.ups ? ` · level ${up.lv}` : ''}</span>`); }
+  setTimeout(() => { if (S.mode === 'tutorial' && S.phase === 'game') toMenu(); }, 3500);
+}
+const tutHold = (f) => S.mode === 'tutorial' && !!tut && f.isBot && tut.step < 7;
+function tutorialTick() {
+  const t = tut; if (!t || !me || t.done) return;
+  if (me.alive && me.onGround && me.plat != null) t.cp = Math.max(t.cp, me.plat); arena.cp = t.step >= 7 ? 3 : t.cp;
+  if (!me.alive && me.respawnAt > now() + 1) me.respawnAt = now() + 1; // (straight back in)
+  const d = me.dashT > 0; if (d && !t.was) t.dash = keys.KeyA || keys.KeyD ? 2 : 1; t.was = d;
+  if (me.alive && TUT[t.step][1](t)) tutNext();
 }
 
 // ---------- host migration ----------
@@ -2541,6 +2582,8 @@ function tick(rdt, tt) {
         if (f.dashT > 0) f.dashAt = now();
         if (f.hook && !mouse.rmb) releaseHook(f, true);
         updateSword(f, rdt);
+      } else if (S.host && f.isBot && tutHold(f)) { // (training: the dummy stands in its ring, facing you)
+        f.pos.copy(arena.dummyAt); f.vel.set(0, 0, 0); f.onGround = true; f.prot = 0; if (me) f.yaw = Math.atan2(-(me.pos.x - f.pos.x), -(me.pos.z - f.pos.z));
       } else if (S.host && f.isBot) {
         const b = botUnstick(f, botThink(f, rdt), rdt);
         stepFighter(f, rdt, f.padFlight ? { x: 0, z: 0 } : b.wish, b.sprint, b.jump || botAirJump(f));
