@@ -1,19 +1,19 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117000651';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117000651';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117000651';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117000651';
-import * as net from './net.js?v=20261117000651';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117000651';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117000651';
-import { makeKillFx } from './killfx.js?v=20261117000651';
-import { makeGrapple } from './grapple.js?v=20261117000651';
-import { initShop } from './shop.js?v=20261117000651';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117000651';
-import { portal } from './portal.js?v=20261117000651';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117000651';
-import { makePost } from './post.js?v=20261117000651';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117000651';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117000651';
+import { Arena, MAPS } from './arena.js?v=20261117001149';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117001149';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117001149';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117001149';
+import * as net from './net.js?v=20261117001149';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117001149';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117001149';
+import { makeKillFx } from './killfx.js?v=20261117001149';
+import { makeGrapple } from './grapple.js?v=20261117001149';
+import { initShop } from './shop.js?v=20261117001149';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117001149';
+import { portal } from './portal.js?v=20261117001149';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117001149';
+import { makePost } from './post.js?v=20261117001149';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117001149';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117001149';
 
 // ---------- settings ----------
 const store = {
@@ -214,6 +214,7 @@ window.addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
   const code = actOf(e.code); if (code) keys[code] = true;
   if (['Space', 'Tab'].includes(e.code)) e.preventDefault();
+  if (voteOn() && /^Digit[123]$/.test(e.code)) sendPick(+e.code[5] - 1); // (quick match: vote for the next map)
   if (S.phase !== 'game' || !me) return;
   if ((code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) { // dash: where you're looking; holding A or D, a side dash to the left or right (still carrying you forward if you hold W too)
     const st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), fw = keys.KeyW || keys.ArrowUp ? 1 : 0, v = viewDir(new THREE.Vector3());
@@ -1457,7 +1458,7 @@ function fillBots() {
   const names = BOT_NAMES.filter((n) => !S.roster.some((r) => r.name === n));
   while (bots.length < want) { const e = newRosterEntry('b' + (++S.seq), names.shift() || 'Bot', false); S.roster.push(e); bots.push(e); }
 }
-function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
+function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave, q: !!S.quick, pub: !!S.pub, bots: S.bots, hid: S.myId }); renderLobby(); }
 function startMatch() {
   const SP = ['lava', 'run', 'transport', 'train'];
   for (const sp of SP) { if (S.mode === sp) S.map = sp; else if (S.map === sp) S.mode = sp; } // (special maps: the mode and its map go together)
@@ -1524,7 +1525,7 @@ function endMatch(winner) {
   const at = S.matchStart; setTimeout(() => { if (S.matchStart === at) showEnd(res); }, res.q ? 900 : 1500); // (not if a new match has started since)
   if (res.q) { // quick match: the next round (a new random mode and map) starts straight away, no waiting on a results screen
     const code = net.net.code;
-    setTimeout(() => { if (S.quick && S.host && S.online && net.net.code === code && S.phase === 'end') { quickRoll(); startMatch(); } }, QUICK_GAP * 1000);
+    setTimeout(() => { if (S.quick && S.host && S.online && net.net.code === code && S.phase === 'end') startVote(); }, QUICK_GAP * 1000); // (five seconds to vote for the next map: see startVote)
   }
 }
 function hostTick(dt) {
@@ -1870,7 +1871,7 @@ net.onNet({
     for (const f of fighters.values()) if (!f.alive && f.isBot && !coop() && S.mode !== 'lbs' && f.respawnAt === Infinity && S.phase === 'game') f.respawnAt = now() + 1;
     sendRoster(); if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); }
   },
-  closed() { toast('The host closed the room.'); toMenu(); },
+  closed() { hostLost(); },
 });
 function hostMsg(from, d) {
   if (d.t === 'hello') {
@@ -1885,6 +1886,7 @@ function hostMsg(from, d) {
     sendRoster(); if (S.online) { net.dirSetRoom(roomInfo()); portalRoom(); }
     return;
   }
+  if (d.t === 'pick') { votePick(from, d.i | 0); return; }
   const f = fighters.get(from); if (!f) return;
   if (d.t === 'p' && Array.isArray(d.s)) applyState(f, d.s);
   else if (d.t === 'yank' && typeof d.v === 'string') yankStart(d.v, from); // (a player hooked an enemy)
@@ -1902,9 +1904,12 @@ function hostMsg(from, d) {
   else if (d.t === 'sawn' && Array.isArray(d.n) && Array.isArray(d.p)) { const n = vec(d.n).normalize(), p = vec(d.p), i = new THREE.Vector3(n.x * 3, 2, n.z * 3); if (applyKill(from, null, n, p, i)) net.broadcast({ t: 'kill', v: from, k: null, n: arr(n), p: arr(p), i: arr(i) }, from); }
 }
 function clientMsg(d) {
+  S.migAt = 0; S.lastHost = now(); // (the host is talking to us)
+  if (d.t === 'vote' && Array.isArray(d.opts) && d.opts.length === 3 && d.opts.every((m) => MAPS[m]) && MODES[d.mode]) { showVote(d.opts, d.mode); return; }
+  if (d.t === 'votes' && Array.isArray(d.c)) { voteCounts(d.c); return; }
   if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = []; if (d.obj) applyObj(d.obj); for (const [s, y] of d.bamboo || []) cutBamboo(s, y); for (const c of d.brk || []) smashChunk(c[0], c[1], c[2]); syncFighters(); enterGame(); } else showLobby(); }
   else if (d.t === 'full') { toast('That room is full.'); toMenu(); }
-  else if (d.t === 'roster') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.noUp = !!d.noUp; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
+  else if (d.t === 'roster') { S.mig = { q: !!d.q, pub: d.pub !== false, bots: Number.isInteger(d.bots) ? d.bots : null }; if (typeof d.hid === 'string') S.hostId = d.hid; S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.noUp = !!d.noUp; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
   else if (d.t === 'start') { S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.noUp = !!d.noUp; S.map = d.map || 'spire'; useMap(S.map); clearWorld(); fx.clear(); S.obj = null; S.bambooCuts = []; S.brkCuts = []; syncFighters(); enterGame(); }
   else if (d.t === 's') {
     S.timeLeft = d.tl; S.wave = d.wv;
@@ -2117,13 +2122,13 @@ async function joinRoom(code) {
   toast('Joining ' + code + '…');
   try {
     await net.join(code);
-    S.online = true; S.host = false; S.quick = false; S.roomCode = code; net.dirStop(); portal.room(code, true);
+    S.online = true; S.host = false; S.quick = false; S.lastHost = now(); S.roomCode = code; net.dirStop(); portal.room(code, true);
     net.send({ t: 'hello', name: settings.name || 'Ronin', look: profile.equip, up: profile.up }); return true;
   } catch (e) { toast(e.message || "Couldn't join that room."); return false; }
 }
 function leaveRoom() {
   if (S.online) { net.dirSetRoom(null); net.leave(); net.dirStop(); portal.leftRoom(); }
-  S.online = false; S.host = true; S.quick = false; S.myId = 'host';
+  S.online = false; S.host = true; S.quick = false; S.myId = 'host'; S.hostId = 'host'; S.mig = null; S.migAt = 0;
 }
 function startSolo(mode) {
   S.noUp = false; // (your upgrades always count against bots)
@@ -2142,7 +2147,7 @@ function enterGame() {
   lockPointer();
 }
 function toMenu() {
-  fx.clear(); S.obj = null;
+  fx.clear(); S.obj = null; hideVote(); vote = null;
   portal.gameplayStop(); S.phase = 'menu'; S.ended = false; clearWorld(); S.roster = [];
   $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
@@ -2363,6 +2368,90 @@ function updateCamera(dt) {
   }
 }
 
+// ---------- host migration ----------
+// If the host drops, the room carries on. Every remaining player works out the same successor from the roster (the
+// lowest player id); that player takes over as host and the others reconnect to them. The match continues from what
+// every player already has: the roster and scores, the clock, the objective. The new host runs the bots from where
+// they stand. (Horde and ChopSocky keep too much on the host alone: those go back to the lobby instead.)
+// A closed tab can take half a minute to show up as a dropped connection, so the host also sends a heartbeat every
+// second (from the background timer too): seven seconds of silence and the players move on without it.
+let hbT = 0;
+function heartbeat() {
+  const t = now(); if (!S.online || t - hbT < 1) return; hbT = t;
+  if (S.host) net.broadcast({ t: 'hb' }); else if (!S.migAt && S.lastHost && t - S.lastHost > 7) hostLost();
+}
+function hostLost() { if (S.host || !S.online) return; if (!migrate()) { leaveRoom(); toast('The host closed the room.'); toMenu(); } }
+function migrate() {
+  if (!S.online || S.host || !['game', 'lobby', 'end'].includes(S.phase)) return false;
+  const old = S.hostId || 'host', next = S.roster.filter((r) => r.human && r.id !== old).map((r) => r.id).sort()[0];
+  if (!next) return false;
+  S.roster = S.roster.filter((r) => r.id !== old); if (S.obj && S.obj.jugg === old) S.obj.jugg = null;
+  S.hostId = next;
+  if (next !== S.myId) { // someone else takes over: reconnect to them
+    toast('The host left: moving to a new host…'); syncFighters(); S.migAt = S.lastHost = now();
+    net.rejoin(next).catch(() => { if (S.online && !S.host) { leaveRoom(); toast('The host closed the room.'); toMenu(); } });
+    return true;
+  }
+  if (!net.becomeHost(S.roomCode)) return false;
+  const M = S.mig || {};
+  S.host = true; S.quick = !!M.q; S.pub = M.pub !== false; if (M.bots != null) S.bots = M.bots; S.migAt = 0;
+  S.seq = Math.max(0, ...S.roster.map((r) => +(/^b(\d+)$/.exec(r.id) || [0, 0])[1])); // (new bots must not reuse a name tag)
+  toast('The host left: you are the host now');
+  if (S.phase === 'game' && (S.mode === 'horde' || S.mode === 'boss')) { S.phase = 'lobby'; clearWorld(); S.roster = S.roster.filter((r) => r.human); }
+  if (S.phase === 'game') { fillBots(); syncFighters();
+    for (const f of fighters.values()) { if (f !== me) f.net = f.isBot ? null : f.net; if (!f.alive && f.respawnAt === Infinity && !['lbs', 'lava'].includes(S.mode)) f.respawnAt = now() + 2; }
+  } else { syncFighters(); if (S.phase === 'lobby') showLobby(); else { $('againBtn').classList.remove('hidden'); if (S.quick) setTimeout(() => { if (S.quick && S.host && S.online && S.phase === 'end') startVote(); }, 1200); } }
+  sendRoster(); net.dirStart(onRooms); net.dirSetRoom(roomInfo()); portalRoom();
+  setTimeout(() => { // anyone who went down with the old host and never arrived leaves the roster
+    if (!S.online || !S.host) return; const gone = S.roster.filter((r) => r.human && r.id !== S.myId && !net.net.conns.has(r.id)); if (!gone.length) return;
+    S.roster = S.roster.filter((r) => !gone.includes(r)); if (S.phase === 'game' || S.phase === 'end') fillBots(); syncFighters(); sendRoster(); net.dirSetRoom(roomInfo());
+  }, 12000);
+  return true;
+}
+
+// ---------- quick match: vote for the next map ----------
+// Between rounds everyone gets five seconds to pick one of three maps (click a card or press 1, 2 or 3). The map with
+// the most votes is played, so a single vote is enough; a tie goes to one of the leaders at random, and if nobody
+// votes the map is random as before. The mode is rolled at random and shown with the vote.
+let vote = null, voteEl = null, voteEnds = 0;
+const voteOn = () => !!voteEl && voteEl.style.display !== 'none';
+function showVote(opts, mode) {
+  if (!voteEl) { voteEl = document.createElement('div'); voteEl.style.cssText = 'position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:30;display:flex;flex-direction:column;align-items:center;gap:10px;max-width:96vw'; document.body.appendChild(voteEl); }
+  voteEnds = performance.now() + 5000;
+  voteEl.innerHTML = `<div style="background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:8px 16px;font-size:16px">Next: <b>${esc(MODES[mode].name)}</b> &middot; vote for the map &middot; <b id="voteT">5</b></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">`
+    + opts.map((id, i) => `<button data-i="${i}" style="padding:6px;border-radius:12px;background:var(--glass);border:1px solid var(--line);color:var(--ink);cursor:pointer"><img src="${thumb(id)}" alt="" style="width:min(200px,26vw);aspect-ratio:16/9;object-fit:cover;display:block;border-radius:8px"><span style="display:block;margin-top:5px;font-size:14px"><b style="color:var(--gold)">${i + 1}</b> ${esc(MAPS[id].name)}<span class="vc"></span></span></button>`).join('') + '</div>';
+  for (const b of voteEl.querySelectorAll('button')) b.onclick = () => { sendPick(+b.dataset.i); lockPointer(); };
+  voteEl.style.display = 'flex';
+}
+function hideVote() { if (voteEl) voteEl.style.display = 'none'; }
+function sendPick(i) {
+  if (!voteOn()) return;
+  for (const b of voteEl.querySelectorAll('button')) b.style.outline = +b.dataset.i === i ? '3px solid var(--gold)' : 'none';
+  if (S.host) votePick(S.myId, i); else net.send({ t: 'pick', i });
+}
+function voteCounts(c) { if (voteEl) voteEl.querySelectorAll('.vc').forEach((e, i) => { e.textContent = c[i] ? ` · ${c[i]} vote${c[i] > 1 ? 's' : ''}` : ''; }); }
+function startVote() { // (host)
+  const pick = (a) => a[(Math.random() * a.length) | 0], maps = Object.keys(MAPS).filter((k) => !SPECIAL[k] && k !== S.map), opts = [];
+  while (opts.length < 3) { const m = pick(maps); if (!opts.includes(m)) opts.push(m); }
+  let mode, n = 0; do { mode = pick(QUICK_MODES); } while (mode === S.mode && ++n < 6);
+  vote = { opts, mode, picks: new Map(), until: now() + 5, code: net.net.code };
+  net.broadcast({ t: 'vote', opts, mode }); showVote(opts, mode);
+}
+function votePick(id, i) { // (host)
+  if (!vote || !(i >= 0 && i < 3)) return; vote.picks.set(id, i);
+  const c = [0, 0, 0]; for (const v of vote.picks.values()) c[v]++; net.broadcast({ t: 'votes', c }); voteCounts(c);
+  if (vote.picks.size >= S.roster.filter((r) => r.human).length) vote.until = Math.min(vote.until, now() + 0.5); // (everyone has voted: no need to wait)
+}
+function voteTick() {
+  if (voteOn()) { const el = $('voteT'); if (el) el.textContent = Math.max(0, Math.ceil((voteEnds - performance.now()) / 1000)); if (S.phase === 'game' && !S.ended) hideVote(); }
+  if (!vote || now() < vote.until) return;
+  const v = vote; vote = null;
+  if (!(S.quick && S.host && S.online && net.net.code === v.code && S.phase === 'end')) { hideVote(); return; }
+  const c = [0, 0, 0]; for (const x of v.picks.values()) c[x]++; const top = Math.max(...c);
+  if (top > 0) { const best = [0, 1, 2].filter((i) => c[i] === top); S.map = v.opts[best[(Math.random() * best.length) | 0]]; S.mode = v.mode; } else quickRoll();
+  hideVote(); startMatch();
+}
+
 // ---------- kill cam and the slow-motion finish ----------
 // The game keeps a few seconds of everyone's movement (the same compact state the network sends). When a fighter cuts
 // you down, two stand-ins (your killer and you) act it out again at reduced speed, the cut itself slower still, seen
@@ -2419,7 +2508,7 @@ function autoQuality(t) {
   settings.aqScale = AQ.scale; saveSettings(); renderer.setPixelRatio(basePR * AQ.scale); resize();
 }
 function frame(t) {
-  autoQuality(t);
+  autoQuality(t); heartbeat();
   requestAnimationFrame(frame); lastRaf = performance.now();
   const rdt = Math.min(0.05, Math.max(0.0005, (t - last) / 1000)); last = t;
   tick(rdt, t / 1000);
@@ -2429,6 +2518,8 @@ function tick(rdt, tt) {
   if (arena.caravan) { const c = S.obj && S.obj.cart; if (c && S.phase === 'game') { if (!S.host && c.mv && !S.paused) c.s = Math.min(arena.caravan.len, c.s + CART.speed * c.mv / 2 * rdt); arena.caravan.update(c.s, c.hp, rdt, !!c.dead); } } // (Transport: the wagon follows the road; clients roll it on between the host's updates)
   if (arena.lavaTick) arena.lavaTick(S.phase === 'game' ? now() - (S.matchStart || now()) : 0, tt); // (Lava Climb: the lava rises)
   if (arena.cometTick && arena.cometTick(rdt, matchProgress(), S.ended)) { shake = Math.max(shake, 1.4); sfx.thunder(); sfx.thunder(); } // (Comet Crash: the planet looms; at the end, impact)
+  voteTick();
+  if (S.migAt && now() - S.migAt > 20 && S.online && !S.host) { leaveRoom(); toast('Lost the room.'); toMenu(); } // (the new host never took over)
   if (now() < slowUntil) rdt *= 0.3; // (the finishing cut, in slow motion)
   if (S.phase === 'game' && !S.paused) {
     kcOn = killCamTick(rdt); record(rdt);
@@ -2516,7 +2607,7 @@ requestAnimationFrame(frame);
 // A worker's timer keeps ticking in the background: while hidden and hosting online, it drives the game instead.
 try {
   const w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 16)'], { type: 'text/javascript' })));
-  w.onmessage = () => { const t = performance.now(); if (t - lastRaf < 100 || !S.online || !S.host) return; const rdt = Math.min(0.05, Math.max(0.0005, (t - last) / 1000)); last = t; bgTick = true; tick(rdt, t / 1000); bgTick = false; };
+  w.onmessage = () => { heartbeat(); const t = performance.now(); if (t - lastRaf < 100 || !S.online || !S.host) return; const rdt = Math.min(0.05, Math.max(0.0005, (t - last) / 1000)); last = t; bgTick = true; tick(rdt, t / 1000); bgTick = false; };
 } catch (e) { /* no workers: hidden hosts fall back to the browser's throttled timers */ }
 // handy for debugging in the console
 window.__sever = { S, fighters, pieces, scene, post, get arena() { return arena; }, camera, renderer, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };

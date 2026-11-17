@@ -30,12 +30,7 @@ export async function host() {
     try { peer = await newPeer(PREFIX + code); }
     catch (e) { if (e && e.type === 'unavailable-id') continue; throw e; }
     Object.assign(net, { mode: 'host', peer, code, myId: 'host', host: null });
-    peer.on('connection', (conn) => {
-      conn.on('open', () => net.conns.set(conn.peer, conn));
-      conn.on('data', (d) => handlers.message(conn.peer, d));
-      conn.on('close', () => { if (net.conns.delete(conn.peer)) handlers.leave(conn.peer); });
-      conn.on('error', () => {});
-    });
+    peer.on('connection', accept);
     // Losing the matchmaking server doesn't drop players already connected; try to get it back for new joiners.
     peer.on('disconnected', () => { if (net.peer === peer) try { peer.reconnect(); } catch (e) { /* ignore */ } });
     return code;
@@ -58,7 +53,8 @@ export async function join(code) {
       resolve();
     });
     conn.on('data', (d) => handlers.message('host', d));
-    conn.on('close', () => { if (net.mode === 'client' && net.host === conn) { leave(); handlers.closed(); } });
+    conn.on('close', () => { if (net.mode === 'client' && net.host === conn) handlers.closed(); }); // (the game decides: carry on under a new host, or leave)
+    early.length = 0; peer.on('connection', accept); // (if the host drops and we take over, the others connect to us)
   });
 }
 
@@ -67,7 +63,46 @@ export function broadcast(msg, except) { for (const [id, c] of net.conns) if (id
 export function sendTo(id, msg) { const c = net.conns.get(id); if (c && c.open) c.send(msg); }
 export function kick(id) { const c = net.conns.get(id); if (c) { net.conns.delete(id); setTimeout(() => c.close(), 300); } }
 
+// ---------- host migration ----------
+// Every player's browser will accept connections, though only a host does anything with them. If the host drops, the
+// game picks the player to take over (see migrate in main.js): that player calls becomeHost, the rest call rejoin.
+const early = []; // connections that arrived before we knew we were the host
+function wire(conn) {
+  const ready = () => net.conns.set(conn.peer, conn); if (conn.open) ready(); else conn.on('open', ready);
+  conn.on('data', (d) => handlers.message(conn.peer, d));
+  conn.on('close', () => { if (net.conns.delete(conn.peer)) handlers.leave(conn.peer); });
+  conn.on('error', () => {});
+}
+function accept(conn) { if (net.mode === 'host') wire(conn); else early.push(conn); }
+/** Take over as host with the connection we already have; also try to claim the room's own address, so new players can still join by code. */
+export function becomeHost(code) {
+  const peer = net.peer; if (!peer || peer.destroyed) return false;
+  Object.assign(net, { mode: 'host', host: null, code, myId: peer.id }); net.conns.clear();
+  for (const c of early.splice(0)) wire(c);
+  let tries = 0; const claim = () => { if (net.peer !== peer || net.mode !== 'host') return;
+    const p2 = new window.Peer(PREFIX + code, { debug: 0 });
+    p2.on('open', () => { if (net.peer !== peer) { p2.destroy(); return; } net.peer2 = p2; p2.on('connection', accept); });
+    p2.on('error', () => { try { p2.destroy(); } catch (e) { /* ignore */ } if (!net.peer2 && ++tries < 10) setTimeout(claim, 4000); }); };
+  setTimeout(claim, 2500);
+  return true;
+}
+/** Reconnect to the player who is taking over as host (by their id). */
+export function rejoin(id) {
+  const peer = net.peer;
+  return new Promise((resolve, reject) => {
+    if (!peer || peer.destroyed) { reject(new Error('gone')); return; }
+    let tries = 0, done = false; net.host = null; // (the old host's connection closing later means nothing now)
+    const attempt = () => { const conn = peer.connect(id, { reliable: true });
+      const t = setTimeout(() => { if (done) return; try { conn.close(); } catch (e) { /* ignore */ } if (++tries < 4 && net.peer === peer) attempt(); else reject(new Error('no host')); }, 3000);
+      conn.on('open', () => { if (done) return; done = true; clearTimeout(t); net.host = conn; net.mode = 'client'; resolve(); });
+      conn.on('data', (d) => handlers.message('host', d));
+      conn.on('close', () => { if (net.mode === 'client' && net.host === conn) handlers.closed(); }); };
+    attempt();
+  });
+}
+
 export function leave() {
+  if (net.peer2) { try { net.peer2.destroy(); } catch (e) { /* ignore */ } net.peer2 = null; } early.length = 0;
   const p = net.peer;
   Object.assign(net, { mode: null, peer: null, host: null, code: null, myId: null });
   net.conns.clear();
