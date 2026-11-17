@@ -14,7 +14,7 @@ const LOOK = {
   plateaus: { env: 0.45, haze: [[0xffb070, 0.34, -0.5]], shafts: [0xffc080, 0.13, 8], custom: plateauLook },
   tilt: { env: 0.7, wet: 0.5, haze: [[0x4a6aff, 0.3, -0.7]] },
   canopy: { custom: fireflies(0xb8ff70, 420, 1.3), bump: 3, env: 0.6, wet: 0.5, haze: [[0xc8f0a0, 0.3, -0.3], [0x9ad0a0, 0.18, 0.2]], shafts: [0xf4ffc0, 0.16, 12] },
-  grove: { custom: fireflies(0xffc060, 260, 1.2), bump: 1.6, env: 0.5, wet: 0.7, haze: [[0xffc890, 0.32, -0.5]], shafts: [0xffd0a0, 0.15, 9], flat: true },
+  grove: { custom: fireflies(0xb8ff70, 300, 1.2), bump: 1.6, env: 0.55, wet: 0.6, shafts: [0xf4ffc0, 0.15, 10], flat: true },
   run: { custom: (A, T) => motes(A, T, { n: 300, color: 0xb8ff70, size: 1.2, flat: true }), bump: 2.2, env: 0.5, wet: 0.65, shafts: [0xe8ffb0, 0.13, 10], flat: true },
   isles: { env: 0.7, wet: 0.45, haze: [[0x6a58ff, 0.34, -0.5]] },
   bamboo: { custom: fireflies(0xe0ff80, 300, 1.0), env: 0.55, wet: 0.6, haze: [[0xd8f0a8, 0.26, -0.4]], shafts: [0xf0ffc0, 0.14, 9] },

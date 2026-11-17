@@ -7,8 +7,8 @@ const TAU = Math.PI * 2;
 
 export function buildGrove(A, T) {
   const S = A.scene, r = T.rng(7171);
-  A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -22;
-  A.setSky({ top: 0x7a5a8a, mid: 0xf0a26a, bot: 0xa0603a, fog: 0xe8a070, near: 70, far: 260, hemiSky: 0xffd8b0, hemiGround: 0x5a4030, hemi: 1.2, sunColor: 0xffb070, sun: 2.4, sunOff: new THREE.Vector3(-70, 22, -45) });
+  A.plats = []; A.pillars = []; A.arcPts = []; A.killY = -26; A.water = -35; // (a dark swamp below, as under the Great Canopy: fall in and the piranha has you)
+  A.setSky({ top: 0x4a7a50, mid: 0x7d9c74, bot: 0x35553a, fog: 0x7b9a72, near: 45, far: 240, hemiSky: 0xd8f0c8, hemiGround: 0x2b3622, hemi: 0.95, sunColor: 0xffe7b8, sun: 1.7, sunOff: new THREE.Vector3(25, 55, 12) }); // (green forest light under a leafy roof)
 
   // ---- textures: deeply furrowed old bark (twisting), packed dust, clipped foliage
   const bark = T.canvasTex((g, s) => {
@@ -23,7 +23,12 @@ export function buildGrove(A, T) {
 
   // ---- no floor: the trees rise out of a sea of warm mist far below (fall into it and you're gone)
   const plats = A.plats;
-  { const mist = new THREE.Mesh(new THREE.CircleGeometry(400, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf0b88a, transparent: true, opacity: 0.94 })); mist.position.y = -24; S.add(mist); }
+  { const floor = new THREE.Mesh(new THREE.CircleGeometry(420, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x12261e, roughness: 0.2, metalness: 0.2 })); floor.position.y = A.water; floor.userData.water = true; S.add(floor);
+    const n = 220, im = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 12, 0.3, Math.PI * 2 - 0.6).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x4f7a34, roughness: 0.8 }), n), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < n; i++) { const a = r() * TAU, d = 8 + r() * 260, s = 0.8 + r() * 2.2; mm.compose(new THREE.Vector3(Math.cos(a) * d, A.water + 0.05, Math.sin(a) * d), q.setFromAxisAngle(up, r() * 6.3), new THREE.Vector3(s, 1, s)); im.setMatrixAt(i, mm); } S.add(im); // lily pads
+    const mist = new THREE.Mesh(new THREE.CircleGeometry(420, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xdde8d6, transparent: true, opacity: 0.45, depthWrite: false })); mist.position.y = A.water + 12; S.add(mist);
+    const roofM = new THREE.MeshStandardMaterial({ color: 0x2c5a26, roughness: 0.9, flatShading: true }), roof = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 1), roofM, 110); // the leafy roof overhead
+    for (let i = 0; i < 110; i++) { const a = r() * TAU, d = Math.sqrt(r()) * 170, s = 10 + r() * 16; mm.compose(new THREE.Vector3(Math.cos(a) * d, 84 + r() * 14, Math.sin(a) * d), q.setFromAxisAngle(up, r() * 3), new THREE.Vector3(s, s * 0.35, s)); roof.setMatrixAt(i, mm); } S.add(roof); }
 
   // ---- a foliage pad: round, flat-topped like a clipped cloud of leaves, with a lumpy rim and underside
   const padGeo = (R) => { const g = new THREE.SphereGeometry(1, 28, 14), p = g.attributes.position;

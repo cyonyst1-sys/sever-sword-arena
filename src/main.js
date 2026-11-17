@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116185608';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116185608';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116185608';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116185608';
-import * as net from './net.js?v=20261116185608';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116185608';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116185608';
-import { makeKillFx } from './killfx.js?v=20261116185608';
-import { makeGrapple } from './grapple.js?v=20261116185608';
-import { initShop } from './shop.js?v=20261116185608';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116185608';
-import { portal } from './portal.js?v=20261116185608';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116185608';
-import { makePost } from './post.js?v=20261116185608';
+import { Arena, MAPS } from './arena.js?v=20261116190049';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116190049';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116190049';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116190049';
+import * as net from './net.js?v=20261116190049';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116190049';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116190049';
+import { makeKillFx } from './killfx.js?v=20261116190049';
+import { makeGrapple } from './grapple.js?v=20261116190049';
+import { initShop } from './shop.js?v=20261116190049';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116190049';
+import { portal } from './portal.js?v=20261116190049';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116190049';
+import { makePost } from './post.js?v=20261116190049';
 
 // ---------- settings ----------
 const store = {

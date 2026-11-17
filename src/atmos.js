@@ -13,13 +13,13 @@ const AIR = {
   pagoda: { c: 0xffb9cc, n: 420, size: 0.16, vel: [0.9, -0.9, 0.3], sway: 1.4, a: 0.9 }, // cherry petals
   bamboo: { c: 0xa9d466, n: 360, size: 0.17, vel: [0.5, -0.8, 0.2], sway: 1.5, a: 0.9 }, // falling leaves
   dojo: { c: 0xffffff, n: 520, size: 0.11, vel: [0.6, -0.7, 0.2], sway: 0.9, a: 0.85 }, // snow off the peak
-  grove: { c: 0xffd8a0, n: 420, size: 0.08, vel: [0.6, 0.1, 0.3], sway: 0.9, glow: true, a: 0.55 }, // (dust motes in the low sun)
+  grove: { c: 0xeaffb4, n: 420, size: 0.08, vel: [0.6, 0.1, 0.3], sway: 0.9, glow: true, a: 0.55 }, // (dust motes in the low sun)
   transport: { c: 0xf2d9a4, n: 480, size: 0.1, vel: [2.0, 0.08, 0.6], sway: 0.8, a: 0.5 }, // (blown sand)
   run: { c: 0x9ad06a, n: 420, size: 0.16, vel: [0.3, -0.9, 3], sway: 1.4, a: 0.9 }, // (leaves whipping past)
   lava: { c: 0xff7a26, n: 700, size: 0.11, vel: [0.2, 2.2, 0.15], sway: 1.0, glow: true, a: 0.95 }, // embers rising off the lava
   foundry: { c: 0xff8a2e, n: 460, size: 0.1, vel: [0.2, 1.5, 0.1], sway: 0.9, glow: true, a: 0.9 }, // embers
 };
-const NO_SUN = ['city', 'tilt', 'colosseum', 'comet', 'lava', 'run', 'isles', 'pagoda', 'canopy']; // (space, a moon of its own, a sun of its own, a roof of leaves)
+const NO_SUN = ['grove', 'city', 'tilt', 'colosseum', 'comet', 'lava', 'run', 'isles', 'pagoda', 'canopy']; // (space, a moon of its own, a sun of its own, a roof of leaves)
 
 let glowTex = null;
 function sunTexture() {
