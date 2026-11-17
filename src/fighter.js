@@ -2,8 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261116231814';
-import { item, cleanLook } from './cosmetics.js?v=20261116231814';
+import { rim } from './vfx.js?v=20261117000231';
+import { buildBody, poseBody } from './body.js?v=20261117000231';
+import { item, cleanLook } from './cosmetics.js?v=20261117000231';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -298,7 +299,7 @@ export class Fighter {
       thR: mk(GEO.thigh, pants), knR: mk(GEO.sphLo, pants), shR: mk(GEO.calf, pants), ftR: mk(GEO.round, M.dark),
       // sword
       // detail: crossed lapels, the obi knot and its tails at the back, wrist guards, shin wraps, a scabbard
-      lapL: mk(GEO.round, trim), lapR: mk(GEO.round, trim), obiK: mk(GEO.round, trim), tailL: mk(GEO.round, trim), tailR: mk(GEO.round, trim),
+      lapL: mk(GEO.round, trim), lapR: mk(GEO.round, trim), obiK: mk(GEO.round, trim), tailL: mk(GEO.round, trim), tailR: mk(GEO.round, trim), hbL: mk(GEO.round, horde ? M.oni : gi), hbR: mk(GEO.round, horde ? M.oni : gi),
       wrL: mk(GEO.cyl, splint, CAP.steel), wrR: mk(GEO.cyl, splint, CAP.steel), kyL: mk(GEO.taper, splint, CAP.steel), kyR: mk(GEO.taper, splint, CAP.steel),
       saya: mk(GEO.cyl, M.saya, CAP.wood), kojiri: mk(GEO.cyl, M.gold, CAP.steel),
       grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(bladeGeo(item('shape', this.look.shape).id), L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
@@ -345,7 +346,8 @@ export class Fighter {
       this.pose(0); }
   }
 
-  addTo(scene) { scene.add(this.group); scene.add(this.trailMesh); }
+  addTo(scene) { scene.add(this.group); scene.add(this.trailMesh);
+    this.group.traverse((o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; for (const m of ms) rim(m); }); } // (a rim of the sky's light on every part: see vfx.js)
   removeFrom(scene) { scene.remove(this.group); scene.remove(this.trailMesh); }
   forward(out) { return out.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)); }
   // local blade direction from the swing input and pitch
@@ -374,6 +376,17 @@ export class Fighter {
     const lvx = this.vel.x * c - this.vel.z * s, lvz = this.vel.x * s + this.vel.z * c;
     const sp = Math.hypot(lvx, lvz);
     const dash = this.dashT > 0, air = !this.onGround && !dash;
+    // loose things lag behind the body and swing back (skirt panels, sash tails, headband ribbons); the body rolls into
+    // a turn at speed, and sinks at the knees on a hard landing
+    const SW = this.sw2 || (this.sw2 = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, lx: lvx, ly: this.vel.y, lz: lvz, yaw: this.yaw, land: 0, roll: 0, gnd: true });
+    if (dt > 0) { const cl2 = (v, m) => Math.max(-m, Math.min(m, v)), h = Math.min(dt, 0.033);
+      if (this.onGround && !SW.gnd) SW.land = Math.min(1, Math.max(SW.land, -SW.ly / 16)); SW.gnd = this.onGround; SW.land *= Math.exp(-6 * dt);
+      let wy = this.yaw - SW.yaw; wy = cl2(Math.atan2(Math.sin(wy), Math.cos(wy)) / dt, 9); SW.yaw = this.yaw;
+      const tx = cl2(-(lvx - SW.lx) / dt * 0.004 - lvx * 0.009 + wy * 0.012, 0.16), ty = cl2(-this.vel.y * 0.012, 0.14), tz = cl2(-(lvz - SW.lz) / dt * 0.004 - lvz * 0.009, 0.16); SW.lx = lvx; SW.ly = this.vel.y; SW.lz = lvz;
+      SW.vx += ((tx - SW.x) * 110 - SW.vx * 7) * h; SW.vy += ((ty - SW.y) * 110 - SW.vy * 7) * h; SW.vz += ((tz - SW.z) * 110 - SW.vz * 7) * h;
+      SW.x = cl2(SW.x + SW.vx * h, 0.2); SW.y = cl2(SW.y + SW.vy * h, 0.2); SW.z = cl2(SW.z + SW.vz * h, 0.2);
+      SW.roll += (cl2(wy * 0.035 * Math.min(1, sp / 6), 0.16) - SW.roll) * Math.min(1, dt * 6); }
+    g.rotation.z += SW.roll;
     // long, bounding strides: about 2.2 steps a second at full speed instead of quick little ones
     const want = this.onGround && sp > 0.4 ? Math.min(1, sp / 9) : 0;
     this.stride += (want - this.stride) * Math.min(1, dt * 8);
@@ -383,7 +396,7 @@ export class Fighter {
     const ux = sp > 0.01 ? lvx / sp : 0, uz = sp > 0.01 ? lvz / sp : -1;
 
     // ---- trunk: pelvis bobs (highest mid-stride, like a running flight phase) and the body leans into the run
-    const hipY = (dash ? 0.86 : air ? 0.97 : 0.99 - 0.05 * k + 0.05 * k * Math.cos(2 * ph));
+    const hipY = (dash ? 0.86 : air ? 0.97 : 0.99 - 0.05 * k + 0.05 * k * Math.cos(2 * ph)) - 0.17 * SW.land;
     const lean = dash ? 0.45 : air ? 0.12 : 0.22 * k;
     const cl = Math.cos(lean), sl = Math.sin(lean);
     const R = (x, y, z) => V(x, y * cl + z * sl, -y * sl + z * cl); // tip the upper body forward
@@ -402,7 +415,7 @@ export class Fighter {
     seg(P.lapL, at(-0.088, 0.45, -0.088), at(0.03, 0.15, -0.104), 0.05, 0.22); seg(P.lapR, at(0.088, 0.45, -0.09), at(-0.012, 0.22, -0.108), 0.045, 0.22);
     P.obiK.position.copy(at(0, 0.085, 0.118)); P.obiK.scale.set(0.085, 0.06, 0.04); P.obiK.rotation.set(-lean, 0, 0);
     const sw = Math.sin(ph * 2) * 0.03 * k; // the tails swing a little as you run
-    seg(P.tailL, at(-0.02, 0.07, 0.125), at(-0.05, -0.15, 0.15 + k * 0.12 + sw), 0.032, 0.3); seg(P.tailR, at(0.025, 0.07, 0.125), at(0.06, -0.11, 0.14 + k * 0.1 - sw), 0.032, 0.3);
+    seg(P.tailL, at(-0.02, 0.07, 0.125), at(-0.05 + SW.x * 1.3, -0.15 + Math.max(0, SW.y) * 0.6, 0.15 + k * 0.12 + sw + Math.max(-0.02, SW.z) * 1.3), 0.032, 0.3); seg(P.tailR, at(0.025, 0.07, 0.125), at(0.06 + SW.x * 1.3, -0.11 + Math.max(0, SW.y) * 0.6, 0.14 + k * 0.1 - sw + Math.max(-0.02, SW.z) * 1.3), 0.032, 0.3);
     seg(P.saya, at(-0.17, 0.09, -0.16), at(-0.24, -0.22, 0.62), 0.024, 0.75); seg(P.kojiri, at(-0.239, -0.217, 0.6), at(-0.242, -0.226, 0.64), 0.027, 0.75);
     P.collar.position.copy(at(0, 0.45, -0.07)); P.collar.scale.set(0.12, 0.07, 0.03); P.collar.rotation.set(-lean, twist, 0);
     for (const [n, side] of [['L', -1], ['R', 1]]) {
@@ -430,6 +443,8 @@ export class Fighter {
     P.hair.position.copy(H(0, 0.004, 0.004)); P.hair.scale.set(0.108, 0.131, 0.12); headRot(P.hair); // (follows the skull, down to a hairline)
     P.band.position.copy(H(0, 0.052, 0.004)); P.band.scale.set(0.104, 0.03, 0.116); headRot(P.band);
     P.knot.position.copy(H(0, 0.12, 0.07)); P.knot.scale.setScalar(0.04);
+    { const a = H(-0.03, 0.05, 0.105), b = H(0.03, 0.05, 0.105), zz = Math.max(0, SW.z) * 1.6, yy = Math.max(-0.05, SW.y) * 0.9; // the headband's two ribbons, streaming out behind
+      seg(P.hbL, a, V(a.x - 0.035 + SW.x * 1.5, a.y - 0.24 + yy + zz * 0.5, a.z + 0.07 + zz), 0.022, 0.25); seg(P.hbR, b, V(b.x + 0.035 + SW.x * 1.5, b.y - 0.21 + yy + zz * 0.5, b.z + 0.06 + zz), 0.022, 0.25); }
     if (P.mask) { P.mask.position.copy(H(0, -0.04, -0.095)); P.mask.scale.set(0.15, 0.08, 0.04); headRot(P.mask); }
     for (const a of this.acc) { a.m.position.copy(H(a.p[0], a.p[1], a.p[2])); a.m.scale.set(a.s[0], a.s[1], a.s[2]); a.m.rotation.set(hp + a.r[0], a.r[1], a.r[2]); }
 
@@ -468,6 +483,7 @@ export class Fighter {
         _ka.set(sn * 0.158, hipY - 0.03, -cs * 0.122); // (where it hangs from)
         if (leg) _kb.lerpVectors(J['hip' + leg], J['knee' + leg], len); else _kb.lerpVectors(J.hipL, J.kneeL, len).add(_kc.lerpVectors(J.hipR, J.kneeR, len)).multiplyScalar(0.5);
         _kb.x += sn * (leg ? 0.115 : 0.02); _kb.z -= cs * (leg ? 0.12 : 0.135); if (!leg) _kb.x = 0; // (out to the surface of the thigh)
+        { const o = Math.min(0, SW.x * sn - SW.z * cs) * 0.75, fl = Math.max(0, SW.y); _kb.x += (SW.x - o * sn) * 0.8 + sn * fl * 0.5; _kb.z += (SW.z + o * cs) * 0.8 - cs * fl * 0.5; _kb.y += fl * 0.35; } // (and it swings: out and up in a fall, trailing in a run, never in through the leg)
         _ky.subVectors(_kb, _ka); const L = _ky.length() || 1e-3; _ky.divideScalar(L); _kx.set(cs, 0, sn).addScaledVector(_ky, -(cs * _ky.x + sn * _ky.z)).normalize();
         boxBasis(m, _kx, _ky, _kc.addVectors(_ka, _kb).multiplyScalar(0.5), wd, L + 0.03, 0.028); } }
 

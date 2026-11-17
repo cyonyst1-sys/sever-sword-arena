@@ -3,21 +3,21 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116231814';
-import { buildFoundry } from './foundry.js?v=20261116231814';
-import { buildBamboo } from './bamboo.js?v=20261116231814';
-import { buildCity } from './city.js?v=20261116231814';
-import { buildDojo } from './dojo.js?v=20261116231814';
-import { buildComet } from './comet.js?v=20261116231814';
-import { buildLava } from './lava.js?v=20261116231814';
-import { buildRun } from './run.js?v=20261116231814';
-import { buildGrove } from './grove.js?v=20261116231814';
-import { buildTransport } from './transport.js?v=20261116231814';
-import { buildTrain } from './train.js?v=20261116231814';
-import { applyLook } from './look.js?v=20261116231814';
-import { addScenery } from './scenery.js?v=20261116231814';
-import { addAtmosphere } from './atmos.js?v=20261116231814';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116231814';
+import { buildTilt } from './tilt.js?v=20261117000231';
+import { buildFoundry } from './foundry.js?v=20261117000231';
+import { buildBamboo } from './bamboo.js?v=20261117000231';
+import { buildCity } from './city.js?v=20261117000231';
+import { buildDojo } from './dojo.js?v=20261117000231';
+import { buildComet } from './comet.js?v=20261117000231';
+import { buildLava } from './lava.js?v=20261117000231';
+import { buildRun } from './run.js?v=20261117000231';
+import { buildGrove } from './grove.js?v=20261117000231';
+import { buildTransport } from './transport.js?v=20261117000231';
+import { buildTrain } from './train.js?v=20261117000231';
+import { applyLook } from './look.js?v=20261117000231';
+import { addScenery } from './scenery.js?v=20261117000231';
+import { addAtmosphere } from './atmos.js?v=20261117000231';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261117000231';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -297,6 +297,7 @@ export class Arena {
     M.bamboo = new THREE.MeshStandardMaterial({ map: bambooTex(), roughness: 0.55 });
     M.leaf = new THREE.MeshStandardMaterial({ color: 0x4f8f3a, roughness: 0.7, side: THREE.DoubleSide });
     M.leafDark = new THREE.MeshStandardMaterial({ color: 0x2c5a26, roughness: 0.9, flatShading: true });
+    M.leaf.userData.sway = ['leaf', 0.07]; // (leaves stir in the wind: see vfx.js)
     M.vein = new THREE.MeshStandardMaterial({ color: 0x9ccf74, roughness: 0.7 });
     M.stem = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
     // green forest light under a leafy roof

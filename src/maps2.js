@@ -3,8 +3,8 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116231814';
-import { glow, aurora } from './look.js?v=20261116231814';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261117000231';
+import { glow, aurora } from './look.js?v=20261117000231';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -29,7 +29,7 @@ function lawn(A, p, x, y, z, w, d, color, glowC, r, tall = 1) {
   if (A.quality === 'low') return;
   if (!tuftG) { const P = [], N = []; for (let k = 0; k < 3; k++) { const a = k * 2.1 + 0.3, c = Math.cos(a), s = Math.sin(a), h = 0.1 + k * 0.025, lean = 0.05; P.push(c * 0.02 - s * 0.018, 0, s * 0.02 + c * 0.018, c * 0.02 + s * 0.018, 0, s * 0.02 - c * 0.018, c * (0.02 + lean), h, s * (0.02 + lean)); for (let i = 0; i < 3; i++) N.push(0, 1, 0); }
     tuftG = new THREE.BufferGeometry(); tuftG.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); tuftG.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); } // (normals straight up: lit like the ground it grows from)
-  const key = color + ':' + glowC; if (!tuftMats.has(key)) tuftMats.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.85, emissive: glowC, side: THREE.DoubleSide }));
+  const key = color + ':' + glowC; if (!tuftMats.has(key)) { const tm = new THREE.MeshStandardMaterial({ color, roughness: 0.85, emissive: glowC, side: THREE.DoubleSide }); tm.userData.sway = ['grass', 0.5]; tuftMats.set(key, tm); }
   const n = Math.min(14000, Math.round(w * d * 16)), im = new THREE.InstancedMesh(tuftG, tuftMats.get(key), n), mt = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), ps = new THREE.Vector3();
   for (let i = 0; i < n; i++) { const hh = (0.6 + r() * 0.9) * tall, ww = 0.8 + r() * 0.8; e.set(0, r() * 6.28, 0); q.setFromEuler(e); sc.set(ww, hh, ww); ps.set(x + (r() - 0.5) * (w - 0.25), y, z + (r() - 0.5) * (d - 0.25)); mt.compose(ps, q, sc); im.setMatrixAt(i, mt); }
   im.receiveShadow = true; A.scene.add(im); p.meshes.push(im);
@@ -262,7 +262,7 @@ export function buildIsles(A, T) {
   const isl = A.plats.slice(), WATER = Math.min(...isl.map((p) => p.y)) - 4;
   A.killY = WATER; A.water = null;
   { const w = new THREE.Mesh(new THREE.CircleGeometry(420, 64).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x0c1830, roughness: 0.12, metalness: 0.55, emissive: 0x050c1c }));
-    w.position.y = WATER; w.userData.keep = true; S.add(w); }
+    w.position.y = WATER; w.userData.keep = true; w.userData.ripple = 1.3; S.add(w); }
   const pads = []; // four lily pads, out in open water clear of the islands
   for (let k = 0, tries = 0; k < 4 && tries < 400; tries++) {
     const a = r() * TAU, d = 22 + r() * 70, x = Math.cos(a) * d, z = Math.sin(a) * d;

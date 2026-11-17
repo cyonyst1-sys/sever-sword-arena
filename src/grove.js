@@ -20,10 +20,11 @@ export function buildGrove(A, T) {
   const barkM = new THREE.MeshStandardMaterial({ map: bark, bumpMap: bark, bumpScale: 3, roughness: 0.95, color: 0xf0e2d4 });
   const leafTex = T.canvasTex((g, s) => { const q = T.rng(57); g.fillStyle = '#3d5a2a'; g.fillRect(0, 0, s, s); for (let i = 0; i < 1400; i++) { g.fillStyle = `rgba(${q() < 0.5 ? '25,45,18' : '110,150,70'},${0.3 + q() * 0.5})`; g.beginPath(); g.ellipse(q() * s, q() * s, 1 + q() * 3, 0.8 + q() * 1.6, q() * 3, 0, TAU); g.fill(); } }, 256);
   const leafM = new THREE.MeshStandardMaterial({ map: leafTex, bumpMap: leafTex, bumpScale: 2, roughness: 0.9, color: 0xe8f8d0, emissive: 0x16240c });
+  leafM.userData.sway = ['leaf', 0.05]; // (the clipped pads stir a little in the wind)
 
   // ---- no floor: the trees rise out of a sea of warm mist far below (fall into it and you're gone)
   const plats = A.plats;
-  { const floor = new THREE.Mesh(new THREE.CircleGeometry(420, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x12261e, roughness: 0.2, metalness: 0.2 })); floor.position.y = A.water; floor.userData.water = true; S.add(floor);
+  { const floor = new THREE.Mesh(new THREE.CircleGeometry(420, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x12261e, roughness: 0.2, metalness: 0.2 })); floor.userData.ripple = 1; floor.position.y = A.water; floor.userData.water = true; S.add(floor);
     const n = 220, im = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 12, 0.3, Math.PI * 2 - 0.6).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x4f7a34, roughness: 0.8 }), n), mm = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
     for (let i = 0; i < n; i++) { const a = r() * TAU, d = 8 + r() * 260, s = 0.8 + r() * 2.2; mm.compose(new THREE.Vector3(Math.cos(a) * d, A.water + 0.05, Math.sin(a) * d), q.setFromAxisAngle(up, r() * 6.3), new THREE.Vector3(s, 1, s)); im.setMatrixAt(i, mm); } S.add(im); // lily pads
     const mist = new THREE.Mesh(new THREE.CircleGeometry(420, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xdde8d6, transparent: true, opacity: 0.45, depthWrite: false })); mist.position.y = A.water + 12; S.add(mist);

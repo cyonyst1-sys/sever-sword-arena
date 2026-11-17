@@ -185,7 +185,7 @@ export function buildMaw(A, T) {
       g.strokeStyle = '#e8c8b0'; g.lineWidth = 6; g.strokeRect(10, 10, s - 20, s - 20); // a pale border, and a sigil: a ring, a blade through it, two horns
       g.beginPath(); g.arc(s / 2, s * 0.42, s * 0.18, 0, TAU); g.stroke(); g.beginPath(); g.moveTo(s / 2, s * 0.15); g.lineTo(s / 2, s * 0.78); g.stroke();
       g.beginPath(); g.moveTo(s * 0.26, s * 0.2); g.quadraticCurveTo(s * 0.3, s * 0.4, s * 0.42, s * 0.36); g.moveTo(s * 0.74, s * 0.2); g.quadraticCurveTo(s * 0.7, s * 0.4, s * 0.58, s * 0.36); g.stroke(); }, 256);
-    const banM = new THREE.MeshStandardMaterial({ map: banT, roughness: 0.9, side: THREE.DoubleSide, emissive: 0x2a0306 });
+    const banM = new THREE.MeshStandardMaterial({ map: banT, roughness: 0.9, side: THREE.DoubleSide, emissive: 0x2a0306 }); banM.userData.sway = ['cloth', 0.8];
     for (let j = 0; j < 16; j++) { const th = (j * 3) / 48 * TAU, R = wallR - 0.8, x = Math.sin(th) * R, z = Math.cos(th) * R;
       const g = new THREE.PlaneGeometry(7, 18, 1, 6), p = g.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getY(i) * 0.4 + j) * 0.25); g.computeVertexNormals(); // (a gentle ripple)
       const m = new THREE.Mesh(g, banM); m.position.set(x, top - 13, z); m.rotation.y = Math.atan2(-Math.sin(th), -Math.cos(th)); S.add(m); }

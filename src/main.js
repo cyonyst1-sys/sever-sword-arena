@@ -1,18 +1,19 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116231814';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116231814';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116231814';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116231814';
-import * as net from './net.js?v=20261116231814';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116231814';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116231814';
-import { makeKillFx } from './killfx.js?v=20261116231814';
-import { makeGrapple } from './grapple.js?v=20261116231814';
-import { initShop } from './shop.js?v=20261116231814';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116231814';
-import { portal } from './portal.js?v=20261116231814';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116231814';
-import { makePost } from './post.js?v=20261116231814';
+import { Arena, MAPS } from './arena.js?v=20261117000231';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117000231';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117000231';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117000231';
+import * as net from './net.js?v=20261117000231';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117000231';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117000231';
+import { makeKillFx } from './killfx.js?v=20261117000231';
+import { makeGrapple } from './grapple.js?v=20261117000231';
+import { initShop } from './shop.js?v=20261117000231';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117000231';
+import { portal } from './portal.js?v=20261117000231';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117000231';
+import { makePost } from './post.js?v=20261117000231';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117000231';
 
 // ---------- settings ----------
 const store = {
@@ -49,6 +50,7 @@ const sparks = new Particles(scene, ground, { color: 0xffd27a, size: 0.06, gravi
 const splash = new Particles(scene, ground, { color: 0xcfe6dc, size: 0.32, gravity: 22, max: 500 }), piranhas = new Piranhas(scene, splash), saws = new GiantSaws(scene, sparks), birds = new GiantBirds(scene); // Great Canopy's swamp, Saw Foundry's smog, the cloud maps' giant bird
 const leafBits = new Particles(scene, ground, { color: 0x9ccf5c, size: 0.09, gravity: 9, max: 900 }); // bamboo chips
 const killFx = makeKillFx(scene, ground); // kill effects from the shop
+const sliceLines = makeSliceLines(scene); // the line a cut draws for a split second
 // sword-trail effects from the shop
 const trailFx = {
   ember: new Particles(scene, ground, { color: 0xffa040, size: 0.05, gravity: -2, max: 500 }),
@@ -128,6 +130,7 @@ function makeFighter(info) {
   f.net = null; f.respawnAt = Infinity;
   f.grap = makeGrapple(scene, item('grapple', f.look.grapple), grapFx); // their grappling hook, in their style
   f.crown = makeCrown(); f.crown.visible = false; f.group.add(f.crown); // worn by the juggernaut
+  f.blob = makeBlob(); scene.add(f.blob); // a soft shadow under the feet
   f.teamMark = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.28, 4), new THREE.MeshBasicMaterial({ color: 0xffffff })); f.teamMark.rotation.x = Math.PI; f.teamMark.position.y = 2.45; f.teamMark.visible = false; f.group.add(f.teamMark); // Team Battle: a team-coloured marker over the head
   if (info.boss != null) { // Boss Rush: hit points, its own strengths and its own fighting style
     const b = bossDef(info.boss);
@@ -139,7 +142,7 @@ function makeFighter(info) {
 }
 function dropFighter(id) {
   const f = fighters.get(id); if (!f) return;
-  f.removeFrom(scene); f.grap.dispose(); fighters.delete(id);
+  f.removeFrom(scene); f.grap.dispose(); fighters.delete(id); if (f.blob) { scene.remove(f.blob); f.blob.material.dispose(); f.blob.geometry.dispose(); }
   if (me === f) me = null;
 }
 function syncFighters() {
@@ -232,6 +235,7 @@ function lookDir(f, out) {
 
 // ---------- movement ----------
 const _t = new THREE.Vector3(), _t2 = new THREE.Vector3(), _t3 = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0);
 // the canopy branch a fighter is standing on (or just above), if any
 function branchUnder(f) {
   let best = null, bd = 0.9;
@@ -827,7 +831,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     const kfx = kId && kId !== vId ? fighters.get(kId)?.look.kill : null, burst = killFx.burstFor(kfx); // the killer's kill effect
     let at = pieces.split(soup, n, -n.dot(pt), v.vel, imp, 1, burst);
     if (!at) { const mid = v.pos.clone(); mid.y += 1.1; at = pieces.split(soup, n, -n.dot(mid), v.vel, imp, 1, burst); }
-    if (at) killFx.apply(kfx, at, n, pieces.last);
+    if (at) { killFx.apply(kfx, at, n, pieces.last); sliceLines.emit(at, n, camera); }
     sfx.kill(at || v.pos);
   } else if (v === me) sfx.fall();
   const birdy = fell && arena.bird && v.pos.y <= arena.killY + 1.5; // (a cloud map: the giant bird)
@@ -2370,7 +2374,7 @@ function tick(rdt, tt) {
     }
     pushApart();
     for (const f of fighters.values()) {
-      if (!f.alive) { f.updateTrail(tt); continue; }
+      if (!f.alive) { f.updateTrail(tt); f.blob.visible = false; continue; }
       const isJugg = S.mode === 'jugg' && S.obj && S.obj.jugg === f.id;
       const want = isJugg ? BLADE_MAX : bladeFor(rosterGet(f.id)?.streak) * upm(f, 'blade'); // the juggernaut always carries the longest blade
       f.crown.visible = isJugg || !!f.boss;
@@ -2403,17 +2407,19 @@ function tick(rdt, tt) {
       f.group.visible = f.alive ? !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0) : f.eatenAt > now(); // (a fighter the piranha is about to eat stays in view)
       // rope
       if (f.hook) f.grap.show(f.handL, f.hook.via || f.hook.p, rdt); else f.grap.hide();
+      { const g0 = arena.groundHeight(f.pos.x, f.pos.z, f.pos.y + 0.5), h = f.pos.y - g0, bl = f.blob; bl.visible = f.alive && f.group.visible && isFinite(g0) && h < 7 && h > -0.5; // the soft shadow under the feet: wider and fainter the higher they are
+        if (bl.visible) { bl.position.set(f.pos.x, g0 + 0.04, f.pos.z); bl.scale.setScalar(1.0 + Math.max(0, h) * 0.22); bl.material.opacity = 0.42 * Math.max(0, 1 - h / 7); if (f.gN && f.onGround) bl.quaternion.setFromUnitVectors(_up, _t.copy(f.gN).normalize()); else bl.quaternion.identity(); } }
     }
     netTick(rdt);
   } else if (S.phase === 'game') netTick(rdt);
   const pdt = hitstop > 0 ? rdt * 0.08 : rdt; hitstop -= rdt;
-  pieces.update(pdt); blood.update(pdt); splash.update(pdt); piranhas.update(pdt); saws.update(pdt); birds.update(pdt); sparks.update(pdt); leafBits.update(pdt); debris.paper.update(pdt); debris.wood.update(pdt); debris.straw.update(pdt); debris.glass.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt);
+  pieces.update(pdt); blood.update(pdt); splash.update(pdt); piranhas.update(pdt); saws.update(pdt); birds.update(pdt); sparks.update(pdt); leafBits.update(pdt); debris.paper.update(pdt); debris.wood.update(pdt); debris.straw.update(pdt); debris.glass.update(pdt); for (const p of Object.values(trailFx)) p.update(pdt); grapFx.smoke.update(pdt); killFx.update(pdt); sliceLines.update(pdt);
   shake *= Math.exp(-9 * rdt); punch *= Math.exp(-6 * rdt);
   updateCamera(rdt);
   setListener(me && me.alive ? me.pos : camera.position); // hear from your character, not the camera behind it
   updateHud(rdt);
   $('vignette').style.boxShadow = me && !me.alive ? 'inset 0 0 200px rgba(140,0,0,.55)' : 'inset 0 0 160px rgba(160,0,0,0)';
-  if (!bgTick) { if (post) post.render(scene, camera); else renderer.render(scene, camera); } // (a hidden host still runs the match, it just doesn't draw)
+  if (!bgTick) { if (post) post.render(scene, camera, arena.atmo); else renderer.render(scene, camera); } // (a hidden host still runs the match, it just doesn't draw)
 }
 show('home');
 setVolume(settings.vol);
@@ -2428,7 +2434,7 @@ try {
   w.onmessage = () => { const t = performance.now(); if (t - lastRaf < 100 || !S.online || !S.host) return; const rdt = Math.min(0.05, Math.max(0.0005, (t - last) / 1000)); last = t; bgTick = true; tick(rdt, t / 1000); bgTick = false; };
 } catch (e) { /* no workers: hidden hosts fall back to the browser's throttled timers */ }
 // handy for debugging in the console
-window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, renderer, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
+window.__sever = { S, fighters, pieces, scene, post, get arena() { return arena; }, camera, renderer, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
 
 // ---------- map picker: a thumbnail card for each map (the hidden select still holds the choice) ----------
 function thumb(id) { return `thumbs/${id}.jpg?v=${document.querySelector('meta[name=build]').content}`; }

@@ -3,6 +3,7 @@
 // it depth, shafts of light slant down through the air, and a few coloured lights sit where the map has a reason for
 // them. Each map's settings are one line in LOOK; the Colosseum has its own, fuller treatment (see maps2.js and maw.js).
 import * as THREE from 'three';
+import { setRim, sway, ripple, WIND } from './vfx.js?v=20261117000231';
 
 const TAU = Math.PI * 2;
 // env: how strongly surfaces mirror the sky. gloss: [material name in A.mats, new roughness] pairs (polished or wet
@@ -45,8 +46,23 @@ const mistTex = (T, seed) => T.canvasTex((g, s) => { const q = T.rng(seed); g.fi
   for (let i = 0; i < 90; i++) { const x = q() * s, y = s * (0.4 + q() * 0.6), R = s * (0.08 + q() * 0.16); for (const ox of [-s, 0, s]) { const d = g.createRadialGradient(x + ox, y, 0, x + ox, y, R); d.addColorStop(0, `rgba(255,255,255,${0.1 + q() * 0.14})`); d.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = d; g.fillRect(x + ox - R, y - R, R * 2, R * 2); } } // drifts of it, thicker low down
   const f = g.createLinearGradient(0, 0, 0, s); f.addColorStop(0, 'rgba(0,0,0,1)'); f.addColorStop(0.5, 'rgba(0,0,0,0.3)'); f.addColorStop(0.88, 'rgba(0,0,0,0)'); f.addColorStop(1, 'rgba(0,0,0,0.7)'); g.fillStyle = f; g.fillRect(0, 0, s, s); }, 256);
 
+/** The air of a map (every map, whatever the quality): mist that lies low under the arena and thickens toward the
+ *  horizon, sunlight in shafts round whatever stands in front of the sun (both drawn in post.js), a rim of the sky's
+ *  own light on the fighters, and wind: grass, leaves and banners stir, water ripples. mist: [lift, density, rays]. */
+function air(A, L) {
+  let hemi = null, y0 = 1e9; A.scene.traverse((o) => { if (o.isHemisphereLight) hemi = o;
+    const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of ms) { if (m.userData.sway) sway(m, m.userData.sway[0], m.userData.sway[1]); if (o.userData.water || o.userData.ripple) ripple(m, o.userData.ripple || 1); } });
+  for (const p of A.plats) y0 = Math.min(y0, p.ya !== undefined ? Math.min(p.ya, p.yb) : p.y); if (y0 > 1e8) y0 = 0;
+  const fog = A.realScene.fog, bg = A.realScene.background, col = (fog && fog.color ? fog.color : bg && bg.isColor ? bg : new THREE.Color(0x8899aa)).clone(), F = (L && L.mist) || [];
+  const base = (A.water != null ? A.water : y0 - 42) + (F[0] || 0);
+  A.atmo = { color: col, base, fall: 1 / Math.max(8, (y0 - base) * 0.45 + 4), dens: (F[1] ?? 1) * 0.014, sun: A.sunOff ? A.sunOff.clone().normalize() : null, sunCol: A.sun ? A.sun.color.clone().multiplyScalar(0.55) : new THREE.Color(0), rays: F[2] ?? (A.sunOff ? 0.7 : 0) };
+  const c = A.sun ? A.sun.color.clone() : new THREE.Color(0xffffff); if (hemi) c.lerp(hemi.color, 0.45); c.multiplyScalar(1 / Math.max(0.2, c.r, c.g, c.b)); setRim(c, 0.62);
+  A.anim.push((t) => { WIND.value = t; });
+}
+
 export function applyLook(A, T) {
-  const L = LOOK[A.mapId]; if (!L || A.quality === 'low') return;
+  const L = LOOK[A.mapId]; air(A, L); if (!L || A.quality === 'low') return;
   const S = A.scene;
   // ---- reflections: everything mirrors the sky a little; polished and wet things a lot
   const env = skyEnv(A, T), seen = new Set();
