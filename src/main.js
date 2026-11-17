@@ -1,19 +1,19 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117083829';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117083829';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117083829';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117083829';
-import * as net from './net.js?v=20261117083829';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117083829';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117083829';
-import { makeKillFx } from './killfx.js?v=20261117083829';
-import { makeGrapple } from './grapple.js?v=20261117083829';
-import { initShop } from './shop.js?v=20261117083829';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117083829';
-import { portal } from './portal.js?v=20261117083829';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117083829';
-import { makePost } from './post.js?v=20261117083829';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117083829';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117083829';
+import { Arena, MAPS } from './arena.js?v=20261117124245';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117124245';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117124245';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117124245';
+import * as net from './net.js?v=20261117124245';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117124245';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117124245';
+import { makeKillFx } from './killfx.js?v=20261117124245';
+import { makeGrapple } from './grapple.js?v=20261117124245';
+import { initShop } from './shop.js?v=20261117124245';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117124245';
+import { portal } from './portal.js?v=20261117124245';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117124245';
+import { makePost } from './post.js?v=20261117124245';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117124245';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117124245';
 
 // ---------- settings ----------
 const store = {
@@ -797,7 +797,7 @@ function dashSweep(f) {
     }
   }
 }
-function clash(f, g, at) {
+function clash(f, g, at) { if (f === me || g === me) MD.parry = now();
   sfx.clang(at);
   for (let i = 0; i < 26; i++) sparks.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 9, Math.random() * 6, (Math.random() - 0.5) * 9, 0.4);
   const d = _t.subVectors(f.pos, g.pos); d.y = 0; d.normalize();
@@ -827,7 +827,39 @@ function selfFell(f) {
   if (S.host) { if (applyKill(f.id, null, null, null, null, true)) net.broadcast({ t: 'kill', v: f.id, k: null, fell: 1 }); }
   else if (f === me) { if (applyKill(f.id, null, null, null, null, true)) net.send({ t: 'fell' }); }
 }
-let shake = 0, hitstop = 0, punch = 0, myStreak = 0, myAir = 0, airAt = -1; // (myAir: this match's kills made while off the ground; they pay double)
+let shake = 0, hitstop = 0, punch = 0, myStreak = 0;
+// Medals: named kills. Each one calls out on screen and adds to the match's pay (coins and XP) on top of the kill itself.
+// [name, points, big callout]. A mid-air kill's reward is the kill paying double, so its own points are 0.
+const MEDALS = {
+  first: ['First Blood', 5], double: ['Double Kill', 5, 1], triple: ['Triple Kill', 10, 1], massacre: ['Massacre', 20, 1],
+  spree: ['Killing Spree', 10, 1], unstop: ['Unstoppable', 25, 1],
+  air: ['Mid-Air Kill', 0], above: ['Death From Above', 5], hook: ['Reeled In', 3], dash: ['Dash Strike', 3],
+  riposte: ['Riposte', 5], revenge: ['Revenge', 5], shut: ['Shutdown', 5],
+};
+const MD = { at: -1, n: {}, pts: 0, chain: 0, chainT: -9, by: null, parry: -9 }; // (this match's medals; by: who cut me down last; parry: when my blade last met another)
+function medalReset() { if (MD.at === S.matchStart) return; MD.at = S.matchStart; MD.n = {}; MD.pts = 0; MD.chain = 0; MD.chainT = -9; MD.by = null; myStreak = 0; }
+function medal(id) {
+  const [name, pts, big] = MEDALS[id]; MD.n[id] = (MD.n[id] || 0) + 1; MD.pts += pts;
+  const box = $('medals'), el = document.createElement('div'); if (big) el.className = 'big';
+  el.innerHTML = `${name}<small>${pts ? '+' + pts : 'double pay'}</small>`; box.append(el);
+  while (box.children.length > 5) box.firstChild.remove();
+  setTimeout(() => el.remove(), 2300);
+}
+function medalsFor(v, vId) { // my kill: which medals it earns
+  const t = now(), air = me && !me.onGround;
+  if (S.roster.reduce((a, r) => a + (r.k || 0), 0) === 0) medal('first'); // (the match's first kill)
+  MD.chain = t - MD.chainT < 4 ? MD.chain + 1 : 1; MD.chainT = t; // kills within 4 seconds of each other
+  if (MD.chain === 2) medal('double'); else if (MD.chain === 3) medal('triple'); else if (MD.chain === 4) medal('massacre');
+  if (myStreak === 5) medal('spree'); else if (myStreak === 10) medal('unstop');
+  if (air) medal('air');
+  if (air && me.pos.y - v.pos.y > 2.5) medal('above');
+  if (me && me.hook) medal('hook');
+  if (me && t - (me.dashAt || -9) < 1) medal('dash');
+  if (t - MD.parry < 2) { medal('riposte'); MD.parry = -9; }
+  if (MD.by === vId) { medal('revenge'); MD.by = null; }
+  if ((rosterGet(vId)?.streak || 0) >= 5) medal('shut'); // (ended a long streak)
+  sfx.chime();
+}
 function applyKill(vId, kId, n, pt, imp, fell) {
   const v = fighters.get(vId); if (!v || !v.alive) return false;
   if (v.boss && S.host && now() < (v.hitGrace || 0)) return false; // (the same swing can't cut a boss twice)
@@ -872,12 +904,11 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
   feed(fell ? (sawn ? `${vn} was sawn in half` : lily ? `${vn} was snapped up by a lily pad` : birdy ? `${vn} was snatched by a giant bird` : eaten ? `${vn} was eaten by the piranha` : arena.fallText ? `${vn} ${arena.fallText(v.pos)}` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
-  if (vId === S.myId) { myStreak = 0; deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; deathA = ca; deathLook.copy(deathAt); overviewFrom(deathAt, deathOv);
+  if (vId === S.myId) { medalReset(); myStreak = 0; MD.by = kId && kId !== vId ? kId : null; deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; deathA = ca; deathLook.copy(deathAt); overviewFrom(deathAt, deathOv);
     if (!fell && n && pt && kId && kId !== vId && killCamStart(kId, vId, n, pt, imp)) deathBy = 'Kill cam · ' + deathBy; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
-    if (vId !== S.myId) { myStreak++;
-      if (me && !me.onGround) { if (airAt !== S.matchStart) { airAt = S.matchStart; myAir = 0; } myAir++; feed('<span style="color:var(--gold)">Mid-air kill &middot; double pay</span>'); }
+    if (vId !== S.myId) { medalReset(); myStreak++; if (S.mode !== 'tutorial') medalsFor(v, vId);
       // today's challenges
       const done = [...track('kills'), ...track('streak', myStreak), ...(me && !me.onGround ? track('air') : []), ...(me && me.hook ? track('hook') : []), ...(me && now() - (me.dashAt || -9) < 1 ? track('dash') : [])];
       for (const d of done) { feed(`<span style="color:var(--gold)">Daily challenge done: ${esc(d)}</span>`); sfx.gong(); } }
@@ -2185,8 +2216,8 @@ function showEnd(res) {
   const mine = res.list.find((r) => r.id === S.myId), top = res.mode === 'lbs' || res.mode === 'lava' ? res.winner : list[0] && list[0].id;
   let coins = 0, won = false, xpLine = ''; const bonus = [];
   if (mine && now() - (S.matchStart || now()) > 40) {
-    const airK = airAt === S.matchStart ? Math.min(myAir, mine.k) : 0; if (airK) bonus.push(`${airK} mid-air kill${airK > 1 ? 's' : ''} x2`);
-    coins = 10 + 5 * (mine.k + airK) + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0) + (res.mode === 'boss' ? 25 * (mine.pts || 0) : 0);
+    const mdl = MD.at === S.matchStart, airK = mdl ? Math.min(MD.n.air || 0, mine.k) : 0, mp = mdl ? MD.pts : 0; if (mp) bonus.push(`medals +${mp}`); if (airK) bonus.push(`${airK} mid-air kill${airK > 1 ? 's' : ''} x2`);
+    coins = 10 + 5 * (mine.k + airK) + mp + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0) + (res.mode === 'boss' ? 25 * (mine.pts || 0) : 0);
     if (res.mode === 'team' || res.mode === 'transport' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) { coins += 30; won = true; } // (Team Battle: everyone on the winning side)
     // bonuses: the bot difficulty (whenever there were bots, solo or online), and +10% per friend in the match (up to +30%)
     const bots = res.mode === 'horde' || res.list.some((r) => !r.human), friends = Math.min(3, res.list.filter((r) => r.human).length - 1);
@@ -2197,8 +2228,8 @@ function showEnd(res) {
     if (friends > 0) bonus.push(`${friends} friend${friends > 1 ? 's' : ''} +${friends * 10}%`);
     addCoins(coins);
     { const done = [...track('matches'), ...(won ? track('wins') : []), ...(S.online ? track('online') : []), ...(SPECIAL[res.mode] ? track('special') : [])]; // experience, levels and today's challenges
-      const xp = 25 + 8 * (mine.k + airK) + (won ? 40 : 0), up = addXp(xp);
-      xpLine = ` &middot; <b>+${xp} XP</b>` + (up.ups ? `<br><b style="color:var(--gold)">LEVEL UP: you are level ${up.lv} &middot; +${up.coins} coins</b>` : '') + done.map((d) => `<br><span style="color:var(--gold)">Daily challenge done: ${esc(d)}</span>`).join(''); }
+      const xp = 25 + 8 * (mine.k + airK) + mp + (won ? 40 : 0), up = addXp(xp);
+      xpLine = ` &middot; <b>+${xp} XP</b>` + (up.ups ? `<br><b style="color:var(--gold)">LEVEL UP: you are level ${up.lv} &middot; +${up.coins} coins</b>` : '') + done.map((d) => `<br><span style="color:var(--gold)">Daily challenge done: ${esc(d)}</span>`).join('') + (mdl && Object.keys(MD.n).length ? '<br>Medals: ' + Object.entries(MD.n).map(([id, c]) => MEDALS[id][0] + (c > 1 ? ' x' + c : '')).join(' &middot; ') : ''); }
   }
   $('endCoins').innerHTML = coins ? `<b>+${coins} coins</b>${bonus.length ? ' (' + bonus.join(', ') + ')' : ''} &middot; you have ${profile.coins}${xpLine}` : 'Play a full match to earn coins';
   updateCoinBadge(); renderProgress();
