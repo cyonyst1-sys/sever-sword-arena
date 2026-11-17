@@ -54,19 +54,17 @@ export function buildComet(A, T) {
     const m = new THREE.Mesh(g, rockM); m.castShadow = m.receiveShadow = true; S.add(m); p.meshes.push(m);
     roids.push(p); return p;
   };
-  const hub = addRoid(0, 0, 0, 16);
-  const ring = [];
-  for (let k = 0; k < 7; k++) { // the ring: each a jump (or a dash) from the hub and from its neighbours
-    const R = 9 + r() * 3.5, a = k / 7 * TAU + (r() - 0.5) * 0.12, d = 16 + R + 5 + r() * 2;
-    const q = addRoid(Math.cos(a) * d, Math.sin(a) * d, 0, R); q.ang0 = a; q.dist = d; q.slot = k; ring.push(q);
-  }
-  // they weave round each other on the way in: each slides to and fro round the ring and rises and sinks, neighbours out
-  // of step, so as two close in on each other one passes high and the other low. The hub just bobs. Wall clock time: the
-  // same for every player. (Seen looking toward the planet: rocks crossing left and right, above and below each other.)
-  const WEAVE = TAU / 15, AMP_A = 0.11, AMP_Y = 7.5, ORBIT = TAU / 55; // (the whole ring also orbits the hub, once a minute or so)
-  const weave = (p, t) => { if (p === hub) return { x: 0, y: Math.sin(t * WEAVE * 0.7) * 1.2, z: 0 };
-    const ph = t * WEAVE + p.slot * (TAU * 3 / 7), a = p.ang0 + t * ORBIT + AMP_A * Math.sin(ph), d = p.dist + 1.5 * Math.cos(ph);
-    return { x: Math.cos(a) * d - p.base.x, y: AMP_Y * Math.sin(ph), z: Math.sin(a) * d - p.base.z }; };
+  // eight big rocks, all travelling one figure-eight loop in a line, nose to tail. The loop rises over one lobe and sinks
+  // under the other, so where it crosses itself one rock sweeps high over another sweeping low: they cross over and under
+  // each other and cycle round, never colliding. Seen looking toward the planet, the loop runs left and right across the
+  // view. (Measured: rocks passing over each other keep 4 m or more of clearance; neighbours stay 4 to 15 m apart.)
+  const RADII = [13, 11.7, 10.4, 12.3, 12.4, 9.7, 11.3, 11.1], LA = 48, LB = 50, LH = 8, SPEED = 3.6;
+  const loop = []; { let L = 0, prev = null; for (let k = 0; k <= 3000; k++) { const u = k / 3000 * TAU, p = { x: LB * Math.sin(u) * Math.cos(u), y: LH * Math.cos(u), z: LA * Math.sin(u) }; if (prev) L += Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z); p.s = L; loop.push(p); prev = p; } }
+  const LOOPL = loop[loop.length - 1].s;
+  const along = (s) => { s = ((s % LOOPL) + LOOPL) % LOOPL; let lo = 0, hi = loop.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (loop[m].s < s) lo = m; else hi = m; } const a = loop[lo], b = loop[hi], f = (s - a.s) / ((b.s - a.s) || 1); return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, z: a.z + (b.z - a.z) * f }; };
+  const hub = null;
+  RADII.forEach((R, i) => { const q = along(i * LOOPL / RADII.length), p = addRoid(q.x, q.z, q.y, R); p.slot = i; });
+  const weave = (p, t) => { const q = along(t * SPEED + p.slot * LOOPL / RADII.length); return { x: q.x - p.base.x, y: q.y - p.base.y, z: q.z - p.base.z }; };
   const place = (t) => {
     for (const p of roids) { const o = weave(p, t); p.prev = { x: p.x, y: p.y, z: p.z }; p.x = p.base.x + o.x; p.y = p.base.y + o.y; p.z = p.base.z + o.z;
       for (const m of p.meshes) m.position.set(o.x, o.y, o.z);
@@ -80,7 +78,7 @@ export function buildComet(A, T) {
     for (const p of roids) { if (!p.prev) continue; const dx = f.pos.x - p.prev.x, dz = f.pos.z - p.prev.z; if (dx * dx + dz * dz > p.round * p.round) continue;
       const h = p.hf(f.pos.x + p.x - p.prev.x, f.pos.z + p.z - p.prev.z); if (Math.abs(f.pos.y - (h - (p.y - p.prev.y))) > 0.9) continue;
       f.pos.x += p.x - p.prev.x; f.pos.z += p.z - p.prev.z; f.pos.y = Math.max(f.pos.y + p.y - p.prev.y, h); break; } } };
-  for (const a of roids) for (const b of roids) if (a.i < b.i && Math.hypot(a.x - b.x, a.z - b.z) - a.round - b.round < 11) A.link('P' + a.i, 'P' + b.i); // (bots jump the gaps)
+  for (const a of roids) for (const b of roids) if (a.i < b.i && (Math.abs(a.slot - b.slot) === 1 || Math.abs(a.slot - b.slot) === RADII.length - 1)) A.link('P' + a.i, 'P' + b.i); // (bots hop from each rock to the next one along the loop)
   place(wall()); place(wall()); // (where they are now, before anyone spawns)
 
   // ---- small rocks drifting round the cluster: grapple them to swing across
