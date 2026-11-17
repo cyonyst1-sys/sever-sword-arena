@@ -270,15 +270,19 @@ export function buildFoundry(A, T) {
   // running through anyone it lands on. It grows back a while later.
   { const CY = 33, plateM = std(0x3a2a24, { metalness: 0.7, roughness: 0.4, emissive: 0x2a0c04 }), spikeM = std(0xa89080, { metalness: 0.75, roughness: 0.28, emissive: 0x1a0800 });
     const plateG = new THREE.BoxGeometry(4.2, 0.9, 4.2), spikeG = new THREE.ConeGeometry(0.5, 1, 6).rotateX(Math.PI).translate(0, -0.5, 0), ceil = [];
-    for (let t = 0, n = 0; t < 400 && n < 34; t++) {
-      const a = r() * TAU, d = 6 + Math.sqrt(r()) * 58, x = Math.cos(a) * d, z = Math.sin(a) * d;
-      if (ceil.some((c) => Math.hypot(c.x - x, c.z - z) < 8.5)) continue;
-      const y = CY + (r() - 0.5) * 2, g = new THREE.Group(); g.position.set(x, y, z); S.add(g);
-      const pl = new THREE.Mesh(plateG, plateM); pl.castShadow = true; g.add(pl);
-      for (let k = 0; k < 7; k++) { const sp = new THREE.Mesh(spikeG, spikeM), L = 1.8 + r() * 2.6, w = 0.6 + r() * 0.5; sp.scale.set(w, L, w); sp.position.set((r() - 0.5) * 3.2, -0.45, (r() - 0.5) * 3.2); sp.castShadow = true; g.add(sp); }
+    // a few plate shapes, each merged into one mesh (one draw apiece): the plate with seven spikes hanging under it
+    const merge = (parts) => { const P = [], N = []; for (const g of parts) { const n = g.index ? g.toNonIndexed() : g; P.push(...n.attributes.position.array); N.push(...n.attributes.normal.array); } const o = new THREE.BufferGeometry(); o.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); o.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); return o; };
+    const shapes = Array.from({ length: 6 }, () => merge([plateG.clone(), ...Array.from({ length: 7 }, () => { const L = 1.8 + r() * 2.6, w = 0.6 + r() * 0.5; return spikeG.clone().scale(w, L, w).translate((r() - 0.5) * 3.2, -0.45, (r() - 0.5) * 3.2); })]));
+    const rustM = std(0x6e5040, { metalness: 0.72, roughness: 0.34, emissive: 0x2a0c04 });
+    const add = (x, z) => { if (ceil.some((c) => Math.hypot(c.x - x, c.z - z) < 2.2)) return;
+      const y = CY + (r() - 0.5) * 1.6, g = new THREE.Mesh(shapes[(r() * shapes.length) | 0], rustM); g.position.set(x, y, z); g.rotation.y = r() * TAU; g.castShadow = true; S.add(g);
       const box = { x0: x - 2.2, x1: x + 2.2, y0: y - 3.5, y1: y + 0.5, z0: z - 2.2, z1: z + 2.2, danger: true }; A.rayBoxes.push(box); // (players can hook it; bots leave it alone)
-      ceil.push({ x, y, z, g, box, st: 'up', vy: 0, t: 0 }); n++;
-    }
+      ceil.push({ x, y, z, g, box, st: 'up', vy: 0, t: 0 }); };
+    // over every platform: a grid of plates covering it (and, over a sliding platform, the whole of its run)
+    for (const p of A.plats) { const ext = p.kind === 'slider' ? 13 : 2, W = p.w + ext, Dd = p.d + ext, nx = Math.max(1, Math.ceil((W - 4.2) / 4.2) + 1), nz = Math.max(1, Math.ceil((Dd - 4.2) / 4.2) + 1); // (spaced no wider than a plate: no gaps)
+      const cx = p.kind === 'slider' && p.w > p.d ? p.x + 6 : p.x, cz = p.kind === 'slider' && p.d > p.w ? p.z + 5 : p.z;
+      const ca = Math.cos(p.ang || 0), sa = Math.sin(p.ang || 0); // (along the platform's own length and width: walkways run at an angle)
+      for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) { const a = nx > 1 ? (i / (nx - 1) - 0.5) * (W - 4.6) : 0, b = nz > 1 ? (k / (nz - 1) - 0.5) * (Dd - 4.6) : 0; add(cx + a * ca - b * sa, cz + a * sa + b * ca); } }
     const inBox = (p, b) => p.x > b.x0 - 0.4 && p.x < b.x1 + 0.4 && p.y > b.y0 - 0.4 && p.y < b.y1 + 0.4 && p.z > b.z0 - 0.4 && p.z < b.z1 + 0.4;
     const baseTick = A.tickHazards;
     A.tickHazards = (fighters) => { baseTick(fighters);
