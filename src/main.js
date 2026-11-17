@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117185248';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117185248';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117185248';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117185248';
-import * as net from './net.js?v=20261117185248';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117185248';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117185248';
-import { makeKillFx } from './killfx.js?v=20261117185248';
-import { makeGrapple } from './grapple.js?v=20261117185248';
-import { initShop } from './shop.js?v=20261117185248';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117185248';
-import { portal } from './portal.js?v=20261117185248';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117185248';
-import { makePost } from './post.js?v=20261117185248';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117185248';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117185248';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, weekLeft } from './boards.js?v=20261117185248';
+import { Arena, MAPS } from './arena.js?v=20261117185521';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117185521';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117185521';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117185521';
+import * as net from './net.js?v=20261117185521';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117185521';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117185521';
+import { makeKillFx } from './killfx.js?v=20261117185521';
+import { makeGrapple } from './grapple.js?v=20261117185521';
+import { initShop } from './shop.js?v=20261117185521';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117185521';
+import { portal } from './portal.js?v=20261117185521';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117185521';
+import { makePost } from './post.js?v=20261117185521';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117185521';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117185521';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261117185521';
 
 // ---------- settings ----------
 const store = {
@@ -2000,10 +2000,10 @@ async function renderRanks() {
   const d = weekLeft() / 864e5; $('lbLeft').textContent = lbWk ? `Resets in ${d >= 1 ? Math.floor(d) + ' d ' : ''}${Math.floor((d % 1) * 24)} h` : '';
   const b = BOARDS.find((x) => x.id === lbBoard), rows = await lbTop(lbBoard, lbWk, settings.name || 'Ronin');
   const val = (r) => (lbBoard === 'xp' ? (r.me && !lbWk ? `Level ${levelOf(r.v).lv} &middot; ${r.v} XP` : `${r.v} XP`) : r.v);
-  $('lbTable').innerHTML = `<tr><th></th><th>Name</th><th>${b.unit}</th></tr>` + rows.map((r, i) => `<tr${r.me ? ' style="color:var(--gold)"' : ''}><td>${i + 1}</td><td>${esc(r.name)}${r.me ? ' (you)' : ''}</td><td>${val(r)}</td></tr>`).join('');
-  $('lbNote').textContent = rows.length > 1 ? 'Ranked against the players you have met online.' : 'Play online to rank against the players you meet.';
+  $('lbTable').innerHTML = `<tr><th></th><th>Name</th><th>${b.unit}</th></tr>` + rows.map((r, i) => `<tr${r.me ? ' style="color:var(--gold)"' : ''}><td>${r.world ? r.pos || '-' : i + 1}</td><td>${esc(r.name)}${r.me ? ' (you)' : ''}</td><td>${val(r)}</td></tr>`).join('');
+  $('lbNote').textContent = rows.some((r) => r.world) ? 'Worldwide: the top 50, and where you stand.' : lbWorld() ? 'Could not reach the worldwide table: showing the players you have met.' : rows.length > 1 ? 'Ranked against the players you have met online.' : 'Play online to rank against the players you meet.';
 }
-$('toRanks').onclick = () => { show('ranks'); renderRanks(); };
+$('toRanks').onclick = () => { show('ranks'); renderRanks(); if (lbWorld()) lbSave(settings.name || 'Ronin').then(renderRanks); };
 $('lbWeek').onclick = () => { lbWk = true; renderRanks(); };
 $('lbAll').onclick = () => { lbWk = false; renderRanks(); };
 $('lbDone').onclick = () => show('home');
