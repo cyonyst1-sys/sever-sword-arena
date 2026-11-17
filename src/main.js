@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116215709';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116215709';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116215709';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116215709';
-import * as net from './net.js?v=20261116215709';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116215709';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116215709';
-import { makeKillFx } from './killfx.js?v=20261116215709';
-import { makeGrapple } from './grapple.js?v=20261116215709';
-import { initShop } from './shop.js?v=20261116215709';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116215709';
-import { portal } from './portal.js?v=20261116215709';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116215709';
-import { makePost } from './post.js?v=20261116215709';
+import { Arena, MAPS } from './arena.js?v=20261116220328';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116220328';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116220328';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116220328';
+import * as net from './net.js?v=20261116220328';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116220328';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116220328';
+import { makeKillFx } from './killfx.js?v=20261116220328';
+import { makeGrapple } from './grapple.js?v=20261116220328';
+import { initShop } from './shop.js?v=20261116220328';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116220328';
+import { portal } from './portal.js?v=20261116220328';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116220328';
+import { makePost } from './post.js?v=20261116220328';
 
 // ---------- settings ----------
 const store = {
@@ -1501,8 +1501,8 @@ function endMatch(winner) {
   S.ended = true;
   const res = { mode: S.mode, list: S.roster, wave: S.wave, winner: winner || null, q: !!(S.quick && S.online) };
   net.broadcast({ t: 'end', res });
-  setTimeout(() => showEnd(res), 1500);
-  if (res.q) { // quick match: a new random mode and map rolls in on its own
+  const at = S.matchStart; setTimeout(() => { if (S.matchStart === at) showEnd(res); }, res.q ? 900 : 1500); // (not if a new match has started since)
+  if (res.q) { // quick match: the next round (a new random mode and map) starts straight away, no waiting on a results screen
     const code = net.net.code;
     setTimeout(() => { if (S.quick && S.host && S.online && net.net.code === code && S.phase === 'end') { quickRoll(); startMatch(); } }, QUICK_GAP * 1000);
   }
@@ -1884,7 +1884,7 @@ function clientMsg(d) {
     for (const s of d.f) { const f = fighters.get(s[0]); if (f && f !== me) applyState(f, s.slice(1)); }
   } else if (d.t === 'spawn') { const f = fighters.get(d.id); if (f) spawn(f, vec(d.p), d.y); }
   else if (d.t === 'kill') { applyKill(d.v, d.k, d.n ? vec(d.n).normalize() : null, d.p ? vec(d.p) : null, d.i ? vec(d.i) : new THREE.Vector3(), !!d.fell); }
-  else if (d.t === 'end') { S.ended = true; setTimeout(() => showEnd(d.res), 1500); }
+  else if (d.t === 'end') { S.ended = true; const at = S.matchStart; setTimeout(() => { if (S.matchStart === at) showEnd(d.res); }, d.res && d.res.q ? 900 : 1500); } // (a quick match's next round may already be under way)
   else if (d.t === 'lobby') { S.phase = 'lobby'; clearWorld(); showLobby(); }
   else if (d.t === 'wave') { S.wave = d.n; showBanner('WAVE ' + d.n); sfx.gong(); }
   else if (d.t === 'banner') showBanner(d.s);
@@ -1982,7 +1982,7 @@ for (const id of ['lobbyModeSel', 'lobbyMap', 'lobbyBots', 'lobbyDiff']) $(id).o
 $('lobbyUp').onchange = () => { if (!S.host) return; S.noUp = !$('lobbyUp').checked; sendRoster(); }; // the host decides whether shop upgrades count in this room
 
 // ---------- quick match: join the busiest open quick room, or start one (random mode and map, bots fill it) ----------
-const QUICK_MODES = ['ffa', 'team', 'koth', 'jugg', 'hunt'], QUICK_GAP = 10;
+const QUICK_MODES = ['ffa', 'team', 'koth', 'jugg', 'hunt'], QUICK_GAP = 1.1; // (seconds from the end of one quick-match round to the next)
 let liveRooms = [], roomsAt = 0, quickBusy = false;
 function onRooms(rooms) { liveRooms = rooms; roomsAt = Date.now(); renderRooms(rooms); renderLive(); renderHomeRooms(rooms); }
 function renderLive() {
@@ -1991,7 +1991,7 @@ function renderLive() {
   el.textContent = !roomsAt ? 'Looking for live games…' : g ? `${g} live game${g > 1 ? 's' : ''} · ${n} player${n > 1 ? 's' : ''} online` : 'No live games right now. Quick Match starts one for others to join.';
 }
 function quickRoll() {
-  const pick = (a) => a[(Math.random() * a.length) | 0], maps = Object.keys(MAPS);
+  const pick = (a) => a[(Math.random() * a.length) | 0], maps = Object.keys(MAPS).filter((k) => !SPECIAL[k]); // (special maps bring their own modes: not for quick match)
   let m, mp, n = 0; do { m = pick(QUICK_MODES); mp = pick(maps); } while (m === S.mode && mp === S.map && ++n < 10);
   S.mode = m; S.map = mp;
 }
@@ -2116,8 +2116,8 @@ const ranked = (list, mode) => [...list].sort((a, b) => POINT_MODES.has(mode) ? 
 function showEnd(res) {
   if (S.phase !== 'game') return;
   S.phase = 'end'; portal.gameplayStop();
-  if (document.pointerLockElement) document.exitPointerLock();
-  show('end'); $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden');
+  if (document.pointerLockElement && !res.q) document.exitPointerLock(); // (quick match: keep the mouse; the next round is about to start)
+  if (!res.q) { show('end'); $('hud').classList.add('hidden'); $('clickPlay').classList.add('hidden'); } // (a quick match goes straight on to the next round instead)
   const list = ranked(res.list, res.mode), name = (MODES[res.mode] || MODES.ffa).name, pts = POINT_MODES.has(res.mode);
   if (res.mode === 'horde') { $('endTitle').textContent = `The horde got you on wave ${res.wave}`; }
   else if (res.mode === 'boss') { const n = res.list.find((r) => r.human)?.pts || 0, b = res.list.find((r) => r.boss != null); $('endTitle').textContent = `You beat ${n} boss${n === 1 ? '' : 'es'}`; setTimeout(() => { $('endSub').textContent = `ChopSocky · stopped by ${b ? b.name : 'a boss'}`; }, 0); }
@@ -2133,7 +2133,7 @@ function showEnd(res) {
     const w = res.mode === 'lbs' || res.mode === 'lava' ? (res.winner ? rosterGet(res.winner) || res.list.find((r) => r.id === res.winner) : null) : list[0];
     $('endTitle').textContent = w && w.id === S.myId ? 'Victory' : (res.mode === 'lbs' || res.mode === 'lava') && !w ? (res.mode === 'lava' ? 'The lava took everyone' : 'Nobody survived') : `${w ? w.name : 'Nobody'} wins`;
   }
-  $('endSub').textContent = name + (res.q ? ` · next round (random mode and map) in ${QUICK_GAP - 2} s` : '');
+  $('endSub').textContent = name + (res.q ? ' · next round starting' : '');
   const rows = list.filter((r) => res.mode !== 'horde' || r.human);
   $('endTable').innerHTML = `<tr><th></th><th>Name</th>${pts ? `<th>${res.mode === 'hunt' ? 'Heads' : 'Points'}</th>` : ''}<th>Kills</th><th>Deaths</th></tr>` + rows.map((r, i) => `<tr><td>${i + 1}</td><td><span class="dot" style="background:${colorOf(r)}"></span> ${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}</td>${pts ? `<td>${r.pts || 0}</td>` : ''}<td>${r.k}</td><td>${r.d}</td></tr>`).join('');
   // coins: for playing a real match (not quitting straight out), kills, points or waves, and winning
@@ -2155,6 +2155,10 @@ function showEnd(res) {
   updateCoinBadge();
   $('againBtn').classList.toggle('hidden', S.online && !S.host);
   $('againBtn').textContent = S.online ? 'Back to lobby' : 'Play again';
+  if (res.q) { // quick match: no results screen; the result and your coins show as a banner, and the next round loads over it
+    const msg = `${$('endTitle').textContent}${coins ? ` · +${coins} coins` : ''}`;
+    showBanner(msg); setTimeout(() => { if (S.phase === 'game') showBanner(msg); }, 700);
+  }
 }
 
 // invite links
