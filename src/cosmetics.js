@@ -354,6 +354,18 @@ const oHalf = (M, T, tusk) => [['round', M, [0, -0.062, -0.098], [0.158, 0.09, 0
       ['box', SILV, [0, 0.075, -0.13], [0.012, 0.07, 0.006]], ...pair((s) => ['box', SILV, [0.03 * s, 0.06, -0.134], [0.06, 0.008, 0.006], [0, 0, 0.5 * s]]), ...pair((s) => fang(SILV, 0.052 * s, -0.06, -0.132, 0.03, false, 0.01)),
       ...pair((s) => bigHorn(TENT, 0.07, 0.09, -0.03, s, 0.25, 0.8, -0.6, 0.028)).flat(), ...pair((s) => [0, 1, 2, 3, 4].map((i) => ['sph', SILV, [(0.076 + i * 0.02) * s, 0.094 + i * 0.02, -0.058], [0.0095 - i * 0.001, 0.0095 - i * 0.001, 0.005]])).flat()] }, // tentacle horns, a row of suckers down each
   ); }
+// a lacquered tengu: glossy red, a furrowed brow under sweeping black eyebrows, amber eyes, long ears with a gold cord,
+// a thick nose rising to a blunt end, and an open mouth showing gold teeth over a jutting chin
+{ const R = mat(0xc0181c, { r: 0.16, m: 0.2, e: 0x240204, ei: 1 }), DR = mat(0x7a0c10, { r: 0.2, m: 0.2 }), AMB = mat(0xc88a2a, { m: 0.6, r: 0.25, e: 0x3a2000, ei: 1 }), TG = mat(0xc89a3a, { m: 0.8, r: 0.35 });
+  CATALOG.mask.push({ id: 'lacquertengu', name: 'Lacquer Tengu', price: 1200, sw: 0xc0181c, hide: FACE, parts: [...oFace(R),
+    ...[0, 1, 2].map((i) => ['round', DR, [0, 0.075 + i * 0.017, -0.118 + i * 0.012], [0.11 - i * 0.012, 0.007, 0.012]]), // furrows across the brow
+    ...pair((s) => ['round', BLACK, [0.044 * s, 0.058, -0.137], [0.066, 0.019, 0.014], [0, 0, 0.55 * s]]), ...pair((s) => ['sph', BLACK, [0.014 * s, 0.04, -0.141], [0.012, 0.012, 0.008]]), // black eyebrows sweeping up and out, curled at the bridge
+    ...pair((s) => ['sph', BLACK, [0.038 * s, 0.015, -0.124], [0.029, 0.016, 0.012], [0, 0, -0.3 * s]]), ...pair((s) => ['sph', AMB, [0.038 * s, 0.014, -0.131], [0.016, 0.012, 0.008]]), ...pair((s) => ['sph', BLACK, [0.038 * s, 0.014, -0.138], [0.006, 0.006, 0.003]]),
+    ['sph', R, [0, -0.012, -0.136], [0.034, 0.032, 0.036]], ['cyl', R, [0, -0.003, -0.213], [0.024, 0.17, 0.024], [-PI / 2 + 0.2, 0, 0]], ['sph', R, [0, 0.014, -0.298], [0.031, 0.031, 0.03]], // the nose
+    ['box', BLACK, [0, -0.07, -0.127], [0.078, 0.022, 0.01]], ...[-3, -2, -1, 0, 1, 2, 3].flatMap((k) => [['box', TG, [k * 0.0105, -0.064, -0.133], [0.009, 0.009, 0.005]], ['box', TG, [k * 0.0105, -0.077, -0.133], [0.009, 0.008, 0.005]]]), // gold teeth
+    ['round', R, [0, -0.1, -0.105], [0.075, 0.03, 0.05]], ['round', R, [0, -0.055, -0.13], [0.09, 0.008, 0.012]], // the chin, the upper lip
+    ...pair((s) => ['round', R, [0.106 * s, -0.005, -0.005], [0.018, 0.11, 0.045]]), ...pair((s) => ['cyl', TG, [0.122 * s, 0.03, -0.005], [0.005, 0.035, 0.005], [0, 0, PI / 2]]), // long ears, a gold cord through each
+  ] }); }
 
 // ---- outfits: families, each in several colours; the legendary ones glow along their trim
 const fam = (id, name, price, vs) => vs.map(([v, vn, gi, trim, pants, o = {}]) => ({ id: `${id}-${v}`, name: `${name} · ${vn}`, price, sw: gi === 0x111111 || gi < 0x202020 ? trim : gi, gi, trim, pants, ...o }));
