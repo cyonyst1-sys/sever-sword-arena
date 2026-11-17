@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116191712';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116191712';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116191712';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116191712';
-import * as net from './net.js?v=20261116191712';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116191712';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116191712';
-import { makeKillFx } from './killfx.js?v=20261116191712';
-import { makeGrapple } from './grapple.js?v=20261116191712';
-import { initShop } from './shop.js?v=20261116191712';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116191712';
-import { portal } from './portal.js?v=20261116191712';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116191712';
-import { makePost } from './post.js?v=20261116191712';
+import { Arena, MAPS } from './arena.js?v=20261116192058';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116192058';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116192058';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116192058';
+import * as net from './net.js?v=20261116192058';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116192058';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116192058';
+import { makeKillFx } from './killfx.js?v=20261116192058';
+import { makeGrapple } from './grapple.js?v=20261116192058';
+import { initShop } from './shop.js?v=20261116192058';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116192058';
+import { portal } from './portal.js?v=20261116192058';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116192058';
+import { makePost } from './post.js?v=20261116192058';
 
 // ---------- settings ----------
 const store = {
@@ -407,7 +407,8 @@ function stepFighter(f, dt, wish, sprint, jump) {
     if (wl > 0.5 && !f.hook && !f.mantle && f.dashT <= 0 && f.climbCd <= 0 && f.stagger <= 0) {
       const dx = wish.x / wl, dz = wish.z / wl, qx = f.pos.x + dx * 0.95, qz = f.pos.z + dz * 0.95;
       const top = arena.groundHeight(qx, qz, f.pos.y + (f.onGround ? 1.0 : 1.9)), rise = top - f.pos.y;
-      if (rise > 0.6 && top > arena.groundHeight(qx, qz, f.pos.y) + 0.3) {
+      const slope = f.onGround && Math.abs(arena.groundHeight(f.pos.x + dx * 0.475, f.pos.z + dz * 0.475, f.pos.y + 1.0) - (f.pos.y + rise / 2)) < 0.22; // (the ground just keeps rising evenly: a slope to run up, not a ledge to climb)
+      if (rise > 0.6 && !slope && top > arena.groundHeight(qx, qz, f.pos.y) + 0.3) {
         f.vel.y = Math.max(f.vel.y, Math.sqrt(2 * G * (rise + 0.45))); f.onGround = false; f.padFlight = false; f.climbCd = 0.45;
         f.mantle = { x: dx * 4.5, z: dz * 4.5, t: Math.max(0.3, f.vel.y / G + 0.2) };
       }
@@ -430,7 +431,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
       } else if (f.wall.t <= 0 || f.onGround || f.hook || !still || f.stagger > 0) { if (!f.onGround && !f.hook) { f.vel.x = f.wall.n.x * 1.5; f.vel.z = f.wall.n.z * 1.5; } f.wall = null; f.wallCd = 0.45; }
     } else if (!f.isBot && !f.onGround && !f.hook && !f.mantle && !f.padFlight && f.wallCd <= 0 && f.stagger <= 0 && f.airT > 0.16) { // (players only: bots keep to their own routes)
       const hs = Math.hypot(f.vel.x, f.vel.z);
-      if (hs > 3.5) { const dx = f.vel.x / hs, dz = f.vel.z / hs, y = f.pos.y + 0.3;
+      if (hs > 3.5 && f.pos.y - arena.groundHeight(f.pos.x, f.pos.z, f.pos.y + 0.3) > 1.3) { const dx = f.vel.x / hs, dz = f.vel.z / hs, y = f.pos.y + 0.3; // (well clear of the floor: never off a slope you're running up)
         if (arena.wallAt(f.pos.x + dx * 0.8, f.pos.z + dz * 0.8, y, 1.2, 0.1) && arena.wallAt(f.pos.x + dx * 0.8, f.pos.z + dz * 0.8, y + 0.9, 0.5, 0.1) && !arena.wallAt(f.pos.x, f.pos.z, y, 1.2, 0)) {
           let nx = 0, nz = 0; for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a); if (arena.wallAt(f.pos.x + c * 0.85, f.pos.z + s * 0.85, y, 1.2, 0.1)) { nx -= c; nz -= s; } } // (which way the wall faces: away from where it is)
           const nl = Math.hypot(nx, nz);
