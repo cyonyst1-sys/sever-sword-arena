@@ -3,8 +3,8 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116201231';
-import { glow, aurora } from './look.js?v=20261116201231';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116201721';
+import { glow, aurora } from './look.js?v=20261116201721';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -344,7 +344,7 @@ export function buildIsles(A, T) {
     for (let t = 0; t < 3; t++) { const tr = new THREE.Mesh(new THREE.IcosahedronGeometry(s * 0.22, 0), flat(t % 2 ? 0x3a2a48 : 0x22314a)); tr.position.set(x + (t - 1) * s * 0.4, y + s * 0.3, z + Math.sin(t) * s * 0.3); S.add(tr); }
   });
   const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x33456e, transparent: true, opacity: 0.95 })); sea.position.y = -75; S.add(sea);
-  drift(A, 260, 0xd8ff8a, 0.14, [0, 0, 0], 0.8);
+  drift(A, 400, 0xd8ff8a, 0.16, [0, 0, 0], 0.8);
 }
 
 // ================= Sky Spires: the coliseum bowl =================
