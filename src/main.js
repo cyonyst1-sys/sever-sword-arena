@@ -1,19 +1,19 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117124245';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117124245';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117124245';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117124245';
-import * as net from './net.js?v=20261117124245';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117124245';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117124245';
-import { makeKillFx } from './killfx.js?v=20261117124245';
-import { makeGrapple } from './grapple.js?v=20261117124245';
-import { initShop } from './shop.js?v=20261117124245';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117124245';
-import { portal } from './portal.js?v=20261117124245';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117124245';
-import { makePost } from './post.js?v=20261117124245';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117124245';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117124245';
+import { Arena, MAPS } from './arena.js?v=20261117140836';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117140836';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117140836';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117140836';
+import * as net from './net.js?v=20261117140836';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117140836';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117140836';
+import { makeKillFx } from './killfx.js?v=20261117140836';
+import { makeGrapple } from './grapple.js?v=20261117140836';
+import { initShop } from './shop.js?v=20261117140836';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117140836';
+import { portal } from './portal.js?v=20261117140836';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117140836';
+import { makePost } from './post.js?v=20261117140836';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117140836';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117140836';
 
 // ---------- settings ----------
 const store = {
@@ -904,6 +904,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
   feed(fell ? (sawn ? `${vn} was sawn in half` : lily ? `${vn} was snapped up by a lily pad` : birdy ? `${vn} was snatched by a giant bird` : eaten ? `${vn} was eaten by the piranha` : arena.fallText ? `${vn} ${arena.fallText(v.pos)}` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
+  if (!fell && n && pt && kId && kId !== vId) potmKill(kId, vId, n, pt, imp);
   if (vId === S.myId) { medalReset(); myStreak = 0; MD.by = kId && kId !== vId ? kId : null; deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; deathA = ca; deathLook.copy(deathAt); overviewFrom(deathAt, deathOv);
     if (!fell && n && pt && kId && kId !== vId && killCamStart(kId, vId, n, pt, imp)) deathBy = 'Kill cam · ' + deathBy; }
   if (kId === S.myId) {
@@ -1555,7 +1556,7 @@ function endMatch(winner) {
   S.ended = true;
   const res = { mode: S.mode, list: S.roster, wave: S.wave, winner: winner || null, q: !!(S.quick && S.online) };
   net.broadcast({ t: 'end', res }); finishMoment();
-  const at = S.matchStart; setTimeout(() => { if (S.matchStart === at) showEnd(res); }, res.q ? 900 : 1500); // (not if a new match has started since)
+  const at = S.matchStart; setTimeout(() => { if (S.matchStart === at && !potmStart(res)) showEnd(res); }, res.q ? 900 : 1500); // (not if a new match has started since)
   if (res.q) { // quick match: the next round (a new random mode and map) starts straight away, no waiting on a results screen
     const code = net.net.code;
     setTimeout(() => { if (S.quick && S.host && S.online && net.net.code === code && S.phase === 'end') startVote(); }, QUICK_GAP * 1000); // (five seconds to vote for the next map: see startVote)
@@ -1949,7 +1950,7 @@ function clientMsg(d) {
     for (const s of d.f) { const f = fighters.get(s[0]); if (f && f !== me) applyState(f, s.slice(1)); }
   } else if (d.t === 'spawn') { const f = fighters.get(d.id); if (f) spawn(f, vec(d.p), d.y); }
   else if (d.t === 'kill') { applyKill(d.v, d.k, d.n ? vec(d.n).normalize() : null, d.p ? vec(d.p) : null, d.i ? vec(d.i) : new THREE.Vector3(), !!d.fell); }
-  else if (d.t === 'end') { S.ended = true; finishMoment(); const at = S.matchStart; setTimeout(() => { if (S.matchStart === at) showEnd(d.res); }, d.res && d.res.q ? 900 : 1500); } // (a quick match's next round may already be under way)
+  else if (d.t === 'end') { S.ended = true; finishMoment(); const at = S.matchStart; setTimeout(() => { if (S.matchStart === at && !potmStart(d.res)) showEnd(d.res); }, d.res && d.res.q ? 900 : 1500); } // (a quick match's next round may already be under way)
   else if (d.t === 'lobby') { S.phase = 'lobby'; clearWorld(); showLobby(); }
   else if (d.t === 'wave') { S.wave = d.n; showBanner('WAVE ' + d.n); sfx.gong(); }
   else if (d.t === 'banner') showBanner(d.s);
@@ -2352,6 +2353,7 @@ function updateHud(dt) {
 let camDist = 3.4, hookAimT = 0;
 const camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
 function updateCamera(dt) {
+  if (pm) return; // (the play of the match has the camera)
   if (!me) { // slow fly-around of the arena behind the menus
     const a = now() * 0.05;
     camera.position.set(Math.cos(a) * 75, 34, Math.sin(a) * 75); camera.lookAt(0, 4, 0);
@@ -2535,7 +2537,7 @@ const rec = [], ghosts = new Map(); let recT = 0, kc = null, kcOn = false;
 function record(dt) {
   recT -= dt; if (recT > 0) return; recT = 0.03; const m = new Map(), t = now();
   for (const f of fighters.values()) if (f.alive) m.set(f.id, [f.pos.x, f.pos.y, f.pos.z, f.yaw, f.pitch, f.s.x, f.s.y, (f.dashT > 0 ? 2 : 0) | (f.onGround ? 4 : 0) | (f.anim && f.anim.phase === 'wind' ? 16 : 0), f.bladeLen]);
-  rec.push({ t, m }); while (rec.length && rec[0].t < t - 4) rec.shift();
+  const fr = { t, m }; rec.push(fr); potmFeed(fr); while (rec.length && rec[0].t < t - 4) rec.shift();
 }
 function ghostOf(f) { let g = ghosts.get(f.id); if (!g) { g = new Fighter({ id: 'ghost', name: null, color: f.color, team: f.team, isBot: f.isBot, horde: f.horde, look: f.look }); g.addTo(scene); ghosts.set(f.id, g); } g.group.visible = false; return g; }
 function killCamStart(kId, vId, n, pt, imp) {
@@ -2545,12 +2547,14 @@ function killCamStart(kId, vId, n, pt, imp) {
   return true;
 }
 function killCamEnd() { if (kc) { kc.gk.group.visible = kc.gv.group.visible = false; kc.gk.trailMesh.visible = kc.gv.trailMesh.visible = false; } kc = null; }
-function ghostPose(g, id, t, dt) {
-  const fr = kc.fr; let i = 0; while (i < fr.length - 2 && fr[i + 1].t < t) i++;
-  const a = fr[i].m.get(id), b = fr[i + 1].m.get(id), span = fr[i + 1].t - fr[i].t || 1, u = Math.max(0, Math.min(1, (t - fr[i].t) / span)), L = (x, y) => x + (y - x) * u;
+function ghostSet(g, a, b, u, span, t, dt) { const L = (x, y) => x + (y - x) * u; // put a stand-in between two recorded states
   let dy = b[3] - a[3]; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
   g.pos.set(L(a[0], b[0]), L(a[1], b[1]), L(a[2], b[2])); g.vel.set((b[0] - a[0]) / span, (b[1] - a[1]) / span, (b[2] - a[2]) / span); g.yaw = a[3] + dy * u; g.pitch = L(a[4], b[4]); g.s.x = L(a[5], b[5]); g.s.y = L(a[6], b[6]);
   g.onGround = !!(a[7] & 4); g.dashT = a[7] & 2 ? 0.1 : 0; g.anim = a[7] & 16 ? { phase: 'wind' } : null; g.bladeLen = a[8]; g.alive = true; g.group.visible = g.trailMesh.visible = true; g.pose(dt); g.updateTrail(t);
+}
+function ghostPose(g, id, t, dt) {
+  const fr = kc.fr; let i = 0; while (i < fr.length - 2 && fr[i + 1].t < t) i++;
+  ghostSet(g, fr[i].m.get(id), fr[i + 1].m.get(id), Math.max(0, Math.min(1, (t - fr[i].t) / (fr[i + 1].t - fr[i].t || 1))), fr[i + 1].t - fr[i].t || 1, t, dt);
 }
 function killCamTick(dt) { // true while the replay is on screen
   if (!kc) return false; if (!me || me.alive || S.phase !== 'game') { killCamEnd(); return false; } if (now() < kc.at) return false;
@@ -2569,6 +2573,63 @@ function finishMoment() {
   if (lastKill && now() - lastKill.t < 0.7 && me) { const d = _t.subVectors(camera.position, lastKill.at); fin = { at: lastKill.at.clone(), until: now() + 1.35, a: Math.atan2(d.z, d.x), t0: now() }; }
 }
 
+
+// ---------- play of the match ----------
+// Every sword kill is scored as it happens (kills in quick succession count most; a kill in the air, at speed, or ending
+// a long streak counts a little more), and the recorded movement around the best run is kept. When the match ends,
+// stand-ins act that run out again before the results screen: slowed for each cut, the camera at the killer's shoulder.
+const PM = { at: -1, best: null, cur: new Map() }; let pm = null;
+function potmKill(kId, vId, n, pt, imp) {
+  if (S.mode === 'tutorial') return; if (PM.at !== S.matchStart) { PM.at = S.matchStart; PM.best = null; PM.cur.clear(); }
+  const t = now(), k = fighters.get(kId); if (!k) return;
+  let c = PM.cur.get(kId); if (!c || t - c.tLast > 4 || c.fr.length >= 330) { c = { kId, ev: [], score: 0, tLast: t, fr: rec.filter((r) => r.t > t - 2.2) }; PM.cur.set(kId, c); }
+  c.ev.push({ t, vId, n: n.clone(), pt: pt.clone(), imp: imp ? imp.clone() : new THREE.Vector3() }); c.tLast = t;
+  c.score += (c.ev.length > 1 ? 14 : 10) + (k.onGround ? 0 : 3) + Math.min(3, k.vel.length() / 6) + ((rosterGet(vId)?.streak || 0) >= 5 ? 3 : 0) + (k.isBot ? 0 : 1);
+  if (!PM.best || c.score > PM.best.score) PM.best = c;
+}
+function potmFeed(fr) { if (PM.at === S.matchStart) for (const c of PM.cur.values()) if (fr.t - c.tLast < 4 && c.fr.length < 330) c.fr.push(fr); } // (each run keeps recording until it can no longer grow)
+function potmStart(res) { // true if the replay has taken the stage (the results follow it)
+  const c = PM.at === S.matchStart ? PM.best : null;
+  if (!c || res.q || S.phase !== 'game' || S.paused || document.hidden || !document.pointerLockElement || !fighters.get(c.kId)) return false;
+  const t0 = c.ev[0].t - 1.6, t1 = c.tLast + 0.8, fr = c.fr.filter((r) => r.t >= t0 && r.t <= t1); if (fr.length < 12) return false;
+  let ids = new Set(); for (const r of fr) for (const id of r.m.keys()) ids.add(id);
+  if (ids.size > 10) ids = new Set([c.kId, ...c.ev.map((e) => e.vId)]); // (a crowd: only the killer and the fallen)
+  const g = new Map(); for (const id of ids) { const f = fighters.get(id); if (f) g.set(id, ghostOf(f)); }
+  killCamEnd(); kcOn = false; fin = null;
+  for (const f of fighters.values()) { f.group.visible = f.trailMesh.visible = false; if (f.blob) f.blob.visible = false; f.grap.hide(); }
+  pm = { c, fr, ev: c.ev, i: 0, fi: 0, t: fr[0].t, t1: Math.min(t1, fr[fr.length - 1].t), g, gone: {}, res, at: S.matchStart, shown: performance.now(), cam: false, look: new THREE.Vector3() };
+  const r = rosterGet(c.kId), kn = c.ev.length;
+  $('potmName').innerHTML = `<span style="color:${r ? colorOf(r) : '#fff'}">${esc(r ? r.name : '?')}</span>${kn > 1 ? ` &middot; ${kn} kills` : ''}`;
+  $('potm').classList.remove('hidden'); $('hud').classList.add('hidden'); sfx.gong();
+  return true;
+}
+function potmStop() { // (clear the stage, without the results)
+  if (!pm) return; for (const g of pm.g.values()) g.group.visible = g.trailMesh.visible = false;
+  for (const f of fighters.values()) f.group.visible = f.alive;
+  $('potm').classList.add('hidden'); pm = null;
+}
+function potmEnd() { if (!pm) return; const res = pm.res, same = pm.at === S.matchStart; potmStop(); if (same) showEnd(res); }
+function potmTick(dt) { // true while the replay is on screen
+  if (!pm) return false;
+  const ev = pm.ev, fr = pm.fr, slow = (pm.i < ev.length && ev[pm.i].t - pm.t < 0.3) || (pm.i > 0 && pm.t - ev[pm.i - 1].t < 0.35),
+    far = pm.i > 0 && pm.i < ev.length && ev[pm.i].t - pm.t > 1.2 && pm.t - ev[pm.i - 1].t > 0.7, sp = slow ? 0.3 : far ? 1.8 : 0.85; pm.t += dt * sp; // (slow for each cut; quicker through a long gap between two)
+  while (pm.fi < fr.length - 2 && fr[pm.fi + 1].t < pm.t) pm.fi++;
+  const A = fr[pm.fi], B = fr[pm.fi + 1], span = B.t - A.t || 1, u = Math.max(0, Math.min(1, (pm.t - A.t) / span));
+  for (const [id, g] of pm.g) { const a = A.m.get(id); // (absent: dead, or not there yet)
+    if (!a || (pm.gone[id] != null && A.t <= pm.gone[id] + 0.05)) { g.group.visible = g.trailMesh.visible = false; continue; }
+    ghostSet(g, a, B.m.get(id) || a, u, span, pm.t, dt * sp); }
+  while (pm.i < ev.length && pm.t >= ev[pm.i].t) { const e = ev[pm.i++], g = pm.g.get(e.vId); pm.gone[e.vId] = e.t; // a cut: the stand-in falls in two, as the fighter did
+    if (g && g.group.visible) { g.pose(0); const kfx = fighters.get(pm.c.kId)?.look.kill, at = pieces.split(bakeMeshes(g.meshes), e.n, -e.n.dot(e.pt), g.vel, e.imp, 1, killFx.burstFor(kfx));
+      g.group.visible = g.trailMesh.visible = false; if (at) { killFx.apply(kfx, at, e.n, pieces.last); sliceLines.emit(at, e.n, camera); } }
+    sfx.kill(e.pt); }
+  const kg = pm.g.get(pm.c.kId), k = kg ? kg.pos : ev[0].pt, e = ev[Math.min(pm.i, ev.length - 1)], vg = pm.i < ev.length ? pm.g.get(e.vId) : null, live = vg && vg.group.visible, v = live ? vg.pos : e.pt;
+  pm.look.lerp(_t.set(v.x, v.y + (live ? 1.1 : 0), v.z), pm.cam ? 0.1 : 1); // the camera: at the killer's shoulder, turning to each victim in turn
+  _t.set(k.x - pm.look.x, 0, k.z - pm.look.z); const l = _t.length() || 1; _t.multiplyScalar(1 / l);
+  camPos.set(k.x + _t.x * 4.2 - _t.z * 1.4, k.y + 2.4, k.z + _t.z * 4.2 + _t.x * 1.4); camera.position.lerp(camPos, pm.cam ? 0.1 : 1); pm.cam = true; camera.lookAt(pm.look); arena.follow(k);
+  if (pm.t >= pm.t1) potmEnd();
+  return true;
+}
+for (const ty of ['keydown', 'mousedown']) window.addEventListener(ty, () => { if (pm && performance.now() - pm.shown > 700) potmEnd(); }); // (any key or click skips it)
 // ---------- main loop ----------
 let last = performance.now(), lastRaf = last, bgTick = false;
 // automatic quality: if the frame rate stays low, draw at a lower resolution (then, at the lowest, without shadows or
@@ -2596,7 +2657,8 @@ function tick(rdt, tt) {
   voteTick();
   if (S.migAt && now() - S.migAt > 20 && S.online && !S.host) { leaveRoom(); toast('Lost the room.'); toMenu(); } // (the new host never took over)
   if (now() < slowUntil) rdt *= 0.3; // (the finishing cut, in slow motion)
-  if (S.phase === 'game' && !S.paused) {
+  if (pm && (S.phase !== 'game' || S.matchStart !== pm.at || performance.now() - pm.shown > 20000)) { if (S.phase === 'game' && S.matchStart === pm.at) potmEnd(); else potmStop(); }
+  if (S.phase === 'game' && !S.paused && !potmTick(rdt)) {
     kcOn = killCamTick(rdt); record(rdt);
     if (S.host) hostTick(rdt);
     if (arena.tickPads) arena.tickPads(fighters.values(), now()); // (Bamboo Fort: spawn pads fall away once left)
@@ -2687,7 +2749,7 @@ try {
   w.onmessage = () => { heartbeat(); const t = performance.now(); if (t - lastRaf < 100 || !S.online || !S.host) return; const rdt = Math.min(0.05, Math.max(0.0005, (t - last) / 1000)); last = t; bgTick = true; tick(rdt, t / 1000); bgTick = false; };
 } catch (e) { /* no workers: hidden hosts fall back to the browser's throttled timers */ }
 // handy for debugging in the console
-window.__sever = { S, fighters, pieces, scene, post, get arena() { return arena; }, camera, renderer, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
+window.__sever = { get pm() { return pm; }, PM, ghosts, S, fighters, pieces, scene, post, get arena() { return arena; }, camera, renderer, tick, applyKill, botSwingTo, willLand, dashOnto, sfx, quickSwing, fireHook, releaseHook, tryDash, mouse, get me() { return me; } };
 
 // ---------- map picker: a thumbnail card for each map (the hidden select still holds the choice) ----------
 function thumb(id) { return `thumbs/${id}.jpg?v=${document.querySelector('meta[name=build]').content}`; }

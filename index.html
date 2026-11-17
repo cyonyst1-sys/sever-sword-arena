@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261117124245">
+<meta name="build" content="20261117140836">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -170,6 +170,12 @@ window.severVersion.check();
   #center { position:absolute; left:50%; top:34%; transform:translate(-50%,-50%); font-family:'Russo One',system-ui; font-size:30px; text-align:center; text-shadow:0 2px 8px #000; }
   #center small { display:block; font-family:Inter,system-ui; font-size:15px; color:var(--muted); margin-top:6px; }
   #banner { position:absolute; left:50%; top:22%; transform:translateX(-50%); font-family:'Russo One',system-ui; font-size:56px; text-shadow:0 3px 12px #000; transition:opacity .6s; }
+  #potm { position:fixed; inset:0; pointer-events:none; z-index:5; text-align:center; text-shadow:0 3px 12px #000; }
+  #potm::before, #potm::after { content:''; position:absolute; left:0; right:0; height:9%; background:#000; }
+  #potm::before { top:0; } #potm::after { bottom:0; }
+  #potm b { position:absolute; left:0; right:0; top:11%; font-family:'Russo One',system-ui; font-size:38px; font-weight:400; color:var(--gold); letter-spacing:3px; }
+  #potm span { position:absolute; left:0; right:0; top:calc(11% + 50px); font-size:20px; font-weight:700; }
+  #potm small { position:absolute; left:0; right:0; bottom:11%; font-size:13px; color:var(--muted); }
   #medals { position:absolute; left:50%; top:60%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:2px; pointer-events:none; }
   #medals div { font-family:'Russo One',system-ui; font-size:22px; color:var(--gold); text-shadow:0 2px 8px #000; white-space:nowrap; animation:medal 2.3s forwards; }
   #medals div.big { font-size:40px; color:#fff; text-shadow:0 0 18px var(--red), 0 3px 10px #000; }
@@ -196,12 +202,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261117124245",
-  "./src/arena.js": "./src/arena.js?v=20261117124245",
-  "./src/fighter.js": "./src/fighter.js?v=20261117124245",
-  "./src/slice.js": "./src/slice.js?v=20261117124245",
-  "./src/audio.js": "./src/audio.js?v=20261117124245",
-  "./src/net.js": "./src/net.js?v=20261117124245"
+  "./src/main.js": "./src/main.js?v=20261117140836",
+  "./src/arena.js": "./src/arena.js?v=20261117140836",
+  "./src/fighter.js": "./src/fighter.js?v=20261117140836",
+  "./src/slice.js": "./src/slice.js?v=20261117140836",
+  "./src/audio.js": "./src/audio.js?v=20261117140836",
+  "./src/net.js": "./src/net.js?v=20261117140836"
 } }
 </script>
 </head>
@@ -344,6 +350,7 @@ window.severVersion.check();
   </div>
 </div>
 
+<div id="potm" class="hidden"><b>PLAY OF THE MATCH</b><span id="potmName"></span><small>Press any key to skip</small></div>
 <div id="hud" class="hidden">
   <div id="topbar"></div>
   <div id="myscore"></div>
@@ -365,6 +372,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261117124245"></script>
+<script type="module" src="src/main.js?v=20261117140836"></script>
 </body>
 </html>
