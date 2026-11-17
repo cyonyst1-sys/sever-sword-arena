@@ -2,8 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261116193701';
-import { item, cleanLook } from './cosmetics.js?v=20261116193701';
+import { buildBody, poseBody } from './body.js?v=20261116194303';
+import { item, cleanLook } from './cosmetics.js?v=20261116194303';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -361,6 +361,9 @@ export class Fighter {
     this.J ||= {};
     const P = this.p, g = this.group;
     g.position.copy(this.pos); g.rotation.order = 'YXZ'; g.rotation.y = this.yaw;
+    // a wall plant: which way the wall is from the body (in its own frame), and which side of the body is against it
+    let WL = null, wallSide = 0;
+    if (this.planted) { const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw), wx = -this.planted.x, wz = -this.planted.z; WL = V(wx * cy - wz * sy, 0, wx * sy + wz * cy); wallSide = WL.x < 0 ? -1 : 1; }
     { // lean with the ground: the body stands square to whatever slope is under its feet (eased, so it doesn't snap)
       const n = this.gN, cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let a = 0, b = 0;
       if (n && this.alive !== false) { const lx = n.x * cy - n.z * sy, lz = n.x * sy + n.z * cy, l = Math.hypot(lx, n.y, lz) || 1; b = -Math.asin(Math.max(-0.6, Math.min(0.6, lx / l))); a = Math.max(-0.6, Math.min(0.6, Math.atan2(lz, n.y))); }
@@ -444,8 +447,12 @@ export class Fighter {
         foot.y += Math.max(0, cs) * 0.4 * k + Math.max(0, -sn) * Math.max(0, cs) * 0.25 * k; // high knee forward, heel kicks up behind
         toe = -cs * 0.45 * k; // toes point down as the foot pushes off
       }
+      if (WL) { // planted on a wall: the leg on the wall's side is drawn up, knee bent at the waist, its foot high on the wall; the other foot is set against the wall lower down
+        const near = (sgn < 0 ? -1 : 1) === wallSide;
+        foot.set(0.09 * sgn + WL.x * (near ? 0.4 : 0.36), near ? 0.7 : 0.22, WL.z * (near ? 0.4 : 0.36)); toe = near ? 0.25 : -0.2;
+      }
       const knee = V();
-      ik(hip, foot, THIGH, SHIN, V(0, 0, -1), knee);
+      ik(hip, foot, THIGH, SHIN, WL ? V(-WL.x * 0.6, 0.5, -WL.z * 0.6 - 0.3) : V(0, 0, -1), knee);
       const Jb = this.J; Jb['hip' + side] = hip.clone(); Jb['knee' + side] = knee.clone(); Jb['foot' + side] = foot.clone(); // (joints, for the skinned body)
       seg(P['th' + side], hip, knee, 0.095); P['kn' + side].position.copy(knee); P['kn' + side].scale.setScalar(0.06);
       seg(P['sh' + side], knee, foot, 0.07);
@@ -480,18 +487,15 @@ export class Fighter {
     const handL = V(-0.27, 1.12 + 0.06 * k + (hipY - 0.99), 0.05 + sL * 0.34 * k);
     if (dash) handL.set(-0.36, 1.05, 0.35);
     if (air && !this.hook) handL.set(-0.38, 1.35, -0.1);
-    if (this.planted && !this.hook) { // a wall plant: the free hand flat against the wall
-      g.updateMatrixWorld(true);
-      const loc = g.worldToLocal(_c.set(this.pos.x - this.planted.x * 0.75, this.pos.y + 1.35, this.pos.z - this.planted.z * 0.75)).sub(shL).normalize();
-      handL.copy(shL).addScaledVector(loc, 0.55);
-    }
+    if (WL && !this.hook && wallSide < 0) handL.copy(shL).add(V(WL.x * 0.14, 0.2, WL.z * 0.14)); // (the wall on your left: that arm folds up, its elbow out against the wall)
+    else if (WL && !this.hook) handL.copy(shL).add(V(-0.1, -0.2, -0.3)); // (the wall on your right: the left arm hangs free, out for balance)
     if (this.hook) { // reach for the grapple anchor
       g.updateMatrixWorld(true);
       const loc = g.worldToLocal(this.hook.p.clone()).sub(shL).normalize();
       handL.copy(shL).addScaledVector(loc, 0.56);
     }
     const elL = V();
-    ik(shL, handL, UPPER, FORE, V(-0.3, -0.4, 0.6), elL);
+    ik(shL, handL, UPPER, FORE, WL && wallSide < 0 && !this.hook ? V(WL.x, -0.15, WL.z) : V(-0.3, -0.4, 0.6), elL);
     Object.assign(this.J, { shL: shL.clone(), elL: elL.clone(), handL: handL.clone() });
     seg(P.uaL, shL, elL, 0.064); P.elL.position.copy(elL); P.elL.scale.setScalar(0.046); seg(P.faL, elL, handL, 0.052);
     seg(P.wrL, _a.lerpVectors(elL, handL, 0.62), _b.lerpVectors(elL, handL, 0.97), 0.05);

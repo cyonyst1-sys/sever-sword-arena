@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116193701';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116193701';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116193701';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116193701';
-import * as net from './net.js?v=20261116193701';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116193701';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116193701';
-import { makeKillFx } from './killfx.js?v=20261116193701';
-import { makeGrapple } from './grapple.js?v=20261116193701';
-import { initShop } from './shop.js?v=20261116193701';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116193701';
-import { portal } from './portal.js?v=20261116193701';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116193701';
-import { makePost } from './post.js?v=20261116193701';
+import { Arena, MAPS } from './arena.js?v=20261116194303';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116194303';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116194303';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116194303';
+import * as net from './net.js?v=20261116194303';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116194303';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116194303';
+import { makeKillFx } from './killfx.js?v=20261116194303';
+import { makeGrapple } from './grapple.js?v=20261116194303';
+import { initShop } from './shop.js?v=20261116194303';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116194303';
+import { portal } from './portal.js?v=20261116194303';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116194303';
+import { makePost } from './post.js?v=20261116194303';
 
 // ---------- settings ----------
 const store = {
@@ -2365,7 +2365,7 @@ function tick(rdt, tt) {
       if (tfx && f.tipSpeed > 9 && f.trail.length > 1) for (let k = 0; k < ((f.trailStyle.len || 0) > 0.2 ? 4 : 2); k++) { const u = Math.random(), p = _t.copy(f.hand).lerp(f.tip, 0.4 + u * 0.6), j = f.trailStyle.fx === 'zap' ? 5 : 1.5; tfx.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.18 : 0.9); }
       { // which way is "up" for the body: square to the slope it stands on (a banked deck, a ramp, a dish, a branch); leaning in to a wall it's planted on
         const gn = f.gN || (f.gN = new THREE.Vector3(0, 1, 0));
-        if (f.wall) gn.set(-f.wall.n.x * 0.42, 1, -f.wall.n.z * 0.42);
+        if (f.wall) { gn.set(f.wall.n.x * 0.5, 1, f.wall.n.z * 0.5); f.tiltK = 0.3; } // (planted on a wall: feet in against it, the body leaning out)
         else if (f.alive) { // standing: square to the surface under your feet. In the air: only a slight lean toward the surface below, coming fully to its angle just before you touch down
           // (one surface at a time, the one you're about to meet: nothing off to the side or far ahead; and never the rounded outer edge of a platform)
           const e = 0.7, air = !f.onGround, px = f.pos.x + (air ? f.vel.x * 0.12 : 0), pz = f.pos.z + (air ? f.vel.z * 0.12 : 0), g0 = arena.groundHeight(px, pz, f.pos.y + 0.6); let w = 0, nx = 0, nz = 0;
