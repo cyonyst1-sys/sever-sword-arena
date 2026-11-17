@@ -3,9 +3,9 @@
 // breakable chunks as the Paper Dojo: every window pane shatters, office partitions and crates break, and the
 // steel frames (unbreakable) are there to swing from, run along and stand on.
 import * as THREE from 'three';
-import { cloudHeaps } from './scenery.js?v=20261116190049';
+import { cloudHeaps } from './scenery.js?v=20261116190901';
 import { deck, prop } from './maps2.js';
-import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116190049';
+import { kindMats, chunk, group, wall, stack, finishBrk, kill } from './dojo.js?v=20261116190901';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });

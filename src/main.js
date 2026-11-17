@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116190049';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116190049';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116190049';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116190049';
-import * as net from './net.js?v=20261116190049';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116190049';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116190049';
-import { makeKillFx } from './killfx.js?v=20261116190049';
-import { makeGrapple } from './grapple.js?v=20261116190049';
-import { initShop } from './shop.js?v=20261116190049';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116190049';
-import { portal } from './portal.js?v=20261116190049';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116190049';
-import { makePost } from './post.js?v=20261116190049';
+import { Arena, MAPS } from './arena.js?v=20261116190901';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116190901';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116190901';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116190901';
+import * as net from './net.js?v=20261116190901';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116190901';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116190901';
+import { makeKillFx } from './killfx.js?v=20261116190901';
+import { makeGrapple } from './grapple.js?v=20261116190901';
+import { initShop } from './shop.js?v=20261116190901';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116190901';
+import { portal } from './portal.js?v=20261116190901';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116190901';
+import { makePost } from './post.js?v=20261116190901';
 
 // ---------- settings ----------
 const store = {
@@ -794,7 +794,8 @@ function selfFell(f) {
 let shake = 0, hitstop = 0, punch = 0;
 function applyKill(vId, kId, n, pt, imp, fell) {
   const v = fighters.get(vId); if (!v || !v.alive) return false;
-  if (v.boss && v.bossHp > 1 && S.host) { bossHurt(v, pt, imp, fell); return false; } // (Boss Rush: bosses take several cuts)
+  if (v.boss && S.host && now() < (v.hitGrace || 0)) return false; // (the same swing can't cut a boss twice)
+  if (v.boss && v.bossHp > 1 && S.host) { bossHurt(v, pt, imp, fell, kId); return false; } // (Boss Rush: bosses take several cuts)
   v.alive = false; v.hook = null; v.diedAt = now(); v.anim = null;
   if (!fell && n) {
     v.pose(0);
@@ -1264,6 +1265,10 @@ function botThink(b, dt) {
   }
   if (S.mode === 'lava' && b.target && b.target.isBot && !gateFor(b) && b.target.pos.distanceTo(b.pos) > 1.6) b.target = null; // (Lava Climb: on the course, bots ignore each other)
   let t = b.target;
+  if (b.boss && b.fleeUntil > now() && t && t.alive) { // (just hurt: keep its distance for a moment, facing its attacker, then it comes back)
+    const ax = b.pos.x - t.pos.x, az = b.pos.z - t.pos.z, al = Math.hypot(ax, az) || 1, ok = al < 11 && floorAhead(b, ax, az, 2.5);
+    let da = Math.atan2(-(t.pos.x - b.pos.x), -(t.pos.z - b.pos.z)) - b.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2; b.yaw += Math.max(-8 * dt, Math.min(8 * dt, da));
+    return { wish: ok ? { x: ax / al, z: az / al } : { x: 0, z: 0 }, jump: false, sprint: false }; }
   const obj = botObjective(b); // the mode's objective: throne, heads, shrine, or away from a crumbling platform
   if (obj && (!t || obj.flee || t.pos.distanceTo(b.pos) > obj.engage)) t = obj;
   const wish = { x: 0, z: 0 }; let jump = false, sprint = false;
@@ -1595,12 +1600,15 @@ const BOSSES = [
 // after the last boss they come round again, each round harder and tougher
 function bossDef(i) { const r = Math.floor(i / BOSSES.length), b = BOSSES[i % BOSSES.length]; return { ...b, round: r, hp: b.hp + 2 * r, dl: b.dl + r }; }
 function bossEntry(i) { const b = bossDef(i), e = newRosterEntry('boss' + i, b.name, false, b.look); e.boss = i; return e; }
-function bossHurt(v, pt, imp, fell) {
-  v.bossHp--; v.lastHurt = now(); v.prot = 0.7; v.stagger = 0.6; v.anim = null; v.noCut = true;
+function bossHurt(v, pt, imp, fell, kId) {
+  v.bossHp--; v.lastHurt = now(); v.hitGrace = now() + 0.25; v.anim = null; v.noCut = true; // (no invincible spell: it can be cut again as soon as this swing is through)
   const at = pt || _t.copy(v.pos).setY(v.pos.y + 1.2);
   for (let i = 0; i < 30; i++) sparks.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 8, Math.random() * 5, (Math.random() - 0.5) * 8, 0.5);
   sfx.slice(at); shake = Math.max(shake, 0.3); hitstop = 0.06;
-  if (fell) hostSpawn(v); else if (imp) { v.vel.x += imp.x * 0.3; v.vel.z += imp.z * 0.3; v.vel.y += 3; }
+  if (fell) hostSpawn(v); else { // hurt, it dashes clear of whoever cut it, backs off for a moment, then comes back in and fights on
+    const k = kId && fighters.get(kId), from = k ? k.pos : me ? me.pos : v.pos; let ax = v.pos.x - from.x, az = v.pos.z - from.z; const al = Math.hypot(ax, az) || 1; ax /= al; az /= al;
+    let dir = null; for (const a of [0, 0.7, -0.7, 1.4, -1.4]) { const c = Math.cos(a), s = Math.sin(a), x = ax * c - az * s, z = ax * s + az * c; if (floorAhead(v, x, z, 12) && floorAhead(v, x, z, 6)) { dir = new THREE.Vector3(x, 0.12, z); break; } } // (straight back if there's floor there, else off to a side)
+    v.dashCd = 0; v.stam = Math.max(v.stam, 40); v.dashT = 0; if (dir) tryDash(v, dir); v.fleeUntil = now() + 1.1; v.atkCd = 1.0; }
   feed(`${esc(v.boss.name)} <span style="color:var(--red)">⟋</span> ${v.bossHp} to go`);
 }
 function bossTick() {
