@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116192058';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116192058';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116192058';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116192058';
-import * as net from './net.js?v=20261116192058';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116192058';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116192058';
-import { makeKillFx } from './killfx.js?v=20261116192058';
-import { makeGrapple } from './grapple.js?v=20261116192058';
-import { initShop } from './shop.js?v=20261116192058';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116192058';
-import { portal } from './portal.js?v=20261116192058';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116192058';
-import { makePost } from './post.js?v=20261116192058';
+import { Arena, MAPS } from './arena.js?v=20261116192258';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116192258';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116192258';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116192258';
+import * as net from './net.js?v=20261116192258';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116192258';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116192258';
+import { makeKillFx } from './killfx.js?v=20261116192258';
+import { makeGrapple } from './grapple.js?v=20261116192258';
+import { initShop } from './shop.js?v=20261116192258';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116192258';
+import { portal } from './portal.js?v=20261116192258';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116192258';
+import { makePost } from './post.js?v=20261116192258';
 
 // ---------- settings ----------
 const store = {
@@ -2366,8 +2366,11 @@ function tick(rdt, tt) {
       { // which way is "up" for the body: square to the slope it stands on (a banked deck, a ramp, a dish, a branch); leaning in to a wall it's planted on
         const gn = f.gN || (f.gN = new THREE.Vector3(0, 1, 0));
         if (f.wall) gn.set(-f.wall.n.x * 0.42, 1, -f.wall.n.z * 0.42);
-        else if (f.alive && f.onGround && f.dashT <= 0) { const e = 0.45, y = f.pos.y + 0.6, hx = arena.groundHeight(f.pos.x + e, f.pos.z, y) - arena.groundHeight(f.pos.x - e, f.pos.z, y), hz = arena.groundHeight(f.pos.x, f.pos.z + e, y) - arena.groundHeight(f.pos.x, f.pos.z - e, y);
-          if (isFinite(hx) && isFinite(hz) && Math.abs(hx) < 0.75 && Math.abs(hz) < 0.75) gn.set(-hx / (2 * e), 1, -hz / (2 * e)); else gn.set(0, 1, 0); }
+        else if (f.alive) { // standing on it, or in the air over it: the angle of the surface under you (so a jump keeps the deck's lean until you're clear of it or over level ground)
+          const e = 0.45, y = f.pos.y + 0.6, g0 = arena.groundHeight(f.pos.x, f.pos.z, y);
+          if (isFinite(g0) && f.pos.y - g0 < 12) { const hx = arena.groundHeight(f.pos.x + e, f.pos.z, g0 + 0.9) - arena.groundHeight(f.pos.x - e, f.pos.z, g0 + 0.9), hz = arena.groundHeight(f.pos.x, f.pos.z + e, g0 + 0.9) - arena.groundHeight(f.pos.x, f.pos.z - e, g0 + 0.9);
+            if (isFinite(hx) && isFinite(hz) && Math.abs(hx) < 0.75 && Math.abs(hz) < 0.75) { gn.set(-hx / (2 * e), 1, -hz / (2 * e)); (f.tiltAt || (f.tiltAt = new THREE.Vector3())).copy(f.pos); } } // (at an edge the samples fail: keep the angle you had)
+          else if (!f.tiltAt || Math.hypot(f.pos.x - f.tiltAt.x, f.pos.z - f.tiltAt.z) > 7) gn.set(0, 1, 0); } // (nothing under you: hold the angle until you're well away from where you last had one, then level out)
         else gn.set(0, 1, 0);
         f.planted = f.wall ? f.wall.n : null; }
       f.group.visible = f.alive ? !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0) : f.eatenAt > now(); // (a fighter the piranha is about to eat stays in view)
