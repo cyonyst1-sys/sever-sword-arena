@@ -3,8 +3,8 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116201108';
-import { glow, aurora } from './look.js?v=20261116201108';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116201231';
+import { glow, aurora } from './look.js?v=20261116201231';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -233,7 +233,7 @@ export function buildIsles(A, T) {
     const lx = x + w * 0.32, lz = z + d * 0.3;
     prop(A, p, new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.0, 0.6), rock), lx, y + 0.5, lz); prop(A, p, new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), lantern), lx, y + 1.25, lz);
     for (let i = 0; i < 3; i++) prop(A, p, new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + r() * 0.6, 0), rock), x + (r() - 0.5) * w * 0.7, y + 0.2, z + (r() - 0.5) * d * 0.7);
-    lawn(A, p, x, y, z, w, d, 0x4fa878, 0x144a30, r, 1.8);
+    lawn(A, p, x, y, z, w, d, 0x4fa878, 0x144a30, r, 3.2);
     { const gl = glow(0xff60d8, 5, 0.8); gl.position.set(lx, y + 1.3, lz); S.add(gl); p.meshes.push(gl); }
     for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(crysG, crysM[(r() * 3) | 0]), sc = 0.45 + r() * 0.7; c.scale.set(sc * 0.5, sc * 1.5, sc * 0.5); c.rotation.set((r() - 0.5) * 0.6, r() * 3, (r() - 0.5) * 0.6); prop(A, p, c, x + (r() - 0.5) * w * 0.75, y + sc * 0.7, z + (r() - 0.5) * d * 0.75); }
     if (A.quality !== 'low') { const R = (w + d) / 4, h = y + 24, f = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 0.9, 1, 28, 1, true), fallM); f.scale.y = h; f.position.set(x, y - 1.2 - h / 2, z); f.renderOrder = 2; S.add(f); p.meshes.push(f); }
