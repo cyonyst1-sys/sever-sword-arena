@@ -3,20 +3,20 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116190901';
-import { buildFoundry } from './foundry.js?v=20261116190901';
-import { buildBamboo } from './bamboo.js?v=20261116190901';
-import { buildCity } from './city.js?v=20261116190901';
-import { buildDojo } from './dojo.js?v=20261116190901';
-import { buildComet } from './comet.js?v=20261116190901';
-import { buildLava } from './lava.js?v=20261116190901';
-import { buildRun } from './run.js?v=20261116190901';
-import { buildGrove } from './grove.js?v=20261116190901';
-import { buildTransport } from './transport.js?v=20261116190901';
-import { applyLook } from './look.js?v=20261116190901';
-import { addScenery } from './scenery.js?v=20261116190901';
-import { addAtmosphere } from './atmos.js?v=20261116190901';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116190901';
+import { buildTilt } from './tilt.js?v=20261116191712';
+import { buildFoundry } from './foundry.js?v=20261116191712';
+import { buildBamboo } from './bamboo.js?v=20261116191712';
+import { buildCity } from './city.js?v=20261116191712';
+import { buildDojo } from './dojo.js?v=20261116191712';
+import { buildComet } from './comet.js?v=20261116191712';
+import { buildLava } from './lava.js?v=20261116191712';
+import { buildRun } from './run.js?v=20261116191712';
+import { buildGrove } from './grove.js?v=20261116191712';
+import { buildTransport } from './transport.js?v=20261116191712';
+import { applyLook } from './look.js?v=20261116191712';
+import { addScenery } from './scenery.js?v=20261116191712';
+import { addAtmosphere } from './atmos.js?v=20261116191712';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116191712';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 

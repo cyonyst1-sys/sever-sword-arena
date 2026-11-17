@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116190901';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116190901';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116190901';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116190901';
-import * as net from './net.js?v=20261116190901';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116190901';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116190901';
-import { makeKillFx } from './killfx.js?v=20261116190901';
-import { makeGrapple } from './grapple.js?v=20261116190901';
-import { initShop } from './shop.js?v=20261116190901';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116190901';
-import { portal } from './portal.js?v=20261116190901';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116190901';
-import { makePost } from './post.js?v=20261116190901';
+import { Arena, MAPS } from './arena.js?v=20261116191712';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116191712';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116191712';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116191712';
+import * as net from './net.js?v=20261116191712';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116191712';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116191712';
+import { makeKillFx } from './killfx.js?v=20261116191712';
+import { makeGrapple } from './grapple.js?v=20261116191712';
+import { initShop } from './shop.js?v=20261116191712';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116191712';
+import { portal } from './portal.js?v=20261116191712';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116191712';
+import { makePost } from './post.js?v=20261116191712';
 
 // ---------- settings ----------
 const store = {
@@ -417,12 +417,32 @@ function stepFighter(f, dt, wish, sprint, jump) {
     // double and triple jump: two more jumps in the air, each on a fresh press (holding the key doesn't chain them)
     if (f.onGround) { f.airJumps = 0; f.airRegen = 0; } else if (f.airJumps > 0 && (f.airRegen = (f.airRegen || 0) + dt) >= 1.2) { f.airJumps--; f.airRegen = 0; } // air jumps come back over time, landing or not
     const pressed = jump && (f.isBot || !f.jumpHeld); f.jumpHeld = !!jump; f.airJumpCd = (f.airJumpCd || 0) - dt;
+    // wall plant and wall jump: fly into a wall or a pillar and you catch it for a moment with a hand and a foot, hanging
+    // there; jump kicks you off it, up and away (and gives your air jumps back). Let it run out and you drop off.
+    f.wallCd = (f.wallCd || 0) - dt; f.airT = f.onGround ? 0 : (f.airT || 0) + dt; f.wallKick = false;
+    if (f.wall) {
+      f.wall.t -= dt; f.vel.set(0, -0.9, 0); // (held there, sliding down slowly)
+      const still = arena.wallAt(f.pos.x - f.wall.n.x * 0.8, f.pos.z - f.wall.n.z * 0.8, f.pos.y + 0.3, 1.2, 0.1);
+      if ((pressed || (f.isBot && f.wall.t < 0.36)) && f.stagger <= 0) { // the kick off
+        const n = f.wall.n; f.vel.set(n.x * 8.5 + wish.x * 3, JUMP_V * 1.02 * Math.sqrt(upm(f, 'jump')), n.z * 8.5 + wish.z * 3);
+        f.wall = null; f.wallCd = 0.3; f.wallKick = true; f.airJumps = 0; f.airJumpCd = 0.2; sfx.jump(f.pos);
+        for (let i = 0; i < 10; i++) debris.paper.emit(f.pos.x - n.x * 0.4, f.pos.y + 0.6 + Math.random() * 0.6, f.pos.z - n.z * 0.4, n.x * 2 + (Math.random() - 0.5) * 3, Math.random() * 2, n.z * 2 + (Math.random() - 0.5) * 3, 0.5); // dust off the wall
+      } else if (f.wall.t <= 0 || f.onGround || f.hook || !still || f.stagger > 0) { if (!f.onGround && !f.hook) { f.vel.x = f.wall.n.x * 1.5; f.vel.z = f.wall.n.z * 1.5; } f.wall = null; f.wallCd = 0.45; }
+    } else if (!f.isBot && !f.onGround && !f.hook && !f.mantle && !f.padFlight && f.wallCd <= 0 && f.stagger <= 0 && f.airT > 0.16) { // (players only: bots keep to their own routes)
+      const hs = Math.hypot(f.vel.x, f.vel.z);
+      if (hs > 3.5) { const dx = f.vel.x / hs, dz = f.vel.z / hs, y = f.pos.y + 0.3;
+        if (arena.wallAt(f.pos.x + dx * 0.8, f.pos.z + dz * 0.8, y, 1.2, 0.1) && arena.wallAt(f.pos.x + dx * 0.8, f.pos.z + dz * 0.8, y + 0.9, 0.5, 0.1) && !arena.wallAt(f.pos.x, f.pos.z, y, 1.2, 0)) {
+          let nx = 0, nz = 0; for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a); if (arena.wallAt(f.pos.x + c * 0.85, f.pos.z + s * 0.85, y, 1.2, 0.1)) { nx -= c; nz -= s; } } // (which way the wall faces: away from where it is)
+          const nl = Math.hypot(nx, nz);
+          if (nl > 0.01 && (nx * dx + nz * dz) / nl < -0.35) { f.wall = { n: new THREE.Vector3(nx / nl, 0, nz / nl), t: 0.5 }; f.dashT = 0; f.vel.set(0, 0, 0); sfx.hookHit(f.pos); }
+        } }
+    }
     if (jump && f.onGround) {
       const p = f.padCd <= 0 && arena.padAt(f.pos);
       if (p) { f.vel.set((p.tx - f.pos.x) / p.T, (p.ty - f.pos.y + 12 * p.T * p.T) / p.T, (p.tz - f.pos.z) / p.T); f.padCd = 0.8; f.hook = null; f.padFlight = true; sfx.pad(f.pos); } // jump on a pad to launch
       else { f.vel.y = JUMP_V * Math.sqrt(upm(f, 'jump')); sfx.jump(f.pos); }
       f.onGround = false; f.airJumpCd = 0.18;
-    } else if (pressed && !f.onGround && !f.hook && !f.padFlight && (f.airJumps || 0) < 2 && f.airJumpCd <= 0) {
+    } else if (pressed && !f.onGround && !f.hook && !f.padFlight && !f.wall && !f.wallKick && (f.airJumps || 0) < 2 && f.airJumpCd <= 0) {
       f.airJumps = (f.airJumps || 0) + 1; f.airJumpCd = 0.22;
       f.vel.y = Math.max(f.vel.y, JUMP_V * 0.92 * Math.sqrt(upm(f, 'jump'))); sfx.jump(f.pos);
       for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; debris.paper.emit(f.pos.x + Math.cos(a) * 0.3, f.pos.y, f.pos.z + Math.sin(a) * 0.3, Math.cos(a) * 2.5, -0.5, Math.sin(a) * 2.5, 0.5); } // a puff of air under the feet
@@ -2342,6 +2362,13 @@ function tick(rdt, tt) {
       f.updateTrail(tt);
       const tfx = trailFx[f.trailStyle.px || f.trailStyle.fx]; // ember, petal and zap trails shed particles off a fast blade
       if (tfx && f.tipSpeed > 9 && f.trail.length > 1) for (let k = 0; k < ((f.trailStyle.len || 0) > 0.2 ? 4 : 2); k++) { const u = Math.random(), p = _t.copy(f.hand).lerp(f.tip, 0.4 + u * 0.6), j = f.trailStyle.fx === 'zap' ? 5 : 1.5; tfx.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.18 : 0.9); }
+      { // which way is "up" for the body: square to the slope it stands on (a banked deck, a ramp, a dish, a branch); leaning in to a wall it's planted on
+        const gn = f.gN || (f.gN = new THREE.Vector3(0, 1, 0));
+        if (f.wall) gn.set(-f.wall.n.x * 0.42, 1, -f.wall.n.z * 0.42);
+        else if (f.alive && f.onGround && f.dashT <= 0) { const e = 0.45, y = f.pos.y + 0.6, hx = arena.groundHeight(f.pos.x + e, f.pos.z, y) - arena.groundHeight(f.pos.x - e, f.pos.z, y), hz = arena.groundHeight(f.pos.x, f.pos.z + e, y) - arena.groundHeight(f.pos.x, f.pos.z - e, y);
+          if (isFinite(hx) && isFinite(hz) && Math.abs(hx) < 0.75 && Math.abs(hz) < 0.75) gn.set(-hx / (2 * e), 1, -hz / (2 * e)); else gn.set(0, 1, 0); }
+        else gn.set(0, 1, 0);
+        f.planted = f.wall ? f.wall.n : null; }
       f.group.visible = f.alive ? !(f.prot > 0 && Math.floor(tt * 12) % 2 === 0) : f.eatenAt > now(); // (a fighter the piranha is about to eat stays in view)
       // rope
       if (f.hook) f.grap.show(f.handL, f.hook.via || f.hook.p, rdt); else f.grap.hide();

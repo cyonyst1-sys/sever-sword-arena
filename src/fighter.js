@@ -2,8 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261116190901';
-import { item, cleanLook } from './cosmetics.js?v=20261116190901';
+import { buildBody, poseBody } from './body.js?v=20261116191712';
+import { item, cleanLook } from './cosmetics.js?v=20261116191712';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -360,7 +360,12 @@ export class Fighter {
   pose(dt) {
     this.J ||= {};
     const P = this.p, g = this.group;
-    g.position.copy(this.pos); g.rotation.y = this.yaw;
+    g.position.copy(this.pos); g.rotation.order = 'YXZ'; g.rotation.y = this.yaw;
+    { // lean with the ground: the body stands square to whatever slope is under its feet (eased, so it doesn't snap)
+      const n = this.gN, cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let a = 0, b = 0;
+      if (n && this.alive !== false) { const lx = n.x * cy - n.z * sy, lz = n.x * sy + n.z * cy, l = Math.hypot(lx, n.y, lz) || 1; b = -Math.asin(Math.max(-0.6, Math.min(0.6, lx / l))); a = Math.max(-0.6, Math.min(0.6, Math.atan2(lz, n.y))); }
+      this.tiltA = (this.tiltA || 0) + (a - (this.tiltA || 0)) * 0.22; this.tiltB = (this.tiltB || 0) + (b - (this.tiltB || 0)) * 0.22;
+      g.rotation.x = this.tiltA; g.rotation.z = this.tiltB; }
     // local velocity for the run cycle
     const c = Math.cos(this.yaw), s = Math.sin(this.yaw);
     const lvx = this.vel.x * c - this.vel.z * s, lvz = this.vel.x * s + this.vel.z * c;
@@ -475,6 +480,11 @@ export class Fighter {
     const handL = V(-0.27, 1.12 + 0.06 * k + (hipY - 0.99), 0.05 + sL * 0.34 * k);
     if (dash) handL.set(-0.36, 1.05, 0.35);
     if (air && !this.hook) handL.set(-0.38, 1.35, -0.1);
+    if (this.planted && !this.hook) { // a wall plant: the free hand flat against the wall
+      g.updateMatrixWorld(true);
+      const loc = g.worldToLocal(_c.set(this.pos.x - this.planted.x * 0.75, this.pos.y + 1.35, this.pos.z - this.planted.z * 0.75)).sub(shL).normalize();
+      handL.copy(shL).addScaledVector(loc, 0.55);
+    }
     if (this.hook) { // reach for the grapple anchor
       g.updateMatrixWorld(true);
       const loc = g.worldToLocal(this.hook.p.clone()).sub(shL).normalize();
