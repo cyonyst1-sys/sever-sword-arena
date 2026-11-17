@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116205621';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116205621';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116205621';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116205621';
-import * as net from './net.js?v=20261116205621';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116205621';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116205621';
-import { makeKillFx } from './killfx.js?v=20261116205621';
-import { makeGrapple } from './grapple.js?v=20261116205621';
-import { initShop } from './shop.js?v=20261116205621';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116205621';
-import { portal } from './portal.js?v=20261116205621';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116205621';
-import { makePost } from './post.js?v=20261116205621';
+import { Arena, MAPS } from './arena.js?v=20261116215709';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116215709';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116215709';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116215709';
+import * as net from './net.js?v=20261116215709';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116215709';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116215709';
+import { makeKillFx } from './killfx.js?v=20261116215709';
+import { makeGrapple } from './grapple.js?v=20261116215709';
+import { initShop } from './shop.js?v=20261116215709';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116215709';
+import { portal } from './portal.js?v=20261116215709';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116215709';
+import { makePost } from './post.js?v=20261116215709';
 
 // ---------- settings ----------
 const store = {
@@ -205,7 +205,9 @@ window.addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (['Space', 'Tab'].includes(e.code)) e.preventDefault();
   if (S.phase !== 'game' || !me) return;
-  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) tryDash(me, viewDir(new THREE.Vector3()));
+  if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) { // dash: where you're looking; holding A or D, a side dash to the left or right (still carrying you forward if you hold W too)
+    const st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), fw = keys.KeyW || keys.ArrowUp ? 1 : 0, v = viewDir(new THREE.Vector3());
+    if (st) { const l = Math.hypot(v.x, v.z) || 1, fx = v.x / l, fz = v.z / l; if (tryDash(me, new THREE.Vector3(-fz * st + fx * fw * 0.55, 0.06, fx * st + fz * fw * 0.55))) { me.dashT *= 0.32; me.sideDash = true; } } else tryDash(me, v); } // (side dash: a short side-step, about a third of a dash, ending at a walk)
 });
 window.addEventListener('keyup', (e) => { keys[e.code] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.lmb = false; if (me && me.hook) releaseHook(me, false); });
@@ -389,7 +391,7 @@ function stepFighter(f, dt, wish, sprint, jump) {
         f.vel.set(hx * DASH_V, (br.yb - br.ya) / br.w * sg * DASH_V, hz * DASH_V);
       }
     }
-    if (f.dashT <= 0) f.vel.copy(f.dashDir).multiplyScalar(Math.max(DASH_V * 0.45, Math.min(f.preDash || 0, 36)));
+    if (f.dashT <= 0) { f.vel.copy(f.dashDir).multiplyScalar(f.sideDash ? WALK * 0.4 : Math.max(DASH_V * 0.45, Math.min(f.preDash || 0, 36))); f.sideDash = false; } // (a side-step ends at a walk)
   } else {
     if (f.onGround && !f.hook) {
       const spd = WALK * upm(f, 'speed');
