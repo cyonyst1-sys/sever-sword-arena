@@ -3,20 +3,21 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116220328';
-import { buildFoundry } from './foundry.js?v=20261116220328';
-import { buildBamboo } from './bamboo.js?v=20261116220328';
-import { buildCity } from './city.js?v=20261116220328';
-import { buildDojo } from './dojo.js?v=20261116220328';
-import { buildComet } from './comet.js?v=20261116220328';
-import { buildLava } from './lava.js?v=20261116220328';
-import { buildRun } from './run.js?v=20261116220328';
-import { buildGrove } from './grove.js?v=20261116220328';
-import { buildTransport } from './transport.js?v=20261116220328';
-import { applyLook } from './look.js?v=20261116220328';
-import { addScenery } from './scenery.js?v=20261116220328';
-import { addAtmosphere } from './atmos.js?v=20261116220328';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116220328';
+import { buildTilt } from './tilt.js?v=20261116223105';
+import { buildFoundry } from './foundry.js?v=20261116223105';
+import { buildBamboo } from './bamboo.js?v=20261116223105';
+import { buildCity } from './city.js?v=20261116223105';
+import { buildDojo } from './dojo.js?v=20261116223105';
+import { buildComet } from './comet.js?v=20261116223105';
+import { buildLava } from './lava.js?v=20261116223105';
+import { buildRun } from './run.js?v=20261116223105';
+import { buildGrove } from './grove.js?v=20261116223105';
+import { buildTransport } from './transport.js?v=20261116223105';
+import { buildTrain } from './train.js?v=20261116223105';
+import { applyLook } from './look.js?v=20261116223105';
+import { addScenery } from './scenery.js?v=20261116223105';
+import { addAtmosphere } from './atmos.js?v=20261116223105';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116223105';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -160,6 +161,7 @@ export const MAPS = {
   run: { name: 'Branch Run', blurb: 'a giant forest: whole Great Canopy trees stream toward you, their limbs and big leaves reaching across the lane' },
   grove: { name: 'Topiary Grove', blurb: 'two rows of huge, ancient cloud-pruned trees facing each other over a gulf of sunset mist: no floor, just the clipped foliage pads to fight on and swing between' },
   transport: { name: 'Transport', blurb: 'a sandstone canyon at golden hour: a camel hauls a covered wagon down a winding road from one adobe village to the next, past rock arches, palms and watchtowers' },
+  train: { name: 'Bullet Train', blurb: 'the roofs of a very long train racing through forest, snowy mountains, desert canyon, sea coast and a city at night: bridges, tunnels and signal arms' },
 };
 
 export class Arena {
@@ -601,6 +603,7 @@ export class Arena {
     if (this.mapId === 'run') return buildRun(this, TEX);
     if (this.mapId === 'grove') return buildGrove(this, TEX);
     if (this.mapId === 'transport') return buildTransport(this, TEX);
+    if (this.mapId === 'train') return buildTrain(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
     const SP = this.mapId === 'spire', PL = this.mapId === 'plateaus'; // (Sky Spires: dusk, rose and violet, the first stars out)

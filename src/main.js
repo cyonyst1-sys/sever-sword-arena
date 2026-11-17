@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116220328';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116220328';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116220328';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116220328';
-import * as net from './net.js?v=20261116220328';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116220328';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116220328';
-import { makeKillFx } from './killfx.js?v=20261116220328';
-import { makeGrapple } from './grapple.js?v=20261116220328';
-import { initShop } from './shop.js?v=20261116220328';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116220328';
-import { portal } from './portal.js?v=20261116220328';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116220328';
-import { makePost } from './post.js?v=20261116220328';
+import { Arena, MAPS } from './arena.js?v=20261116223105';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116223105';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116223105';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116223105';
+import * as net from './net.js?v=20261116223105';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116223105';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116223105';
+import { makeKillFx } from './killfx.js?v=20261116223105';
+import { makeGrapple } from './grapple.js?v=20261116223105';
+import { initShop } from './shop.js?v=20261116223105';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116223105';
+import { portal } from './portal.js?v=20261116223105';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116223105';
+import { makePost } from './post.js?v=20261116223105';
 
 // ---------- settings ----------
 const store = {
@@ -340,7 +340,7 @@ function fireHook(f, origin, dir) {
   { const g = gateFor(f); if (g && h.point.y > g.y - 0.2) { sfx.hookFire(f.pos); return false; } } // (a shut gate: nothing above it can be hooked)
   if (barrierFor(f, h.point)) { sfx.hookFire(f.pos); return false; } // (a shut arena: nothing inside it can be hooked)
   if (h.box && h.box.tend !== undefined && arena.tendrilPoint) { h.tendHit = { i: h.box.tend, s: h.box.ts }; arena.tendrilPoint(h.tendHit.i, h.tendHit.s, h.point); } // (a tendril's own box: hook that tendril, right on it)
-  const onT = h.tendHit || (arena.tendrilAt && arena.tendrilAt(h.point)), lh = onT ? null : lipHook(f, h.point); if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead; never moves a tendril hook)
+  const onT = h.tendHit || (arena.tendrilAt && arena.tendrilAt(h.point)), under = arena.trainMap && h.box && h.point.y < h.box.y0 + 0.9, lh = onT || under ? null : lipHook(f, h.point); // (Bullet Train: hooked low on a car, the undercarriage: stay there and swing under it) if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead; never moves a tendril hook)
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const L = h.point.distanceTo(chest);
   if (L > HOOK_MAX * upm(f, 'rope') || L < 1.4) return false;
@@ -898,6 +898,7 @@ function overviewFrom(p, out) {
 // ---------- spawning ----------
 // Pagoda Falls: everyone comes in on the outer ring (rock spires and terraces) and rushes the pagoda
 function spawnList() {
+  if (arena.spawnOk) { const ok = arena.spawns.filter(arena.spawnOk); if (ok.length) return ok; } // (Bullet Train: not on a roof with a tunnel or a high arm coming)
   if (arena.runMode) { const near = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && p.z > -85 && p.z < -28; }); if (near.length) return near; } // (Branch Run: back in on a tree still well ahead, with its whole ride to come; on a branch near the action)
   const kinds = { pagoda: ['spire', 'terrace'], colosseum: ['rim'], bamboo: ['pad'] }[arena.mapId]; // (Colosseum: its high rim)
   if (!kinds) return arena.spawns;
@@ -937,7 +938,7 @@ function spawn(f, p, yaw) {
   sfx.spawn(p);
 }
 function hostSpawn(f) {
-  const p = spawnPoint(f), cv = S.mode === 'transport' && arena.caravan ? arena.caravan.pos : null, yaw = arena.runMode ? 0 : cv ? Math.atan2(-(cv.x - p.x), -(cv.z - p.z)) : Math.atan2(p.x, p.z); // (Transport: face the wagon) // face the centre (Branch Run: face the way the run goes)
+  const p = spawnPoint(f), cv = S.mode === 'transport' && arena.caravan ? arena.caravan.pos : null, yaw = arena.runMode || arena.trainMap ? 0 : cv ? Math.atan2(-(cv.x - p.x), -(cv.z - p.z)) : Math.atan2(p.x, p.z); // (Transport: face the wagon) // face the centre (Branch Run: face the way the run goes)
   spawn(f, p, yaw);
   if (arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo') f.rushUntil = now() + 12; // bots charge the centre after coming in
   net.broadcast({ t: 'spawn', id: f.id, p: arr(p), y: +yaw.toFixed(3) });
@@ -1288,6 +1289,9 @@ function botThink(b, dt) {
   }
   if (S.mode === 'lava' && b.target && b.target.isBot && !gateFor(b) && b.target.pos.distanceTo(b.pos) > 1.6) b.target = null; // (Lava Climb: on the course, bots ignore each other)
   let t = b.target;
+  if (arena.trainDanger && b.onGround) { const d = arena.trainDanger(b.pos); if (d.low < 0.3 && d.low > 0.06) return { wish: { x: 0, z: 0 }, jump: true, sprint: false }; } // (Bullet Train: jump the low signal arm)
+  if (arena.trainMap && b.onGround && b.plat != null) { const p = arena.plats[b.plat]; if (p && p.car) { const dz = b.pos.z - p.base.z, h = p.d / 2, dir = b.vel.z > 3 ? 1 : b.vel.z < -3 ? -1 : 0, nx = arena.plats[p.i + dir]; // (Bullet Train: at the end of a car, heading on: jump the gap to the next one)
+    if (dir && nx && nx.car && dz * dir > h - 1.4) return { wish: { x: (nx.x - b.pos.x) * 0.15, z: dir }, jump: true, sprint: true }; } }
   if (b.boss && b.fleeUntil > now() && t && t.alive) { // (just hurt: keep its distance for a moment, facing its attacker, then it comes back)
     const ax = b.pos.x - t.pos.x, az = b.pos.z - t.pos.z, al = Math.hypot(ax, az) || 1, ok = al < 11 && floorAhead(b, ax, az, 2.5);
     let da = Math.atan2(-(t.pos.x - b.pos.x), -(t.pos.z - b.pos.z)) - b.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2; b.yaw += Math.max(-8 * dt, Math.min(8 * dt, da));
@@ -1439,7 +1443,7 @@ function fillBots() {
 }
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave }); renderLobby(); }
 function startMatch() {
-  const SP = ['lava', 'run', 'transport'];
+  const SP = ['lava', 'run', 'transport', 'train'];
   for (const sp of SP) { if (S.mode === sp) S.map = sp; else if (S.map === sp) S.mode = sp; } // (special maps: the mode and its map go together)
   if (!SP.includes(S.mode) && SP.includes(S.map)) S.map = 'spire';
   useMap(S.map);
@@ -1479,7 +1483,7 @@ function checkEnd() {
   if (teamMode()) {
     const a = teamKills('A'), b = teamKills('B');
     if (a >= MODE_GOAL.team || b >= MODE_GOAL.team || S.timeLeft <= 0) endMatch(a === b ? null : a > b ? 'A' : 'B');
-  } else if (S.mode === 'ffa' || S.mode === 'run') {
+  } else if (S.mode === 'ffa' || S.mode === 'run' || S.mode === 'train') {
     const top = [...S.roster].sort((a, b) => b.k - a.k)[0];
     if ((top && top.k >= FFA_KILLS) || S.timeLeft <= 0) endMatch();
   } else if (POINT_MODES.has(S.mode)) {
@@ -1751,6 +1755,11 @@ function modeTick(dt) {
 }
 // what a bot should go for besides fighting: the throne, a shrine or loose heads, or away from a crumbling platform
 function botObjective(b) {
+  if (arena.trainDanger && arena.flatbeds) { // Bullet Train: a tunnel or a high arm coming: down into the nearest flatbed (and fight there)
+    const d = arena.trainDanger(b.pos), cur = b.plat != null ? arena.plats[b.plat] : null;
+    if (d.tunnel < 5.5 || d.high < 3.6) { if (cur && cur.type === 'flat' && b.onGround) return { pos: new THREE.Vector3(cur.x, cur.y, cur.z + Math.max(-3.4, Math.min(3.4, b.pos.z - cur.z))), plat: cur.i, engage: 3, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null }; // (already down in one: stay there till it passes)
+      let best = null, bd = 1e9; for (const p of arena.flatbeds) { const dd = Math.abs(p.z - b.pos.z); if (dd < bd) { bd = dd; best = p; } }
+      if (best) return { pos: new THREE.Vector3(best.x, best.y, best.z + Math.max(-6, Math.min(6, b.pos.z - best.z))), plat: best.i, engage: 2, flee: true, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null }; } }
   if (S.mode === 'transport' && arena.caravan && S.obj && S.obj.cart) {
     const C = arena.caravan, cp = C.pos, e = b.target, mk = (pos, engage, cart) => ({ pos, plat: 0, engage, cart, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null });
     if (b.team === ESCORT) { // the escort: fight raiders who come near the wagon, otherwise walk beside it
@@ -2191,7 +2200,7 @@ function updateHud(dt) {
     $('topbar').innerHTML = `Transport · ${clock(S.timeLeft)} · Wagon <span style="color:${hp > 50 ? '#5ad06a' : hp > 25 ? '#f0c040' : '#e04a3a'}">${hp}%</span> · ${pct}% of the way`;
     if (me && me.alive && mr) status = mr.team === ESCORT ? (c && !c.mv ? 'The wagon waits for its escort: walk beside it' : c && c.mv === 1 ? 'Raiders at the wagon: drive them off' : `You <span style="color:${TEAMS.B.css}">ESCORT</span> the wagon: keep it rolling, fight off the raiders`) : `You <span style="color:${TEAMS.A.css}">RAID</span>: hack the wagon apart before it reaches the village`; }
   else if (teamMode()) { const a = teamKills('A'), b = teamKills('B'), mt = mr && TEAMS[mr.team]; $('topbar').innerHTML = `Team Battle · ${clock(S.timeLeft)} · <span style="color:${TEAMS.A.css}">Red ${a}</span> – <span style="color:${TEAMS.B.css}">${b} Blue</span> · first to ${MODE_GOAL.team}`; if (me && me.alive && mt) status = `You are on <span style="color:${mt.css}">${mt.name.toUpperCase()}</span>`; }
-  else if (S.mode === 'ffa' || S.mode === 'run') $('topbar').innerHTML = `${S.mode === 'run' ? 'Branch Run · ' : ''}${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
+  else if (S.mode === 'ffa' || S.mode === 'run' || S.mode === 'train') $('topbar').innerHTML = `${S.mode === 'run' ? 'Branch Run · ' : S.mode === 'train' ? 'Bullet Train · ' : ''}${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
   else if (S.mode === 'koth') {
     $('topbar').innerHTML = `King of the Platform · ${clock(S.timeLeft)} · Throne moves in ${Math.ceil(Math.max(0, until.throne - now()))} s · ${lead}/${MODE_GOAL.koth}`;
     if (me && me.alive && S.obj && o.throne >= 0) {
@@ -2414,13 +2423,13 @@ window.__sever = { S, fighters, pieces, get arena() { return arena; }, camera, r
 // ---------- map picker: a thumbnail card for each map (the hidden select still holds the choice) ----------
 function thumb(id) { return `thumbs/${id}.jpg?v=${document.querySelector('meta[name=build]').content}`; }
 // special maps come with their own mode (and that mode with its map)
-const SPECIAL = { lava: 'lava', run: 'run', transport: 'transport' };
+const SPECIAL = { lava: 'lava', run: 'run', transport: 'transport', train: 'train' };
 // a painted card for each mode: a colour wash and an emblem drawn on a canvas (made once)
 const modeArt = {};
 function modeThumb(id) {
   if (modeArt[id]) return modeArt[id];
   const W = 240, H = 180, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-  const pal = { ffa: ['#5a1418', '#d6403a'], run: ['#173a1a', '#7ac04a'], team: ['#1a2b5e', '#c23b3b'], koth: ['#3d2a0c', '#e0a83a'], jugg: ['#2a0f2e', '#c08a2e'], lbs: ['#1d2430', '#7f93b0'], hunt: ['#2e2208', '#f0c419'], horde: ['#1a0c0c', '#8e1717'], boss: ['#120a1c', '#7a3ab8'], lava: ['#2a0804', '#ff6a20'], transport: ['#3a2410', '#e0a050'] }[id] || ['#222', '#888'];
+  const pal = { ffa: ['#5a1418', '#d6403a'], run: ['#173a1a', '#7ac04a'], team: ['#1a2b5e', '#c23b3b'], koth: ['#3d2a0c', '#e0a83a'], jugg: ['#2a0f2e', '#c08a2e'], lbs: ['#1d2430', '#7f93b0'], hunt: ['#2e2208', '#f0c419'], horde: ['#1a0c0c', '#8e1717'], boss: ['#120a1c', '#7a3ab8'], lava: ['#2a0804', '#ff6a20'], transport: ['#3a2410', '#e0a050'], train: ['#141c2c', '#ffb050'] }[id] || ['#222', '#888'];
   const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, pal[0]); bg.addColorStop(1, '#0c0b0b'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
   const glow = g.createRadialGradient(W / 2, H * 0.48, 4, W / 2, H * 0.48, W * 0.55); glow.addColorStop(0, pal[1] + 'aa'); glow.addColorStop(1, pal[1] + '00'); g.fillStyle = glow; g.fillRect(0, 0, W, H);
   const cx = W / 2, cy = H * 0.47;
@@ -2443,6 +2452,7 @@ function modeThumb(id) {
   else if (id === 'run') { g.fillStyle = '#3a2614'; for (const s of [-1, 1]) g.fillRect(cx + s * 78 - 9, 0, 18, H); const br = (x, y, w) => { g.fillStyle = '#6b4a2c'; g.beginPath(); g.ellipse(x, y, w, w * 0.22, 0, 0, 7); g.fill(); g.fillStyle = '#4a8f3a'; g.beginPath(); g.arc(x - w, y - 6, 9, 0, 7); g.fill(); }; br(cx - 10, cy + 52, 46); br(cx + 22, cy + 14, 32); br(cx - 14, cy - 18, 22); br(cx + 8, cy - 40, 14); g.strokeStyle = '#ffd25a'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 40, cy + 30); g.quadraticCurveTo(cx - 30, cy - 10, cx + 4, cy - 2); g.stroke(); g.beginPath(); g.moveTo(cx - 4, cy - 10); g.lineTo(cx + 6, cy - 1); g.lineTo(cx - 6, cy + 4); g.fill(); }
   else if (id === 'lava') { const fl = g.createLinearGradient(0, cy + 70, 0, cy - 40); fl.addColorStop(0, '#ffe08a'); fl.addColorStop(0.4, '#ff6a20'); fl.addColorStop(1, 'rgba(255,60,10,0)'); g.fillStyle = fl; g.fillRect(0, cy + 20, W, H); plat(cx - 46, cy + 18, 24, '#4a3f38'); plat(cx + 10, cy - 10, 22, '#4a3f38'); plat(cx + 50, cy - 42, 20, '#4a3f38'); g.fillStyle = '#ffd27a'; g.fillRect(cx + 48, 0, 4, cy - 46); }
   else if (id === 'transport') { g.fillStyle = '#9a7048'; g.beginPath(); g.moveTo(cx - 20, H); g.quadraticCurveTo(cx + 40, cy + 20, cx - 6, cy - 30); g.lineTo(cx + 6, cy - 30); g.quadraticCurveTo(cx + 56, cy + 20, cx + 20, H); g.fill(); g.fillStyle = '#eee0c4'; g.beginPath(); g.ellipse(cx, cy + 6, 34, 26, 0, Math.PI, 0); g.fill(); g.fillStyle = '#6b4a2c'; g.fillRect(cx - 36, cy + 6, 72, 10); g.fillStyle = '#2a1d14'; for (const x of [-24, 24]) { g.beginPath(); g.arc(cx + x, cy + 22, 10, 0, 7); g.fill(); } g.fillStyle = '#c89a5e'; g.beginPath(); g.ellipse(cx + 60, cy - 2, 16, 11, 0, 0, 7); g.ellipse(cx + 60, cy - 12, 8, 7, 0, 0, 7); g.fill(); g.fillRect(cx + 70, cy - 26, 5, 18); g.fillRect(cx + 50, cy + 6, 4, 18); g.fillRect(cx + 66, cy + 6, 4, 18); blade(-0.9, 80, '#ff8a7a'); }
+  else if (id === 'train') { g.fillStyle = '#ffd890'; for (let i = 0; i < 9; i++) g.fillRect(i * 28, cy + 50, 14, 4); g.fillStyle = '#c8202a'; g.fillRect(cx - 100, cy + 4, 70, 36); g.fillStyle = '#3a3e46'; g.fillRect(cx - 26, cy + 10, 60, 30); g.fillRect(cx + 38, cy + 10, 60, 30); g.fillStyle = '#15161a'; for (const x of [-90, -50, -16, 20, 46, 84]) { g.beginPath(); g.arc(cx + x, cy + 44, 6, 0, 7); g.fill(); } g.fillStyle = '#e8b422'; g.fillRect(cx - 110, cy - 30, 220, 6); blade(-0.5, 80); }
   else blade(0);
   g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
   return (modeArt[id] = c.toDataURL('image/jpeg', 0.85));
