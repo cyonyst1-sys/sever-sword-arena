@@ -9,6 +9,7 @@
 const PI = Math.PI;
 const mat = (c, o = {}) => ({ c, m: 0, r: 0.6, ...o });
 const IVORY = mat(0xeee6d2, { r: 0.45 }), BLACK = mat(0x0c0c0e, { r: 0.5 }), GOLD = mat(0xd9ad3c, { m: 0.85, r: 0.3 }), RED = mat(0xb3191f, { r: 0.45, e: 0x300000, ei: 1 });
+const TENGU = mat(0x8e1c26, { r: 0.7, e: 0x1c0204, ei: 1 }), CHAR = mat(0x2a2228, { r: 0.6 });
 const pair = (part) => [part(1), part(-1)]; // left and right copies of a part (side = 1 or -1)
 
 export const CATEGORIES = [
@@ -56,10 +57,15 @@ export const CATALOG = {
       ...pair((s) => ['box', GOLD, [0.022 * s, -0.032, -0.128], [0.04, 0.009, 0.008], [0, 0, -0.3 * s]]),
     ] },
     { id: 'tengu', name: 'Tengu', price: 350, sw: 0xc0262c, hide: ['nose', 'eyeL', 'eyeR', 'browL', 'browR'], parts: [
-      ['box', RED, [0, -0.005, -0.1], [0.155, 0.185, 0.05]],
-      ['cone', RED, [0, -0.005, -0.2], [0.024, 0.17, 0.024], [-PI / 2, 0, 0]],
-      ...pair((s) => ['box', BLACK, [0.038 * s, 0.025, -0.127], [0.034, 0.012, 0.006]]),
-      ...pair((s) => ['box', GOLD, [0.04 * s, 0.05, -0.127], [0.045, 0.01, 0.006], [0, 0, 0.25 * s]]),
+      // a carved wooden tengu: a rounded crimson face with a heavy brow, a long thick nose with a rounded tip, gold eyes in dark
+      // sockets, curled charcoal eyebrows, a drooping moustache, a frown, and a pointed goatee
+      ['sph', TENGU, [0, 0, -0.072], [0.088, 0.112, 0.066]], ['sph', TENGU, [0, -0.088, -0.082], [0.052, 0.042, 0.044]], ['sph', TENGU, [0, 0.046, -0.112], [0.078, 0.024, 0.032]],
+      ...pair((s) => ['sph', TENGU, [0.052 * s, -0.03, -0.1], [0.032, 0.03, 0.03]]),
+      ['sph', TENGU, [0, -0.006, -0.135], [0.031, 0.029, 0.034]], ['cyl', TENGU, [0, -0.012, -0.215], [0.0215, 0.17, 0.0215], [-PI / 2 + 0.06, 0, 0]], ['sph', TENGU, [0, -0.018, -0.303], [0.027, 0.026, 0.03]],
+      ...pair((s) => ['sph', CHAR, [0.037 * s, 0.017, -0.123], [0.025, 0.015, 0.012]]), ...pair((s) => ['sph', GOLD, [0.037 * s, 0.016, -0.13], [0.0135, 0.011, 0.008]]), ...pair((s) => ['sph', BLACK, [0.037 * s, 0.016, -0.1365], [0.0055, 0.0055, 0.003]]),
+      ...pair((s) => ['box', CHAR, [0.041 * s, 0.054, -0.138], [0.05, 0.014, 0.012], [0, 0, 0.32 * s]]), ...pair((s) => ['sph', CHAR, [0.068 * s, 0.067, -0.134], [0.014, 0.014, 0.009]]), ...pair((s) => ['sph', CHAR, [0.016 * s, 0.045, -0.141], [0.012, 0.012, 0.009]]),
+      ...pair((s) => ['box', CHAR, [0.03 * s, -0.05, -0.133], [0.046, 0.011, 0.01], [0, 0, -0.38 * s]]), ...pair((s) => ['sph', CHAR, [0.054 * s, -0.061, -0.128], [0.009, 0.009, 0.007]]),
+      ['box', mat(0x3a0c12, { r: 0.6 }), [0, -0.074, -0.124], [0.05, 0.008, 0.008]], ['cone', CHAR, [0, -0.14, -0.105], [0.015, 0.075, 0.013], [PI, 0, 0]],
     ] },
     { id: 'oni', name: 'Oni', price: 400, sw: 0xb3191f, hide: ['nose', 'eyeL', 'eyeR', 'browL', 'browR'], parts: [
       ['box', RED, [0, -0.005, -0.1], [0.16, 0.19, 0.05]],
@@ -205,7 +211,6 @@ const LACQ = (c) => mat(c, { r: 0.28, m: 0.15 });
 const add = (cat, id, parts) => item(cat, id).parts.push(...parts);
 add('mask', 'wrap', [['box', mat(0x0e0e12), [0, -0.028, -0.124], [0.12, 0.005, 0.004]], ...pair((s) => ['box', mat(0x1b1b22, { r: 0.9 }), [0.03 * s, -0.04, 0.13], [0.018, 0.08, 0.006], [0.5, 0, 0.3 * s]])]);
 add('mask', 'menpo', [...pair((s) => ['box', GOLD, [0.03 * s, -0.09, -0.13], [0.03, 0.006, 0.006], [0, 0, 0.5 * s]]), ...pair((s) => fang(IVORY, 0.018 * s, -0.098, -0.128, 0.018)), ['box', mat(0x1a1b20, { m: 0.7 }), [0, -0.16, -0.05], [0.09, 0.03, 0.05]]]);
-add('mask', 'tengu', [...pair((s) => ['box', IVORY, [0.045 * s, 0.062, -0.13], [0.05, 0.016, 0.01], [0, 0, 0.35 * s]]), ...pair((s) => ['box', BLACK, [0.035 * s, -0.09, -0.128], [0.05, 0.01, 0.006], [0, 0, -0.5 * s]]), ['cyl', GOLD, [0, 0.085, -0.127], [0.014, 0.004, 0.014], [PI / 2, 0, 0]]]);
 add('mask', 'oni', [...pair((s) => fang(IVORY, 0.03 * s, -0.096, -0.128, 0.03, true)), ...pair((s) => ['box', GOLD, [0.04 * s, 0.05, -0.128], [0.05, 0.012, 0.006], [0, 0, 0.3 * s]]), ...pair((s) => ['sph', BLACK, [0.012 * s, -0.03, -0.13], [0.008, 0.006, 0.004]])]);
 add('mask', 'kitsune', [...[-1, 1].flatMap((s) => [0, 1, 2].map((k) => ['box', BLACK, [0.05 * s, -0.04 - k * 0.012, -0.128], [0.05, 0.002, 0.002], [0, 0, (0.15 - k * 0.15) * s]])), ['box', mat(0xd7262e), [0, -0.075, -0.127], [0.03, 0.006, 0.004]], ['cone', mat(0xd7262e), [0, 0.07, -0.126], [0.012, 0.03, 0.004]]]);
 add('mask', 'skull', [...[-3, -2, -1, 0, 1, 2, 3].map((k) => ['box', IVORY, [k * 0.012, -0.075, -0.127], [0.008, 0.016, 0.006]]), ['box', BLACK, [0.03, 0.06, -0.125], [0.004, 0.04, 0.004], [0, 0, 0.5]], ['box', BLACK, [0.04, 0.03, -0.125], [0.004, 0.03, 0.004], [0, 0, -0.4]]]);
@@ -304,6 +309,21 @@ CATALOG.hat.push(
     ...[-2, -1, 0, 1, 2].map((k) => ['cone', k % 2 ? GOLD : LACQ(0xe8b020), [k * 0.04, 0.05, 0.13], [0.03, 0.16, 0.012], [2.2, 0, -k * 0.25]]), // the mane
   ] },
 );
+// carved dragon masks (green, red, blue): a scowling, scaled head with gold forked antlers, gold eyes, an open jaw full of
+// fangs with the tongue out, pointed ears, and a mane of spikes swept back all round
+const carvedDragon = (id, name, c, d) => { const L = LACQ(c), D = LACQ(d), ANT = mat(0xcfb04a, { m: 0.7, r: 0.4 }); return { id, name, price: 2400, sw: c, hide: WHOLE, parts: [
+  ['sph', L, [0, 0.02, 0.0], [0.125, 0.125, 0.135]], ['round', L, [0, 0.002, -0.135], [0.1, 0.062, 0.15]], ['sph', L, [0, 0.014, -0.212], [0.046, 0.032, 0.03]], // skull, snout, nose
+  ['round', mat(0x1a0608, { r: 0.6 }), [0, -0.046, -0.118], [0.082, 0.03, 0.12]], ['round', D, [0, -0.09, -0.112], [0.09, 0.03, 0.135], [0.3, 0, 0]], ['round', mat(0xb03040, { r: 0.4 }), [0, -0.078, -0.16], [0.036, 0.012, 0.085], [0.3, 0, 0]], // the open mouth, the dropped jaw, the tongue
+  ...[-3, -2, -1, 1, 2, 3].map((k) => fang(ANT, k * 0.0135, -0.032, -0.2, 0.024)), ...[-2.5, -1.5, 1.5, 2.5].map((k) => fang(ANT, k * 0.0135, -0.092, -0.21, 0.02, true)),
+  ...pair((s) => ['sph', GOLD, [0.058 * s, 0.062, -0.086], [0.024, 0.019, 0.016]]), ...pair((s) => ['sph', BLACK, [0.061 * s, 0.062, -0.1], [0.008, 0.012, 0.005]]),
+  ...pair((s) => ['round', D, [0.058 * s, 0.094, -0.092], [0.078, 0.022, 0.034], [0, 0, 0.32 * s]]), ...pair((s) => ['sph', L, [0.03 * s, 0.03, -0.2], [0.014, 0.012, 0.012]]), // heavy brows, nostrils
+  ...pair((s) => ['cone', L, [0.128 * s, 0.07, 0.02], [0.032, 0.095, 0.014], [0, 0, -1.15 * s]]),
+  ...pair((s) => ['cone', ANT, [0.052 * s, 0.215, 0.0], [0.017, 0.21, 0.017], [0.12, 0, -0.22 * s]]), ...pair((s) => ['cone', ANT, [0.084 * s, 0.2, 0.0], [0.012, 0.1, 0.012], [0.12, 0, -0.85 * s]]), // forked antlers
+  ...Array.from({ length: 11 }, (_, i) => { const a = i / 10 * PI, cs = Math.cos(a), sn = Math.sin(a); return ['cone', D, [cs * 0.128, -0.03 + (i % 2) * 0.06, sn * 0.115 + 0.02], [0.024, 0.11, 0.013], [sn * 1.15, 0, -cs * 1.15]]; }),
+  ...Array.from({ length: 7 }, (_, i) => { const a = (i + 0.5) / 7 * PI, cs = Math.cos(a), sn = Math.sin(a); return ['cone', L, [cs * 0.1, 0.11, sn * 0.1 + 0.02], [0.02, 0.085, 0.012], [sn * 0.75, 0, -cs * 0.75]]; }),
+  ['cone', D, [0, -0.135, -0.17], [0.02, 0.06, 0.02], [PI, 0, 0]],
+] }; };
+CATALOG.mask.push(carvedDragon('dragongreen', 'Jade Dragon', 0x1f7a4a, 0x0e3a26), carvedDragon('dragonred', 'Crimson Dragon', 0xb02a22, 0x4a100e), carvedDragon('dragonblue', 'Azure Dragon', 0x2a6ad0, 0x123a7a));
 
 // ---- outfits: families, each in several colours; the legendary ones glow along their trim
 const fam = (id, name, price, vs) => vs.map(([v, vn, gi, trim, pants, o = {}]) => ({ id: `${id}-${v}`, name: `${name} · ${vn}`, price, sw: gi === 0x111111 || gi < 0x202020 ? trim : gi, gi, trim, pants, ...o }));
