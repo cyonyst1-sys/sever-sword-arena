@@ -16,7 +16,7 @@ const hash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return
 const PATTERN = 'GGBBGGGTTGGGBBGGTTGGGGBBGGGTTGGGBBGGGGTTGGBBGGGTTGGGGBBGGTTG';
 export const segType = (i) => PATTERN[((i % TRAIN.NSEG) + TRAIN.NSEG) % TRAIN.NSEG];
 const biomeOf = (i) => Math.floor((((i % TRAIN.NSEG) + TRAIN.NSEG) % TRAIN.NSEG) / TRAIN.BIOME) % 5;
-const CEIL = 5.0, WALLX = 3.3, ROOF = 4.2, DECK = 1.6; // tunnel ceiling and walls, car roof and flatbed deck (above the rails)
+const CEIL = 5.0, WALLX = 3.3, ROOF = 4.2, DECK = 1.6, GD = -26; // (GD: the ground, far below the viaduct) // tunnel ceiling and walls, car roof and flatbed deck (above the rails)
 
 const BIOMES = [ // sky top / horizon / below, fog, light, ground
   { name: 'forest', top: 0x4a7cc0, mid: 0xcfe0d0, bot: 0x7a9a68, fog: 0xb8d0b8, hemi: 1.0, sun: 2.2, ground: 0x4a7a34 },
@@ -102,15 +102,18 @@ export function buildTrain(A, T) {
   const M = {}; const mat = (key, f) => M[key] || (M[key] = f());
   const build = (bi, ty, v) => {
     const B = BIOMES[bi], g = new THREE.Group(), q = T.rng(1000 + bi * 97 + v * 13 + ty.charCodeAt(0)), SEG = TRAIN.SEG, H = SEG / 2;
-    const add = (o) => { o.frustumCulled = false; g.add(o); return o; };
+    const low = new THREE.Group(); low.position.y = GD; g.add(low); // (the land, far below the viaduct)
+    const add = (o, under) => { o.frustumCulled = false; (under ? low : g).add(o); return o; };
+    const addL = (o) => add(o, true); // (on the land)
     // the track: sleepers, rails, ballast (no ballast on a bridge)
     add(inst(sleeperG, mat('sleeper', () => std(0x4a3626)), Array.from({ length: SEG }, (_, k) => [0, -0.32, -k - 0.5, 1, 1, 1])));
     for (const x of [-0.75, 0.75]) add(mk(railG, mat('rail', () => std(0x9aa0a8, { metalness: 0.8, roughness: 0.3 })), x, -0.12, -H));
-    if (ty !== 'B') add(mk(new THREE.BoxGeometry(4.4, 0.4, SEG), mat('ballast', () => std(0x6a6460)), 0, -0.6, -H));
+    if (ty !== 'B') { add(mk(new THREE.BoxGeometry(4.4, 1.4, SEG), mat('viaduct', () => std(0x8a8478)), 0, -1.1, -H)); // a viaduct carries the track high above the land, on piers every 25 m
+      add(inst(new THREE.BoxGeometry(1, 1, 1), mat('viaduct'), Array.from({ length: 6 }, (_, k) => [0, GD / 2 - 1, -12 - k * 25, 2.6, -GD, 2.2]))); }
     const gm = mat('ground' + bi, () => { const t = groundTex(B.ground); t.repeat.set(20, 5); return std(0xffffff, { map: t, roughness: 1 }); });
     if (ty === 'G' || ty === 'T') { // the ground either side (coast: land one side, the sea the other)
-      const gg = new THREE.PlaneGeometry(B.name === 'coast' ? 300 : 600, SEG, 6, 15).rotateX(-Math.PI / 2); add(mk(gg, gm, B.name === 'coast' ? -150 : 0, -0.7, -H));
-      if (B.name === 'coast') add(mk(new THREE.PlaneGeometry(300, SEG, 4, 15).rotateX(-Math.PI / 2), mat('sea', () => std(0x2a6ab0, { roughness: 0.15, metalness: 0.3 })), 150, -8, -H));
+      const gg = new THREE.PlaneGeometry(B.name === 'coast' ? 300 : 600, SEG, 6, 15).rotateX(-Math.PI / 2); add(mk(gg, gm, B.name === 'coast' ? -150 : 0, -0.7, -H), true);
+      if (B.name === 'coast') add(mk(new THREE.PlaneGeometry(300, SEG, 4, 15).rotateX(-Math.PI / 2), mat('sea', () => std(0x2a6ab0, { roughness: 0.15, metalness: 0.3 })), 150, -8, -H), true);
     }
     if (ty === 'B') { // a bridge: an open trestle over a gorge, a river far below, cliffs either side
       add(mk(new THREE.PlaneGeometry(600, SEG, 4, 15).rotateX(-Math.PI / 2), mat('river' + bi, () => std(bi === 1 ? 0xcfe6f6 : bi === 4 ? 0x10142a : 0x2a5a8a, { roughness: 0.2, metalness: 0.3 })), 0, -48, -H));
@@ -118,28 +121,28 @@ export function buildTrain(A, T) {
       const legs = []; for (let z = -5; z > -SEG; z -= 12) for (const sx of [-1, 1]) legs.push([sx * 1.6, -24, z, 0.5, 46, 0.5]);
       add(inst(new THREE.BoxGeometry(1, 1, 1), mat('trestle', () => std(0x4a3a2a)), legs));
       const cross = []; for (let z = -5; z > -SEG; z -= 12) for (let y = -6; y > -46; y -= 9) cross.push([0, y, z, 3.6, 0.35, 0.35]); add(inst(new THREE.BoxGeometry(1, 1, 1), mat('trestle'), cross));
-      for (const sx of [-1, 1]) add(mk(new THREE.BoxGeometry(80, 50, SEG), mat('cliff' + bi, () => std(bi === 1 ? 0xb8c4d4 : bi === 2 ? 0xb87a4a : 0x6a6458, { flatShading: true })), sx * 85, -24, -H));
+      for (const sx of [-1, 1]) add(mk(new THREE.BoxGeometry(80, 50, SEG), mat('cliff' + bi, () => std(bi === 1 ? 0xb8c4d4 : bi === 2 ? 0xb87a4a : 0x6a6458, { flatShading: true })), sx * 85, GD - 25, -H));
     }
     if (ty === 'T') { // a tunnel through a mountain: walls, a low ceiling, lamps along the walls, a portal at each end
       const rockM = mat('rock' + bi, () => std(bi === 1 ? 0xc8d0dc : bi === 2 ? 0xa8704a : bi === 4 ? 0x30323a : 0x5a5650, { flatShading: true }));
-      for (const sx of [-1, 1]) add(mk(new THREE.BoxGeometry(0.8, CEIL + 1, SEG), mat('tunwall', () => std(0x3a3836)), sx * (WALLX + 0.4), CEIL / 2 - 0.5, -H));
+      for (const sx of [-1, 1]) add(mk(new THREE.BoxGeometry(0.8, CEIL - GD + 1, SEG), mat('tunwall', () => std(0x3a3836)), sx * (WALLX + 0.4), (CEIL + GD) / 2, -H)); // (the tunnel goes all the way down: a deep shaft under the track)
       add(mk(new THREE.BoxGeometry(2 * WALLX + 1.6, 1.0, SEG), mat('tunwall'), 0, CEIL + 0.5, -H));
-      add(mk(new THREE.BoxGeometry(2 * WALLX + 1.6, 0.2, SEG), mat('tunfloor', () => std(0x24221f)), 0, -0.62, -H)); // (a rock floor under the tunnel)
+      add(mk(new THREE.BoxGeometry(2 * WALLX + 1.6, 0.2, SEG), mat('tunfloor', () => std(0x24221f)), 0, GD + 0.1, -H)); // (the floor of the shaft, far below)
       const lamps = []; for (let z = -4; z > -SEG; z -= 10) for (const sx of [-1, 1]) lamps.push([sx * (WALLX - 0.02), CEIL - 0.9, z - (sx > 0 ? 5 : 0), 0.15, 0.3, 0.8]);
       add(inst(new THREE.BoxGeometry(1, 1, 1), mat('lamp', () => bend(new THREE.MeshBasicMaterial({ color: 0xffd890, toneMapped: false }))), lamps));
-      for (const z of [0, -SEG]) for (const [x, y, w, h] of [[-WALLX - 1.5, 3, 2.2, 7], [WALLX + 1.5, 3, 2.2, 7], [0, CEIL + 1.6, 2 * WALLX + 5, 2.2]]) add(mk(new THREE.BoxGeometry(w, h, 1.2), mat('portal', () => std(0x24221f)), x, y, z));
+      for (const z of [0, -SEG]) for (const [x, y, w, h] of [[-WALLX - 1.5, (CEIL + GD) / 2, 2.2, CEIL - GD + 2], [WALLX + 1.5, (CEIL + GD) / 2, 2.2, CEIL - GD + 2], [0, CEIL + 1.6, 2 * WALLX + 5, 2.2]]) add(mk(new THREE.BoxGeometry(w, h, 1.2), mat('portal', () => std(0x24221f)), x, y, z));
       const hills = []; for (let k = 0; k < 9; k++) { const sx = k % 2 ? 1 : -1, w = 30 + q() * 40; hills.push([sx * (WALLX + 2 + 0.62 * w + q() * 6), 12 + q() * 18, -q() * SEG, w, 30 + q() * 40, 40 + q() * 50, q() * 3]); }
       hills.push([0, CEIL + 10.5, -H, 2 * WALLX + 6, 14, SEG * 0.9]); add(inst(new THREE.DodecahedronGeometry(0.6, 0), rockM, hills));
     }
     if (ty === 'G') { // scenery for the landscape (well clear of the track)
       const P = []; const side = () => (q() < 0.5 ? -1 : 1) * (9 + q() * 120), N = low ? 26 : 60;
       if (bi === 0 || bi === 1) { const tr = [], cn = []; for (let k = 0; k < N; k++) { const x = side(), z = -q() * SEG, h = 8 + q() * 12; tr.push([x, h * 0.15, z, 0.5, h * 0.3, 0.5]); cn.push([x, h * 0.55, z, h * 0.28, h * 0.8, h * 0.28]); }
-        add(inst(new THREE.CylinderGeometry(1, 1, 1, 6), mat('trunk', () => std(0x4a3424)), tr)); add(inst(new THREE.ConeGeometry(1, 1, 8), mat('pine' + bi, () => std(bi ? 0xe8f0f6 : 0x2a5a2a, { flatShading: true })), cn)); }
-      if (bi === 2) { for (let k = 0; k < N / 3; k++) P.push([side(), 2, -q() * SEG, 4 + q() * 9, 3 + q() * 8, 4 + q() * 9, q() * 3]); add(inst(new THREE.DodecahedronGeometry(1, 0), mat('mesa', () => std(0xb87a4a, { flatShading: true })), P));
-        const cs = []; for (let k = 0; k < N / 2; k++) cs.push([side(), 1.2, -q() * SEG, 0.3, 2.6 + q() * 2, 0.3]); add(inst(new THREE.CylinderGeometry(1, 1, 1, 6), mat('cactus', () => std(0x4a7a3a)), cs)); }
-      if (bi === 3) { for (let k = 0; k < N / 3; k++) P.push([-(9 + q() * 120), 2, -q() * SEG, 4 + q() * 8, 2 + q() * 6, 4 + q() * 8, q() * 3]); add(inst(new THREE.DodecahedronGeometry(1, 0), mat('coastrock', () => std(0x7a7468, { flatShading: true })), P)); }
+        addL(inst(new THREE.CylinderGeometry(1, 1, 1, 6), mat('trunk', () => std(0x4a3424)), tr)); addL(inst(new THREE.ConeGeometry(1, 1, 8), mat('pine' + bi, () => std(bi ? 0xe8f0f6 : 0x2a5a2a, { flatShading: true })), cn), true); }
+      if (bi === 2) { for (let k = 0; k < N / 3; k++) P.push([side(), 2, -q() * SEG, 4 + q() * 9, 3 + q() * 8, 4 + q() * 9, q() * 3]); addL(inst(new THREE.DodecahedronGeometry(1, 0), mat('mesa', () => std(0xb87a4a, { flatShading: true })), P), true);
+        const cs = []; for (let k = 0; k < N / 2; k++) cs.push([side(), 1.2, -q() * SEG, 0.3, 2.6 + q() * 2, 0.3]); addL(inst(new THREE.CylinderGeometry(1, 1, 1, 6), mat('cactus', () => std(0x4a7a3a)), cs), true); }
+      if (bi === 3) { for (let k = 0; k < N / 3; k++) P.push([-(9 + q() * 120), 2, -q() * SEG, 4 + q() * 8, 2 + q() * 6, 4 + q() * 8, q() * 3]); addL(inst(new THREE.DodecahedronGeometry(1, 0), mat('coastrock', () => std(0x7a7468, { flatShading: true })), P), true); }
       if (bi === 4) { const win = mat('citywin', () => { const t = T.canvasTex((c, s) => { const r = T.rng(9); c.fillStyle = '#10141e'; c.fillRect(0, 0, s, s); for (let y = 0; y < 24; y++) for (let x = 0; x < 8; x++) if (r() < 0.1) { c.fillStyle = r() < 0.7 ? '#ffd890' : '#8ae0ff'; c.fillRect(x * s / 8 + 3, y * s / 24 + 2, s / 8 - 6, s / 24 - 4); } }, 256); t.repeat.set(1, 2); return std(0xffffff, { map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.6 }); });
-        for (let k = 0; k < N / 3; k++) { const h = 15 + q() * 60; P.push([side() * 1.0 + (q() < 0.5 ? 0 : 0), h / 2 - 1, -q() * SEG, 8 + q() * 10, h, 8 + q() * 10]); } add(inst(new THREE.BoxGeometry(1, 1, 1), win, P)); }
+        for (let k = 0; k < N / 3; k++) { const h = 15 + q() * 60; P.push([side() * 1.0 + (q() < 0.5 ? 0 : 0), h / 2 - 1, -q() * SEG, 8 + q() * 10, h, 8 + q() * 10]); } addL(inst(new THREE.BoxGeometry(1, 1, 1), win, P), true); }
     }
     return g;
   };
@@ -193,15 +196,25 @@ export function buildTrain(A, T) {
   });
 
   // ---- what reaches the fighters: carried by their car; swept off by tunnel roofs and walls; knocked off by arms
-  const knock = (f, sx, why) => { f.knockedBy = why; f.knockAt = Date.now(); f.vel.set(sx * 9, 4, 22); f.onGround = false; f.hook = null; f.dashT = 0; f.stagger = 0.8; f.mantle = null; };
+  // an arm over the roof throws you back along the train; a tunnel roof or a side arm throws you off it
+  const knock = (f, sx, why) => { f.knockedBy = why; f.knockAt = Date.now(); const off = why === 'tunnel' || why === 'side arm'; f.vel.set(off ? sx * 9 : 0, off ? 4 : 5, off ? 22 : 12); f.onGround = false; f.hook = null; f.dashT = 0; f.stagger = 0.8; f.mantle = null; };
   const armPrev = new Map();
   A.tickHazards = (fighters) => {
     for (const f of fighters) { if (!f.alive) continue;
       for (const p of cars) { if (!p.prev) continue; const dx = p.x - p.prev.x, dy = p.y - p.prev.y;
         if (f.onGround && Math.abs(f.pos.z - p.base.z) < L / 2 + 0.3 && Math.abs(f.pos.x - p.prev.x) < 2.2 && Math.abs(f.pos.y - p.prev.y) < 0.8) { f.pos.x += dx; f.pos.y += dy; break; }
         if (f.hook && !f.hook.enemy && Math.abs(f.hook.p.z - p.base.z) < L / 2 + 0.2 && Math.abs(f.hook.p.x - p.prev.x) < 2.0) { f.hook.p.x += dx; f.hook.p.y += dy; break; } } // (the hook rides with its car)
+      if (f.hook && !f.hook.enemy && !f.onGround && !f.reel) for (const p of cars) { // caught it: hooked onto a car's side or roof edge from below (not underneath it), you're reeled straight up onto the roof
+        const hy = f.hook.p.y - p.y; if (Math.abs(f.hook.p.z - p.base.z) > L / 2 + 0.3 || hy < -3.7 || hy > 0.7 || (hy < -2.6 && Math.abs(f.hook.p.x - p.x) < 1.4) || f.pos.y > p.y - 0.2) continue; // (only the underside itself lets you swing under)
+        f.reel = { p, sx: Math.sign(f.hook.p.x - p.x) * Math.min(1, Math.abs(f.hook.p.x - p.x)), z: f.hook.p.z - p.base.z, until: Date.now() + 1600 }; break; }
+      if (f.isBot && !f.reel && !f.hook && !f.onGround && f.vel.y < -3 && !(f.saveTried > Date.now() - 2500)) { // a bot falling off grabs for the train: it catches it three times in four
+        let best = null, bd = 9; for (const p of cars) { const d = Math.abs(f.pos.z - p.base.z); if (d < L / 2 + 1 && f.pos.y < p.y - 2 && f.pos.y > p.y - 16 && d < bd) { bd = d; best = p; } }
+        if (best) { f.saveTried = Date.now(); if (Math.random() < 0.75) { const sx = Math.sign(f.pos.x - best.x) || 1, z = Math.max(-L / 2 + 1, Math.min(L / 2 - 1, f.pos.z - best.base.z)); f.hook = { p: new THREE.Vector3(best.x + sx * 1.6, best.y - 0.3, best.base.z + z), len: 20 }; f.reel = { p: best, sx, z, until: Date.now() + 1600 }; } } }
+      if (f.reel) { const r = f.reel, p = r.p, tx = p.x + r.sx * 0.7, tz = p.base.z + r.z, dx = tx - f.pos.x, dy = p.y + 0.6 - f.pos.y, dz = tz - f.pos.z, d = Math.hypot(dx, dy, dz);
+        if (d < 1.2 || Date.now() > r.until || !f.alive) { if (d < 1.2) { f.pos.set(tx, p.y + 0.05, tz); f.vel.set(0, 0, 0); f.onGround = true; } f.reel = null; f.hook = null; f.mantle = null; }
+        else { const sp = Math.min(30, 14 + d * 1.6); f.vel.set(dx / d * sp, dy / d * sp, dz / d * sp); f.onGround = false; f.mantle = null; } }
       const s = Sw - f.pos.z, rx = f.pos.x - PX(s), ry = f.pos.y - PY(s);
-      if (inTunnel(s) && f.prot <= 0 && (ry + 1.7 > CEIL || Math.abs(rx) > WALLX - 0.35)) knock(f, rx < 0 ? -1 : 1, 'tunnel'); // (swept off the roof by the tunnel)
+      if (inTunnel(s) && f.prot <= 0 && Math.abs(f.pos.z) < NC * PITCH / 2 + 4 && !(f.knockAt > Date.now() - 900) && (ry + 1.7 > CEIL || Math.abs(rx) > WALLX - 0.35)) knock(f, rx < 0 ? -1 : 1, 'tunnel'); // (once per hit, and only on the train) // (swept off the roof by the tunnel)
     }
     for (let i = Math.floor((Sw - 230) / TRAIN.SEG); i <= Math.floor((Sw + 520) / TRAIN.SEG); i++) { const a = armOf(i); if (!a) continue;
       const z1 = Sw - a.s, z0 = armPrev.has(i) ? armPrev.get(i) : z1; armPrev.set(i, z1); if (z1 - z0 > 10 || z1 < -170 || z0 > 170) continue;
@@ -211,7 +224,7 @@ export function buildTrain(A, T) {
         if (hit) knock(f, a.kind === 'side' ? a.side : rx < 0 ? -1 : 1, a.kind + ' arm'); } }
   };
   // falling off: under the train on the ground, it drags you under; over a bridge there's air down to the gorge
-  A.killAt = (p) => { const s = Sw - p.z; return PY(s) + (onBridge(s) ? -42 : -0.3); };
+  A.killAt = (p) => { const s = Sw - p.z; return PY(s) + (onBridge(s) ? -42 : GD + 1); } // (the track runs high everywhere: a fall leaves time to hook the train and swing back up);
   A.fallText = (q) => (onBridge(Sw - q.z) ? 'fell into the gorge' : 'fell off the train'); A.fallBy = (q) => (onBridge(Sw - q.z) ? 'Fell into the gorge' : 'Fell off the train');
   // for bots and spawning: what's coming for someone at this spot, in seconds (tunnel, high arm, low arm, side arm)
   A.trainDanger = (pos) => { const s = Sw - pos.z, out = { tunnel: 99, high: 99, low: 99, side: 99 };

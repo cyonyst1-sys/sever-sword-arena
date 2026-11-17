@@ -3,21 +3,21 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116223105';
-import { buildFoundry } from './foundry.js?v=20261116223105';
-import { buildBamboo } from './bamboo.js?v=20261116223105';
-import { buildCity } from './city.js?v=20261116223105';
-import { buildDojo } from './dojo.js?v=20261116223105';
-import { buildComet } from './comet.js?v=20261116223105';
-import { buildLava } from './lava.js?v=20261116223105';
-import { buildRun } from './run.js?v=20261116223105';
-import { buildGrove } from './grove.js?v=20261116223105';
-import { buildTransport } from './transport.js?v=20261116223105';
-import { buildTrain } from './train.js?v=20261116223105';
-import { applyLook } from './look.js?v=20261116223105';
-import { addScenery } from './scenery.js?v=20261116223105';
-import { addAtmosphere } from './atmos.js?v=20261116223105';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116223105';
+import { buildTilt } from './tilt.js?v=20261116230812';
+import { buildFoundry } from './foundry.js?v=20261116230812';
+import { buildBamboo } from './bamboo.js?v=20261116230812';
+import { buildCity } from './city.js?v=20261116230812';
+import { buildDojo } from './dojo.js?v=20261116230812';
+import { buildComet } from './comet.js?v=20261116230812';
+import { buildLava } from './lava.js?v=20261116230812';
+import { buildRun } from './run.js?v=20261116230812';
+import { buildGrove } from './grove.js?v=20261116230812';
+import { buildTransport } from './transport.js?v=20261116230812';
+import { buildTrain } from './train.js?v=20261116230812';
+import { applyLook } from './look.js?v=20261116230812';
+import { addScenery } from './scenery.js?v=20261116230812';
+import { addAtmosphere } from './atmos.js?v=20261116230812';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116230812';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
