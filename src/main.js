@@ -1,19 +1,19 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117001656';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117001656';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117001656';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117001656';
-import * as net from './net.js?v=20261117001656';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117001656';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117001656';
-import { makeKillFx } from './killfx.js?v=20261117001656';
-import { makeGrapple } from './grapple.js?v=20261117001656';
-import { initShop } from './shop.js?v=20261117001656';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117001656';
-import { portal } from './portal.js?v=20261117001656';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117001656';
-import { makePost } from './post.js?v=20261117001656';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117001656';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117001656';
+import { Arena, MAPS } from './arena.js?v=20261117083829';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117083829';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117083829';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117083829';
+import * as net from './net.js?v=20261117083829';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117083829';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117083829';
+import { makeKillFx } from './killfx.js?v=20261117083829';
+import { makeGrapple } from './grapple.js?v=20261117083829';
+import { initShop } from './shop.js?v=20261117083829';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117083829';
+import { portal } from './portal.js?v=20261117083829';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117083829';
+import { makePost } from './post.js?v=20261117083829';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117083829';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117083829';
 
 // ---------- settings ----------
 const store = {
@@ -827,7 +827,7 @@ function selfFell(f) {
   if (S.host) { if (applyKill(f.id, null, null, null, null, true)) net.broadcast({ t: 'kill', v: f.id, k: null, fell: 1 }); }
   else if (f === me) { if (applyKill(f.id, null, null, null, null, true)) net.send({ t: 'fell' }); }
 }
-let shake = 0, hitstop = 0, punch = 0, myStreak = 0;
+let shake = 0, hitstop = 0, punch = 0, myStreak = 0, myAir = 0, airAt = -1; // (myAir: this match's kills made while off the ground; they pay double)
 function applyKill(vId, kId, n, pt, imp, fell) {
   const v = fighters.get(vId); if (!v || !v.alive) return false;
   if (v.boss && S.host && now() < (v.hitGrace || 0)) return false; // (the same swing can't cut a boss twice)
@@ -876,7 +876,9 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     if (!fell && n && pt && kId && kId !== vId && killCamStart(kId, vId, n, pt, imp)) deathBy = 'Kill cam · ' + deathBy; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
-    if (vId !== S.myId) { myStreak++; // today's challenges
+    if (vId !== S.myId) { myStreak++;
+      if (me && !me.onGround) { if (airAt !== S.matchStart) { airAt = S.matchStart; myAir = 0; } myAir++; feed('<span style="color:var(--gold)">Mid-air kill &middot; double pay</span>'); }
+      // today's challenges
       const done = [...track('kills'), ...track('streak', myStreak), ...(me && !me.onGround ? track('air') : []), ...(me && me.hook ? track('hook') : []), ...(me && now() - (me.dashAt || -9) < 1 ? track('dash') : [])];
       for (const d of done) { feed(`<span style="color:var(--gold)">Daily challenge done: ${esc(d)}</span>`); sfx.gong(); } }
     const st = rosterGet(S.myId)?.streak || 0; if (bladeFor(st + 1) > bladeFor(st)) showBanner('BLADE GROWS');
@@ -2183,7 +2185,8 @@ function showEnd(res) {
   const mine = res.list.find((r) => r.id === S.myId), top = res.mode === 'lbs' || res.mode === 'lava' ? res.winner : list[0] && list[0].id;
   let coins = 0, won = false, xpLine = ''; const bonus = [];
   if (mine && now() - (S.matchStart || now()) > 40) {
-    coins = 10 + 5 * mine.k + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0) + (res.mode === 'boss' ? 25 * (mine.pts || 0) : 0);
+    const airK = airAt === S.matchStart ? Math.min(myAir, mine.k) : 0; if (airK) bonus.push(`${airK} mid-air kill${airK > 1 ? 's' : ''} x2`);
+    coins = 10 + 5 * (mine.k + airK) + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0) + (res.mode === 'boss' ? 25 * (mine.pts || 0) : 0);
     if (res.mode === 'team' || res.mode === 'transport' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) { coins += 30; won = true; } // (Team Battle: everyone on the winning side)
     // bonuses: the bot difficulty (whenever there were bots, solo or online), and +10% per friend in the match (up to +30%)
     const bots = res.mode === 'horde' || res.list.some((r) => !r.human), friends = Math.min(3, res.list.filter((r) => r.human).length - 1);
@@ -2194,7 +2197,7 @@ function showEnd(res) {
     if (friends > 0) bonus.push(`${friends} friend${friends > 1 ? 's' : ''} +${friends * 10}%`);
     addCoins(coins);
     { const done = [...track('matches'), ...(won ? track('wins') : []), ...(S.online ? track('online') : []), ...(SPECIAL[res.mode] ? track('special') : [])]; // experience, levels and today's challenges
-      const xp = 25 + 8 * mine.k + (won ? 40 : 0), up = addXp(xp);
+      const xp = 25 + 8 * (mine.k + airK) + (won ? 40 : 0), up = addXp(xp);
       xpLine = ` &middot; <b>+${xp} XP</b>` + (up.ups ? `<br><b style="color:var(--gold)">LEVEL UP: you are level ${up.lv} &middot; +${up.coins} coins</b>` : '') + done.map((d) => `<br><span style="color:var(--gold)">Daily challenge done: ${esc(d)}</span>`).join(''); }
   }
   $('endCoins').innerHTML = coins ? `<b>+${coins} coins</b>${bonus.length ? ' (' + bonus.join(', ') + ')' : ''} &middot; you have ${profile.coins}${xpLine}` : 'Play a full match to earn coins';
