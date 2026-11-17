@@ -1,19 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117184216';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117184216';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117184216';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117184216';
-import * as net from './net.js?v=20261117184216';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117184216';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117184216';
-import { makeKillFx } from './killfx.js?v=20261117184216';
-import { makeGrapple } from './grapple.js?v=20261117184216';
-import { initShop } from './shop.js?v=20261117184216';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117184216';
-import { portal } from './portal.js?v=20261117184216';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117184216';
-import { makePost } from './post.js?v=20261117184216';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117184216';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117184216';
+import { Arena, MAPS } from './arena.js?v=20261117185248';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117185248';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117185248';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117185248';
+import * as net from './net.js?v=20261117185248';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117185248';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117185248';
+import { makeKillFx } from './killfx.js?v=20261117185248';
+import { makeGrapple } from './grapple.js?v=20261117185248';
+import { initShop } from './shop.js?v=20261117185248';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117185248';
+import { portal } from './portal.js?v=20261117185248';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117185248';
+import { makePost } from './post.js?v=20261117185248';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117185248';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117185248';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, weekLeft } from './boards.js?v=20261117185248';
 
 // ---------- settings ----------
 const store = {
@@ -839,7 +840,7 @@ const MEDALS = {
 const MD = { at: -1, n: {}, pts: 0, chain: 0, chainT: -9, by: null, parry: -9 }; // (this match's medals; by: who cut me down last; parry: when my blade last met another)
 function medalReset() { if (MD.at === S.matchStart) return; MD.at = S.matchStart; MD.n = {}; MD.pts = 0; MD.chain = 0; MD.chainT = -9; MD.by = null; myStreak = 0; }
 function medal(id) {
-  const [name, pts, big] = MEDALS[id]; MD.n[id] = (MD.n[id] || 0) + 1; MD.pts += pts;
+  const [name, pts, big] = MEDALS[id]; MD.n[id] = (MD.n[id] || 0) + 1; MD.pts += pts; lbAdd('medals');
   const box = $('medals'), el = document.createElement('div'); if (big) el.className = 'big';
   el.innerHTML = `${name}<small>${pts ? '+' + pts : 'double pay'}</small>`; box.append(el);
   while (box.children.length > 5) box.firstChild.remove();
@@ -909,7 +910,7 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     if (!fell && n && pt && kId && kId !== vId && killCamStart(kId, vId, n, pt, imp)) deathBy = 'Kill cam · ' + deathBy; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
-    if (vId !== S.myId) { medalReset(); myStreak++; if (S.mode !== 'tutorial') medalsFor(v, vId);
+    if (vId !== S.myId) { medalReset(); myStreak++; lbAdd('streak', myStreak); if (S.mode !== 'tutorial') medalsFor(v, vId);
       // today's challenges
       const done = [...track('kills'), ...track('streak', myStreak), ...(me && !me.onGround ? track('air') : []), ...(me && me.hook ? track('hook') : []), ...(me && now() - (me.dashAt || -9) < 1 ? track('dash') : [])];
       for (const d of done) { feed(`<span style="color:var(--gold)">Daily challenge done: ${esc(d)}</span>`); sfx.gong(); } }
@@ -1974,7 +1975,7 @@ function portalRoom() { if (!S.online) return; const n = S.roster.filter((r) => 
 function roomInfo() { return S.pub ? { code: net.net.code, name: settings.name || 'Ronin', game: S.mode, map: S.map, n: S.roster.filter((r) => r.human).length, max: S.mode === 'horde' ? 4 : MAX_PLAYERS, st: S.phase === 'game' ? 'playing' : 'lobby', q: !!S.quick } : null; }
 
 // ---------- UI ----------
-const screens = ['home', 'mp', 'lobby', 'settings', 'pause', 'end', 'shop'];
+const screens = ['home', 'mp', 'lobby', 'settings', 'pause', 'end', 'shop', 'ranks'];
 const shop = initShop({ show, onClose: () => { setMetalEnv(gameEnv); show('home'); updateCoinBadge(); } });
 // the shop button's thumbnail: an oni mask, a katana and a scatter of coins, painted once
 { const c = document.createElement('canvas'); c.width = 192; c.height = 136; const g = c.getContext('2d');
@@ -1990,6 +1991,22 @@ const shop = initShop({ show, onClose: () => { setMetalEnv(gameEnv); show('home'
 function updateCoinBadge() { $('coinBadge').textContent = profile.coins; }
 function renderProgress() { const el = $('progBox'); if (el) el.innerHTML = progressHtml(); $('toTutorial').classList.toggle('primary', !profile.tutDone); }
 $('toTutorial').onclick = () => startTutorial();
+// ---------- leaderboards ----------
+let lbBoard = 'kills', lbWk = true;
+async function renderRanks() {
+  $('lbTabs').innerHTML = BOARDS.map((b) => `<button data-b="${b.id}" class="${b.id === lbBoard ? 'primary' : ''}">${b.name}</button>`).join('');
+  for (const el of $('lbTabs').children) el.onclick = () => { lbBoard = el.dataset.b; renderRanks(); };
+  $('lbWeek').classList.toggle('primary', lbWk); $('lbAll').classList.toggle('primary', !lbWk);
+  const d = weekLeft() / 864e5; $('lbLeft').textContent = lbWk ? `Resets in ${d >= 1 ? Math.floor(d) + ' d ' : ''}${Math.floor((d % 1) * 24)} h` : '';
+  const b = BOARDS.find((x) => x.id === lbBoard), rows = await lbTop(lbBoard, lbWk, settings.name || 'Ronin');
+  const val = (r) => (lbBoard === 'xp' ? (r.me && !lbWk ? `Level ${levelOf(r.v).lv} &middot; ${r.v} XP` : `${r.v} XP`) : r.v);
+  $('lbTable').innerHTML = `<tr><th></th><th>Name</th><th>${b.unit}</th></tr>` + rows.map((r, i) => `<tr${r.me ? ' style="color:var(--gold)"' : ''}><td>${i + 1}</td><td>${esc(r.name)}${r.me ? ' (you)' : ''}</td><td>${val(r)}</td></tr>`).join('');
+  $('lbNote').textContent = rows.length > 1 ? 'Ranked against the players you have met online.' : 'Play online to rank against the players you meet.';
+}
+$('toRanks').onclick = () => { show('ranks'); renderRanks(); };
+$('lbWeek').onclick = () => { lbWk = true; renderRanks(); };
+$('lbAll').onclick = () => { lbWk = false; renderRanks(); };
+$('lbDone').onclick = () => show('home');
 $('toShop').addEventListener('click', () => shop.open());
 updateCoinBadge();
 function show(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
@@ -2228,8 +2245,12 @@ function showEnd(res) {
     if (dm !== 1) bonus.push(`${['Easy', 'Normal', 'Hard', 'Brutal', 'Nightmare', 'Shogun', 'Demon', 'Kami'][S.diff ?? 1]} x${dm}`);
     if (friends > 0) bonus.push(`${friends} friend${friends > 1 ? 's' : ''} +${friends * 10}%`);
     addCoins(coins);
+    { lbAdd('kills', mine.k); lbAdd('best', mine.k); if (won) lbAdd('wins'); if (res.mode === 'horde') lbAdd('horde', res.wave); // the leaderboards: your match, and everyone you shared it with
+      const wonBy = (r) => (res.mode === 'team' || res.mode === 'transport' ? res.winner && r.team === res.winner : res.mode !== 'horde' && top === r.id && res.list.length > 1);
+      if (S.online) for (const r of res.list) if (r.human && r.id !== S.myId) lbMet(r.name, { kills: r.k, best: r.k, wins: wonBy(r) ? 1 : 0 }); }
     { const done = [...track('matches'), ...(won ? track('wins') : []), ...(S.online ? track('online') : []), ...(SPECIAL[res.mode] ? track('special') : [])]; // experience, levels and today's challenges
       const xp = 25 + 8 * (mine.k + airK) + mp + (won ? 40 : 0), up = addXp(xp);
+      lbSave(settings.name || 'Ronin');
       xpLine = ` &middot; <b>+${xp} XP</b>` + (up.ups ? `<br><b style="color:var(--gold)">LEVEL UP: you are level ${up.lv} &middot; +${up.coins} coins</b>` : '') + done.map((d) => `<br><span style="color:var(--gold)">Daily challenge done: ${esc(d)}</span>`).join('') + (mdl && Object.keys(MD.n).length ? '<br>Medals: ' + Object.entries(MD.n).map(([id, c]) => MEDALS[id][0] + (c > 1 ? ' x' + c : '')).join(' &middot; ') : ''); }
   }
   $('endCoins').innerHTML = coins ? `<b>+${coins} coins</b>${bonus.length ? ' (' + bonus.join(', ') + ')' : ''} &middot; you have ${profile.coins}${xpLine}` : 'Play a full match to earn coins';

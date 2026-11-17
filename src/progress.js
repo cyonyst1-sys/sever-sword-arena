@@ -1,6 +1,7 @@
 // Reasons to come back: experience and levels (a coin reward at each new level), and three daily challenges that change
 // at midnight (your own clock). All of it lives in the saved profile, next to the coins.
-import { profile, saveProfile } from './cosmetics.js?v=20261117184216';
+import { profile, saveProfile } from './cosmetics.js?v=20261117185248';
+import { lbAdd } from './boards.js?v=20261117185248';
 
 profile.xp = Math.max(0, Math.floor(+profile.xp || 0));
 export const xpFor = (lv) => 100 + (lv - 1) * 60; // (what it takes to get from this level to the next)
@@ -31,7 +32,7 @@ export function dailies() { return roll().list.map((c) => ({ ...c, text: POOL.fi
 
 /** Add experience. Returns the levels gained and the coins they paid. */
 export function addXp(n) {
-  const a = levelOf().lv; profile.xp += Math.max(0, Math.round(n)); const b = levelOf().lv; let coins = 0;
+  const a = levelOf().lv; profile.xp += Math.max(0, Math.round(n)); lbAdd('xp', Math.round(n)); const b = levelOf().lv; let coins = 0;
   for (let l = a + 1; l <= b; l++) coins += LEVEL_COINS(l);
   profile.coins += coins; saveProfile(); return { ups: b - a, lv: b, coins };
 }

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261117184216">
+<meta name="build" content="20261117185248">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -186,9 +186,9 @@ window.severVersion.check();
   #xhair::after { content:''; position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px; background:#fff; border-radius:50%; }
   #bladeHint { position:absolute; left:50%; bottom:90px; transform:translateX(-50%); font-size:13px; color:var(--gold); }
   #board { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:16px 20px; min-width:320px; }
-  #board table, #endTable { width:100%; border-collapse:collapse; font-size:14px; }
-  #board td, #board th, #endTable td, #endTable th { padding:5px 8px; text-align:left; }
-  #board th, #endTable th { color:var(--muted); font-weight:500; }
+  #board table, #endTable, #lbTable { width:100%; border-collapse:collapse; font-size:14px; }
+  #board td, #board th, #endTable td, #endTable th, #lbTable td, #lbTable th { padding:5px 8px; text-align:left; }
+  #board th, #endTable th, #lbTable th { color:var(--muted); font-weight:500; }
   #hint { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); font-size:12px; color:var(--muted); font-weight:500; white-space:nowrap; transition:opacity 1s; }
   #clickPlay { position:fixed; left:50%; top:45%; transform:translate(-50%,-50%); z-index:6; background:var(--glass); border:1px solid var(--gold); color:var(--gold); padding:12px 22px; border-radius:12px; font-size:18px; font-weight:800; cursor:pointer; }
   #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:20; background:#2a2524; border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:14px; transition:opacity .4s; pointer-events:none; }
@@ -202,12 +202,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261117184216",
-  "./src/arena.js": "./src/arena.js?v=20261117184216",
-  "./src/fighter.js": "./src/fighter.js?v=20261117184216",
-  "./src/slice.js": "./src/slice.js?v=20261117184216",
-  "./src/audio.js": "./src/audio.js?v=20261117184216",
-  "./src/net.js": "./src/net.js?v=20261117184216"
+  "./src/main.js": "./src/main.js?v=20261117185248",
+  "./src/arena.js": "./src/arena.js?v=20261117185248",
+  "./src/fighter.js": "./src/fighter.js?v=20261117185248",
+  "./src/slice.js": "./src/slice.js?v=20261117185248",
+  "./src/audio.js": "./src/audio.js?v=20261117185248",
+  "./src/net.js": "./src/net.js?v=20261117185248"
 } }
 </script>
 </head>
@@ -255,6 +255,7 @@ window.severVersion.check();
     <button id="toShop" class="shopBig"><img id="shopThumb" alt=""><span class="shopTxt"><b>Shop</b><small>Masks, swords, outfits, upgrades</small></span><span class="shopCoins"><span class="coin"></span><span id="coinBadge">0</span></span></button>
     <div class="row"><button id="toTutorial" class="wide">Training: learn the moves (2 min)</button></div>
     <div id="progBox" style="margin:10px 2px 4px"></div>
+    <div class="row"><button id="toRanks" class="wide">Leaderboards</button></div>
     <div class="row"><button id="toSettings" class="wide">Settings</button></div>
     </div>
     <div class="homeBottom">
@@ -321,6 +322,17 @@ window.severVersion.check();
   </div>
 </div>
 
+<div id="ranks" class="screen hidden">
+  <div class="panel">
+    <h2>Leaderboards</h2>
+    <div id="lbTabs" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+    <div style="display:flex;gap:6px;margin:10px 0"><button id="lbWeek">This week</button><button id="lbAll">All time</button><span class="muted" id="lbLeft" style="margin-left:auto;align-self:center"></span></div>
+    <table id="lbTable"></table>
+    <div class="muted" id="lbNote" style="margin-top:8px"></div>
+    <div class="row"><button class="primary" id="lbDone">Done</button></div>
+  </div>
+</div>
+
 <div id="pause" class="screen hidden">
   <div class="panel">
     <h2>Paused</h2>
@@ -372,6 +384,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261117184216"></script>
+<script type="module" src="src/main.js?v=20261117185248"></script>
 </body>
 </html>
