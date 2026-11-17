@@ -265,4 +265,37 @@ export function buildFoundry(A, T) {
   const sea = new THREE.Mesh(new THREE.CircleGeometry(620, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x2a100a, transparent: true, opacity: 0.95 })); sea.position.y = -55; S.add(sea);
   drift(A, 380, 0xffa040, 0.12, [0.4, 1.2, 0.3], 0.5);
   void r;
+  // ---- a ceiling of spikes, above the pylons, level with the top of the spiked wall: iron plates bristling with spikes
+  // pointing down. Hook one and swing from it; when you let go it breaks loose and falls onto whatever is below,
+  // running through anyone it lands on. It grows back a while later.
+  { const CY = 33, plateM = std(0x3a2a24, { metalness: 0.7, roughness: 0.4, emissive: 0x2a0c04 }), spikeM = std(0xa89080, { metalness: 0.75, roughness: 0.28, emissive: 0x1a0800 });
+    const plateG = new THREE.BoxGeometry(4.2, 0.9, 4.2), spikeG = new THREE.ConeGeometry(0.5, 1, 6).rotateX(Math.PI).translate(0, -0.5, 0), ceil = [];
+    for (let t = 0, n = 0; t < 400 && n < 34; t++) {
+      const a = r() * TAU, d = 6 + Math.sqrt(r()) * 58, x = Math.cos(a) * d, z = Math.sin(a) * d;
+      if (ceil.some((c) => Math.hypot(c.x - x, c.z - z) < 8.5)) continue;
+      const y = CY + (r() - 0.5) * 2, g = new THREE.Group(); g.position.set(x, y, z); S.add(g);
+      const pl = new THREE.Mesh(plateG, plateM); pl.castShadow = true; g.add(pl);
+      for (let k = 0; k < 7; k++) { const sp = new THREE.Mesh(spikeG, spikeM), L = 1.8 + r() * 2.6, w = 0.6 + r() * 0.5; sp.scale.set(w, L, w); sp.position.set((r() - 0.5) * 3.2, -0.45, (r() - 0.5) * 3.2); sp.castShadow = true; g.add(sp); }
+      const box = { x0: x - 2.2, x1: x + 2.2, y0: y - 3.5, y1: y + 0.5, z0: z - 2.2, z1: z + 2.2, danger: true }; A.rayBoxes.push(box); // (players can hook it; bots leave it alone)
+      ceil.push({ x, y, z, g, box, st: 'up', vy: 0, t: 0 }); n++;
+    }
+    const inBox = (p, b) => p.x > b.x0 - 0.4 && p.x < b.x1 + 0.4 && p.y > b.y0 - 0.4 && p.y < b.y1 + 0.4 && p.z > b.z0 - 0.4 && p.z < b.z1 + 0.4;
+    const baseTick = A.tickHazards;
+    A.tickHazards = (fighters) => { baseTick(fighters);
+      for (const c of ceil) { if (c.st !== 'up') continue; const on = fighters.some((f) => f.alive && f.hook && !f.hook.enemy && inBox(f.hook.p, c.box));
+        if (on) c.held = true; else if (c.held) { c.held = false; c.st = 'fall'; c.vy = 0; c.box.y0 = c.box.y1 = -999; } } }; // (let go: it breaks loose)
+    A.anim.push((t, dt) => { dt = Math.min(0.05, dt || 0.016);
+      for (const c of ceil) {
+        if (c.st === 'fall') { c.vy -= 30 * dt; const p = c.g.position, ny = p.y + c.vy * dt, gnd = A.groundHeight(c.x, c.z, p.y - 3);
+          if (isFinite(gnd) && ny - 3.2 <= gnd) { p.y = gnd + 3.0; c.st = 'down'; c.t = 0; } else { p.y = ny; if (p.y < -70) { c.st = 'gone'; c.t = 0; c.g.visible = false; } } }
+        else if (c.st === 'down') { c.t += dt; if (c.t > 4) { c.st = 'gone'; c.t = 0; c.g.visible = false; } } // (stuck in the deck a few seconds)
+        else if (c.st === 'gone') { c.t += dt; if (c.t > 9) { c.st = 'grow'; c.t = 0; c.g.visible = true; c.g.position.set(c.x, c.y, c.z); } }
+        else if (c.st === 'grow') { c.t += dt; c.g.scale.setScalar(Math.min(1, c.t)); if (c.t >= 1) { c.st = 'up'; c.g.scale.setScalar(1); c.box.y0 = c.y - 3.5; c.box.y1 = c.y + 0.5; } }
+      } });
+    const baseHit = A.hazardHit;
+    A.hazardHit = (pos) => { const h = baseHit(pos); if (h) return h;
+      for (const c of ceil) { if (c.st !== 'fall') continue; const p = c.g.position;
+        if (Math.hypot(pos.x - c.x, pos.z - c.z) < 2.3 && p.y - 4.2 < pos.y + 1.8 && p.y > pos.y) return { n: new THREE.Vector3(1, 0, 0), pt: new THREE.Vector3(pos.x, pos.y + 1.2, pos.z) }; } // (run through from above)
+      return null; };
+  }
 }
