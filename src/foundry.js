@@ -146,6 +146,28 @@ export function buildFoundry(A, T) {
   mover({ x: -24, z: 21, y: -4, w: 6, d: 6, kind: 'lift' }, (t) => ({ x: 0, y: (1 - Math.cos(t * TAU / 10 + 1)) * 8, z: 0 }));
   mover({ x: -20, z: -10, y: 1, w: 7, d: 5, kind: 'slider' }, (t) => ({ x: -Math.cos(t * TAU / 8) * 6 + 6, y: 0, z: 0 }));
   mover({ x: 10, z: 22, y: 3, w: 5, d: 7, kind: 'slider' }, (t) => ({ x: 0, y: 0, z: -Math.cos(t * TAU / 7.5) * 5 + 5 }));
+  // trapdoor platforms: the two plain platforms of the ring hide rows of blades in their deck. At random moments the
+  // red warning flashes on the deck, and it drops sharply out from under you, leaving the blades standing up through
+  // where you were; then it rises back up through them. (Wall clock and a hash of the cycle: the same for every player.)
+  const trap = (p, seed) => {
+    p.base = { x: p.x, y: p.y, z: p.z }; p.prev = { x: p.x, y: p.y, z: p.z };
+    const n = A.nodeMap.get('P' + p.i); if (n) n.gone = true; A.spawns = A.spawns.filter((sp) => sp.plat !== p.i);
+    const DROP = 3.4, CYC = 8;
+    const cyc = (t) => { const k = Math.floor(t / CYC + seed), u = t - (k - seed) * CYC, u0 = 1.6 + hash(k * 3.1 + seed) * 4.2; return { u, u0 }; };
+    p.path = (t) => { const { u, u0 } = cyc(t), d = u - u0; let y = 0;
+      if (d >= 0 && d < 0.22) y = -DROP * (d / 0.22) ** 2; else if (d >= 0.22 && d < 2.0) y = -DROP; else if (d >= 2.0 && d < 3.2) { const s = (d - 2.0) / 1.2; y = -DROP * (1 - s * s * (3 - 2 * s)); }
+      return { x: 0, y, z: 0 }; };
+    p.parts = [...p.meshes, ...p.boxes]; p.meshBase = p.meshes.map((m) => m.position.clone()); p.boxBase = p.boxes.map((b) => ({ ...b })); movers.push(p);
+    const flash = new THREE.Mesh(new THREE.PlaneGeometry(p.w - 0.8, p.d - 0.8).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0, depthWrite: false })); flash.position.set(p.x, p.y + 0.09, p.z); S.add(flash); p.meshes.push(flash); p.meshBase.push(flash.position.clone());
+    A.anim.push(() => { const { u, u0 } = cyc(clock()), d = u - u0; flash.material.opacity = d > -0.9 && d < 0 ? 0.25 + 0.25 * Math.abs(Math.sin(d * 18)) : 0; });
+    for (const oz of [-4, 0, 4]) for (const ox of [-4, 0, 4]) { // three rows of three blades, standing in the deck
+      const R = 1.6, g = bladeMesh(R, mats); S.add(g); const c = new THREE.Vector3(p.x + ox, p.y - 1.75, p.z + oz);
+      const h = { R, g, axis: new THREE.Vector3(0, 0, 1), c: new THREE.Vector3(), off: true };
+      h.at = (t) => { h.c.copy(c); h.off = p.y > p.base.y - 0.3; }; // (harmless while the deck covers them)
+      hz.push(h);
+    }
+  };
+  trap(ring[2], 0); trap(ring[5], 0.47);
   const moveAll = (t) => {
     for (const p of movers) {
       const o = p.path(t); p.prev = { x: p.x, y: p.y, z: p.z };
