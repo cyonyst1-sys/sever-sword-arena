@@ -3,20 +3,20 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261116192524';
-import { buildFoundry } from './foundry.js?v=20261116192524';
-import { buildBamboo } from './bamboo.js?v=20261116192524';
-import { buildCity } from './city.js?v=20261116192524';
-import { buildDojo } from './dojo.js?v=20261116192524';
-import { buildComet } from './comet.js?v=20261116192524';
-import { buildLava } from './lava.js?v=20261116192524';
-import { buildRun } from './run.js?v=20261116192524';
-import { buildGrove } from './grove.js?v=20261116192524';
-import { buildTransport } from './transport.js?v=20261116192524';
-import { applyLook } from './look.js?v=20261116192524';
-import { addScenery } from './scenery.js?v=20261116192524';
-import { addAtmosphere } from './atmos.js?v=20261116192524';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261116192524';
+import { buildTilt } from './tilt.js?v=20261116192930';
+import { buildFoundry } from './foundry.js?v=20261116192930';
+import { buildBamboo } from './bamboo.js?v=20261116192930';
+import { buildCity } from './city.js?v=20261116192930';
+import { buildDojo } from './dojo.js?v=20261116192930';
+import { buildComet } from './comet.js?v=20261116192930';
+import { buildLava } from './lava.js?v=20261116192930';
+import { buildRun } from './run.js?v=20261116192930';
+import { buildGrove } from './grove.js?v=20261116192930';
+import { buildTransport } from './transport.js?v=20261116192930';
+import { applyLook } from './look.js?v=20261116192930';
+import { addScenery } from './scenery.js?v=20261116192930';
+import { addAtmosphere } from './atmos.js?v=20261116192930';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261116192930';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -892,7 +892,7 @@ export class Arena {
         if (c.hf || c.r < 2.5 || d2 > (c.r + RIM) ** 2) continue;
         const k = (Math.sqrt(d2) - c.r) / RIM, t = c.y1 + (c.dish || 0) - RIM * 1.15 * k * k; if (t <= y + 1.0 && t > g) g = t; continue;
       }
-      const t = this.discTop(c, x, z); if (t <= y + STEP && t > g) g = t; } // round platforms and columns (and dishes, curving up to the rim)
+      const t = this.discTop(c, x, z); if (t <= y + (c.hf ? 2.2 : STEP) && t > g) g = t; } // (a banked deck: a fast dash up its slope climbs more than a step in one frame, and must still land on it) // round platforms and columns (and dishes, curving up to the rim)
     if (this.brk) for (const b of this.brkNear(x, z)) if (b.kind !== 'glass' && x >= b.x0 - m && x <= b.x1 + m && z >= b.z0 - m && z <= b.z1 + m && b.y1 <= y + STEP && b.y1 > g) g = b.y1; // breakables (hay, crates, wall tops)
     if (this.tilt) { const h = this.tilt.heightAt(x, z, m); if (h !== null && h <= y + 1.2 && h > g) g = h; } // a tilting deck (Tipping Point)
     return g;
