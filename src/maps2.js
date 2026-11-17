@@ -3,8 +3,8 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116201721';
-import { glow, aurora } from './look.js?v=20261116201721';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261116202011';
+import { glow, aurora } from './look.js?v=20261116202011';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -296,6 +296,7 @@ export function buildIsles(A, T) {
         const stem = new THREE.Group(); root.add(stem); p.stem = stem;
         stem.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.09, 6, false), std(0x6a1018, { roughness: 0.6, emissive: 0x2a0408 })));
         const bud = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 8), new THREE.MeshStandardMaterial({ color: 0xff3a3a, emissive: 0xff1a20, emissiveIntensity: 1.4 })); bud.scale.y = 1.4; bud.position.copy(pts[8]); stem.add(bud);
+        for (const k of [4, 6]) { const s2 = bud.clone(); s2.scale.set(0.55, 0.75, 0.55); s2.position.copy(pts[k]); stem.add(s2); } // (two more glowing red spots further down the vine)
       }
       p.halves = [-1, 1].map((sd) => {
         const h = new THREE.Group(); root.add(h);
