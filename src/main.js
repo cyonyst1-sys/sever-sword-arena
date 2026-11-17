@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261116230812';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116230812';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116230812';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116230812';
-import * as net from './net.js?v=20261116230812';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116230812';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116230812';
-import { makeKillFx } from './killfx.js?v=20261116230812';
-import { makeGrapple } from './grapple.js?v=20261116230812';
-import { initShop } from './shop.js?v=20261116230812';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261116230812';
-import { portal } from './portal.js?v=20261116230812';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116230812';
-import { makePost } from './post.js?v=20261116230812';
+import { Arena, MAPS } from './arena.js?v=20261116231814';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261116231814';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261116231814';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261116231814';
+import * as net from './net.js?v=20261116231814';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261116231814';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261116231814';
+import { makeKillFx } from './killfx.js?v=20261116231814';
+import { makeGrapple } from './grapple.js?v=20261116231814';
+import { initShop } from './shop.js?v=20261116231814';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261116231814';
+import { portal } from './portal.js?v=20261116231814';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261116231814';
+import { makePost } from './post.js?v=20261116231814';
 
 // ---------- settings ----------
 const store = {
@@ -1548,6 +1548,7 @@ function hostTick(dt) {
 const ZERO = new THREE.Vector3();
 const THRONE_TIME = 40, LBS_GRACE = 5, LBS_WARN = 3;
 const freshObj = () => ({ throne: -1, throneIn: 0, jugg: null, shrines: [], tokens: [], warn: -1, gone: [], crumbleIn: 0 });
+let trainWarned = false; // (Bullet Train: the tunnel warning has sounded for the tunnel coming)
 let until = { throne: 0, crumble: 0, warnEnd: 0 }, scoreT = 0, cartSend = 0;
 // Transport: a raider's blade bit into the wagon (host)
 function cartHit(f) {
@@ -1758,7 +1759,8 @@ function modeTick(dt) {
 function botObjective(b) {
   if (arena.trainDanger && arena.flatbeds) { // Bullet Train: a tunnel or a high arm coming: down into the nearest flatbed (and fight there)
     const d = arena.trainDanger(b.pos), cur = b.plat != null ? arena.plats[b.plat] : null;
-    if (d.tunnel < 5.5 || d.high < 3.6) { if (cur && cur.type === 'flat' && b.onGround) return { pos: new THREE.Vector3(cur.x, cur.y, cur.z + Math.max(-3.4, Math.min(3.4, b.pos.z - cur.z))), plat: cur.i, engage: 3, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null }; // (already down in one: stay there till it passes)
+    if (d.tunnel < 5.5 || d.high < 3.6) { if (cur && cur.type === 'flat' && b.onGround) { const e = b.target, ep = e && e.alive && e.plat != null ? arena.plats[e.plat] : null; if (ep && ep.type === 'flat' && Math.abs(e.pos.z - b.pos.z) < 45) return null; } // (down in the flatbeds: fight anyone else down there, along the run)
+      if (cur && cur.type === 'flat' && b.onGround) return { pos: new THREE.Vector3(cur.x, cur.y, cur.z + Math.max(-3.4, Math.min(3.4, b.pos.z - cur.z))), plat: cur.i, engage: 3, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null }; // (already down in one: stay there till it passes)
       let best = null, bd = 1e9; for (const p of arena.flatbeds) { const dd = Math.abs(p.z - b.pos.z); if (dd < bd) { bd = dd; best = p; } }
       if (best) return { pos: new THREE.Vector3(best.x, best.y, best.z + Math.max(-6, Math.min(6, b.pos.z - best.z))), plat: best.i, engage: 2, flee: true, fake: true, alive: true, vel: ZERO, anim: null, isBot: false, target: null }; } }
   if (S.mode === 'transport' && arena.caravan && S.obj && S.obj.cart) {
@@ -2244,6 +2246,13 @@ function updateHud(dt) {
     const left = [...fighters.values()].filter((f) => f.isBot && f.alive).length + (S.host ? S.queue : 0);
     $('topbar').textContent = `Wave ${Math.max(1, S.wave)} · ${left} oni left`;
   }
+  if (S.mode === 'train' && me && me.alive && arena.trainDanger) { // Bullet Train: warn of the tunnel coming (a horn and a banner), and of the arms
+    const d = arena.trainDanger(me.pos), warn = d.tunnel > 0 && d.tunnel < 6;
+    if (warn) status = `<span style="color:#ffb040;font-size:22px"><b>TUNNEL IN ${Math.ceil(d.tunnel)}</b></span> · get down into the flatbeds`;
+    else if (d.tunnel === 0) status = 'In the tunnel: stay down in the flatbeds';
+    else if (d.high < 3) status = '<span style="color:var(--red)"><b>HIGH ARM</b></span> · get off the roof';
+    else if (d.low < 2) status = '<b>LOW ARM</b> · jump it';
+    if (warn && !trainWarned) { showBanner('TUNNEL AHEAD'); sfx.gong(); } trainWarned = warn; }
   const big = pts ? (mr?.pts || 0) : (mr ? mr.k : 0);
   const unit = S.mode === 'hunt' ? 'banked' : pts ? 'points' : 'kills';
   $('myscore').innerHTML = `${big}<small>${unit}${pts ? ` · ${mr ? mr.k : 0} kills` : ''} · ${mr ? mr.d : 0} deaths · blade ${(me ? me.bladeLen : bladeFor(mr?.streak)).toFixed(2)} m</small>`;

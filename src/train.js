@@ -50,7 +50,7 @@ export function buildTrain(A, T) {
   const roofM = new THREE.MeshStandardMaterial({ map: roofT, metalness: 0.5, roughness: 0.55 });
   const winT = T.canvasTex((g, s) => { g.fillStyle = '#0c1018'; g.fillRect(0, 0, s, s); for (let x = 0; x < 8; x++) { g.fillStyle = '#9ad0ff'; g.fillRect(x * s / 8 + 4, s * 0.3, s / 8 - 8, s * 0.4); } }, 128);
   const L = 19, GAP = 2.4, PITCH = L + GAP, NC = 14, Z0 = -(NC * PITCH) / 2 + L / 2;
-  const TYPES = ['engine', 'box', 'flat', 'pass', 'box', 'tank', 'flat', 'box', 'pass', 'flat', 'tank', 'box', 'flat', 'box'];
+  const TYPES = ['engine', 'box', 'pass', 'flat', 'flat', 'flat', 'flat', 'box', 'tank', 'flat', 'flat', 'flat', 'flat', 'box']; // (two long runs of flatbeds coupled together: room to keep fighting down there through a tunnel)
   const COLS = { box: [0x8a2a1e, 0x2a4a7a, 0x6a5a2a, 0x2a6a4a], pass: [0xc8ccd4], tank: [0x2a2c30, 0xd8d0c0], engine: [0xc8202a], flat: [0x3a3028] };
   const cars = [], topOf = (ty) => (ty === 'flat' ? DECK : ty === 'tank' ? 3.9 : ROOF), endTop = (k) => (TYPES[k] === 'flat' ? Math.max(topOf(TYPES[k - 1] || 'box'), topOf(TYPES[k + 1] || 'box')) : topOf(TYPES[k])), slopes = [];
   for (let k = 0; k < NC; k++) {
@@ -62,9 +62,8 @@ export function buildTrain(A, T) {
     const bodyM = new THREE.MeshStandardMaterial({ color: col, metalness: 0.45, roughness: 0.45 });
     if (type === 'flat') {
       box(-1.6, 1.6, 0.9, DECK, -L / 2, L / 2, roofM);
-      for (const z of [-2.8, 2.8]) box(-1.1, 1.1, DECK, DECK + 1.1, z - 1, z + 1, new THREE.MeshStandardMaterial({ map: T.woodTex(), color: 0xc09a70, roughness: 0.85 })); // crates (cover)
       for (const sx of [-1, 1]) for (let z = -4; z <= 4; z += 4) box(sx * 1.55 - 0.06, sx * 1.55 + 0.06, DECK, DECK + 0.8, z - 0.06, z + 0.06, steelM, false); // stanchions
-      for (const sz of [-1, 1]) { const nb = TYPES[k + sz]; if (!nb) continue; // ramps at each end, from the deck up to the next car's roof (walk up; no jumping the gap)
+      for (const sz of [-1, 1]) { const nb = TYPES[k + sz]; if (!nb || nb === 'flat') continue; // (no ramp between two flatbeds: the deck just carries on) // ramps at each end, from the deck up to the next car's roof (walk up; no jumping the gap)
         const r = A.addRamp(0, zc + sz * 4.6, 0, zc + sz * L / 2, DECK, topOf(nb), 2.8, DECK - 0.3, roofM); slopes.push({ r, b: { lx: r.lx, x0: r.x0, x1: r.x1, hL: r.hL, hH: r.hH, base: r.base }, car: p, m: S.children[S.children.length - 1] }); }
     } else if (type === 'tank') {
       const tk = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, L - 1, 24).rotateX(Math.PI / 2), bodyM); tk.position.set(0, 2.4, 0); tk.castShadow = tk.receiveShadow = true; g.add(tk);
@@ -84,7 +83,7 @@ export function buildTrain(A, T) {
     for (const bz of [-L / 2 + 2.5, L / 2 - 2.5]) { box(-1.2, 1.2, 0.35, 0.9, bz - 1.4, bz + 1.4, darkM, false); // bogies and wheels
       for (const sx of [-1, 1]) for (const dz of [-0.8, 0.8]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.2, 14).rotateZ(Math.PI / 2), steelM); w.position.set(sx * 1.05, 0.45, bz + dz); g.add(w); } }
     if (k < NC - 1) { box(-0.25, 0.25, 0.9, 1.3, L / 2, L / 2 + GAP, darkM, false); // coupler to the next car, and a gangway over the gap at roof height
-      const gh = Math.max(endTop(k), endTop(k + 1)); box(-1.0, 1.0, gh - 0.15, gh, L / 2 - 0.05, L / 2 + GAP + 0.05, roofM); }
+      const gh = TYPES[k] === 'flat' && TYPES[k + 1] === 'flat' ? DECK : Math.max(topOf(TYPES[k] === 'flat' ? TYPES[k + 1] : TYPES[k]), topOf(TYPES[k + 1] === 'flat' ? TYPES[k] : TYPES[k + 1])); box(-1.0, 1.0, gh - 0.15, gh, L / 2 - 0.05, L / 2 + GAP + 0.05, roofM); }
     const b0 = { x0: -1.6, x1: 1.6, y0: 0.9, y1: top, z0: zc - L / 2, z1: zc + L / 2 }; A.rayBoxes.push(b0); p.rays.push(b0); // hookable all over (the undercarriage too, from below)
     p.g = g; p.boxBase = p.boxes.map((b) => ({ ...b })); p.rayBase = p.rays.map((b) => ({ ...b })); p.base = { x: 0, y: top, z: zc }; p.prev = { x: 0, y: top, z: zc };
     A.node('P' + p.i, 0, top, zc).plat = p.i;
