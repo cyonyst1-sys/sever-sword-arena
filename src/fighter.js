@@ -2,8 +2,8 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { buildBody, poseBody } from './body.js?v=20261116192930';
-import { item, cleanLook } from './cosmetics.js?v=20261116192930';
+import { buildBody, poseBody } from './body.js?v=20261116193701';
+import { item, cleanLook } from './cosmetics.js?v=20261116193701';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -364,7 +364,7 @@ export class Fighter {
     { // lean with the ground: the body stands square to whatever slope is under its feet (eased, so it doesn't snap)
       const n = this.gN, cy = Math.cos(this.yaw), sy = Math.sin(this.yaw); let a = 0, b = 0;
       if (n && this.alive !== false) { const lx = n.x * cy - n.z * sy, lz = n.x * sy + n.z * cy, l = Math.hypot(lx, n.y, lz) || 1; b = -Math.asin(Math.max(-0.6, Math.min(0.6, lx / l))); a = Math.max(-0.6, Math.min(0.6, Math.atan2(lz, n.y))); }
-      this.tiltA = (this.tiltA || 0) + (a - (this.tiltA || 0)) * 0.22; this.tiltB = (this.tiltB || 0) + (b - (this.tiltB || 0)) * 0.22;
+      const tk = this.tiltK || 0.22; this.tiltA = (this.tiltA || 0) + (a - (this.tiltA || 0)) * tk; this.tiltB = (this.tiltB || 0) + (b - (this.tiltB || 0)) * tk;
       g.rotation.x = this.tiltA; g.rotation.z = this.tiltB; }
     // local velocity for the run cycle
     const c = Math.cos(this.yaw), s = Math.sin(this.yaw);
