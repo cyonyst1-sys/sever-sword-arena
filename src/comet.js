@@ -25,17 +25,19 @@ export function buildComet(A, T) {
   const addRoid = (x, z, y, R) => {
     const p = { kind: 'roid', x, z, y, w: 2 * R, d: 2 * R, ang: 0, round: R, i: plats.length, meshes: [], boxes: [], ramps: [], rays: [] };
     const ph = [r() * TAU, r() * TAU, r() * TAU], craters = []; for (let k = 0; k < 2 + (R > 12 ? 2 : 0); k++) { const a = r() * TAU, d = r() * R * 0.55; craters.push([x + Math.cos(a) * d, z + Math.sin(a) * d, 2 + r() * R * 0.18]); }
+    p.base = { x, y, z }; // (it drifts: everything below is measured from where it is now)
     p.hf = (qx, qz) => { // a lumpy, cratered top that rounds off at the edge
-      const dx = qx - x, dz = qz - z, u = Math.hypot(dx, dz) / R;
+      const dx = qx - p.x, dz = qz - p.z, u = Math.hypot(dx, dz) / R;
       let h = 0.45 * Math.sin(dx * 0.31 + ph[0]) * Math.sin(dz * 0.27 + ph[1]) + 0.25 * Math.sin(dx * 0.13 - dz * 0.17 + ph[2]);
-      for (const [cx, cz, cr] of craters) { const e = Math.hypot(qx - cx, qz - cz) / cr; h += -0.9 * Math.exp(-e * e * 2) + 0.35 * Math.exp(-(e - 1) * (e - 1) * 8); } // a dip with a raised rim
+      for (const [cx, cz, cr] of craters) { const e = Math.hypot(dx + x - cx, dz + z - cz) / cr; h += -0.9 * Math.exp(-e * e * 2) + 0.35 * Math.exp(-(e - 1) * (e - 1) * 8); } // a dip with a raised rim
       if (u > 0.8) h -= 1.6 * Math.min(1, (u - 0.8) / 0.2) ** 2;
-      return y + h;
+      return p.y + h;
     };
-    plats.push(p); A.discs.push({ x, z, r: R, y0: y - R * 0.7, y1: y, hf: p.hf }); p.discs = [A.discs[A.discs.length - 1]];
+    plats.push(p); A.discs.push({ x, z, r: R, y0: y - R * 0.7, y1: y + 1, hf: p.hf }); p.discs = [A.discs[A.discs.length - 1]];
     const box = { x0: x - R * 0.8, x1: x + R * 0.8, y0: y - R * 0.7, y1: y + 0.4, z0: z - R * 0.8, z1: z + R * 0.8 }; A.rayBoxes.push(box); p.rays.push(box);
     A.node('P' + p.i, x, p.hf(x, z), z).plat = p.i;
-    for (let k = 0; k < (R > 12 ? 3 : 1); k++) { const a = r() * TAU, d = k ? R * 0.45 : 0, sx = x + Math.cos(a) * d, sz = z + Math.sin(a) * d, sp = new THREE.Vector3(sx, p.hf(sx, sz) + 0.05, sz); sp.plat = p.i; A.spawns.push(sp); }
+    p.sps = [];
+    for (let k = 0; k < (R > 12 ? 3 : 1); k++) { const a = r() * TAU, d = k ? R * 0.45 : 0, sx = x + Math.cos(a) * d, sz = z + Math.sin(a) * d, sp = new THREE.Vector3(sx, p.hf(sx, sz) + 0.05, sz); sp.plat = p.i; sp.off = [sx - x, sz - z]; A.spawns.push(sp); p.sps.push(sp); }
     // the mesh: the top as a fine polar grid on the height function, the underside a lumpy dome
     const NA = 48, NT = 12, NB = 9, pos = [], col = [], idx = [], lump = (a, t) => 1 + 0.16 * Math.sin(3 * a + ph[0] + t * 3) + 0.08 * Math.sin(7 * a + ph[1] - t * 4) + 0.05 * Math.sin(13 * a + ph[2]);
     for (let i = 0; i <= NT; i++) for (let j = 0; j <= NA; j++) { const a = j / NA * TAU, rr = i / NT * R * (i === NT ? lump(a, 0) * 0.97 : 1), px = x + Math.cos(a) * rr, pz = z + Math.sin(a) * rr; const yy = p.hf(px, pz); pos.push(px, yy, pz); const c = 0.8 + (yy - y) * 0.12; col.push(c, c * 0.97, c * 0.94); }
@@ -55,15 +57,31 @@ export function buildComet(A, T) {
   const hub = addRoid(0, 0, 0, 16);
   const ring = [];
   for (let k = 0; k < 7; k++) { // the ring: each a jump (or a dash) from the hub and from its neighbours
-    const R = 8 + r() * 4, a = k / 7 * TAU + (r() - 0.5) * 0.2, d = 16 + R + 4.5 + r() * 2.5, y = Math.round((r() - 0.4) * 10);
-    ring.push(addRoid(Math.cos(a) * d, Math.sin(a) * d, y, R));
+    const R = 9 + r() * 3.5, a = k / 7 * TAU + (r() - 0.5) * 0.12, d = 16 + R + 5 + r() * 2;
+    const q = addRoid(Math.cos(a) * d, Math.sin(a) * d, 0, R); q.ang0 = a; q.dist = d; q.slot = k; ring.push(q);
   }
-  for (let k = 0; k < 5; k++) { // a few further out, off the gaps in the ring
-    const a = (k / 5 + 0.07) * TAU, base = ring.reduce((best, q) => { const qa = Math.atan2(q.z, q.x), dd = Math.abs(((qa - a + Math.PI * 3) % TAU) - Math.PI); return dd < best.d ? { q, d: dd } : best; }, { q: null, d: 9 }).q;
-    const R = 6 + r() * 3, dist = Math.hypot(base.x, base.z) + base.round + R + 4 + r() * 3, y = base.y + Math.round((r() - 0.5) * 6);
-    addRoid(Math.cos(a) * dist, Math.sin(a) * dist, y, R);
-  }
-  for (const a of roids) for (const b of roids) if (a.i < b.i && Math.hypot(a.x - b.x, a.z - b.z) - a.round - b.round < 9 && Math.abs(a.y - b.y) < 7) A.link('P' + a.i, 'P' + b.i); // (bots jump the gaps)
+  // they weave round each other on the way in: each slides to and fro round the ring and rises and sinks, neighbours out
+  // of step, so as two close in on each other one passes high and the other low. The hub just bobs. Wall clock time: the
+  // same for every player. (Seen looking toward the planet: rocks crossing left and right, above and below each other.)
+  const WEAVE = TAU / 15, AMP_A = 0.11, AMP_Y = 7.5, ORBIT = TAU / 55; // (the whole ring also orbits the hub, once a minute or so)
+  const weave = (p, t) => { if (p === hub) return { x: 0, y: Math.sin(t * WEAVE * 0.7) * 1.2, z: 0 };
+    const ph = t * WEAVE + p.slot * (TAU * 3 / 7), a = p.ang0 + t * ORBIT + AMP_A * Math.sin(ph), d = p.dist + 1.5 * Math.cos(ph);
+    return { x: Math.cos(a) * d - p.base.x, y: AMP_Y * Math.sin(ph), z: Math.sin(a) * d - p.base.z }; };
+  const place = (t) => {
+    for (const p of roids) { const o = weave(p, t); p.prev = { x: p.x, y: p.y, z: p.z }; p.x = p.base.x + o.x; p.y = p.base.y + o.y; p.z = p.base.z + o.z;
+      for (const m of p.meshes) m.position.set(o.x, o.y, o.z);
+      const c = p.discs[0]; c.x = p.x; c.z = p.z; c.y0 = p.y - p.round * 0.7; c.y1 = p.y + 1;
+      const b = p.rays[0], k = p.round * 0.8; b.x0 = p.x - k; b.x1 = p.x + k; b.z0 = p.z - k; b.z1 = p.z + k; b.y0 = p.y - p.round * 0.7; b.y1 = p.y + 0.4;
+      const n = A.nodeMap.get('P' + p.i); if (n) n.p.set(p.x, p.hf(p.x, p.z), p.z);
+      for (const sp of p.sps) sp.set(p.x + sp.off[0], p.hf(p.x + sp.off[0], p.z + sp.off[1]) + 0.05, p.z + sp.off[1]); } };
+  let still = false; const wall = () => Date.now() / 1000;
+  // whoever stands on a rock is carried with it (the game passes the fighters it moves itself)
+  A.tickHazards = (fighters) => { for (const f of fighters) { if (!f.alive || !f.onGround) continue;
+    for (const p of roids) { if (!p.prev) continue; const dx = f.pos.x - p.prev.x, dz = f.pos.z - p.prev.z; if (dx * dx + dz * dz > p.round * p.round) continue;
+      const h = p.hf(f.pos.x + p.x - p.prev.x, f.pos.z + p.z - p.prev.z); if (Math.abs(f.pos.y - (h - (p.y - p.prev.y))) > 0.9) continue;
+      f.pos.x += p.x - p.prev.x; f.pos.z += p.z - p.prev.z; f.pos.y = Math.max(f.pos.y + p.y - p.prev.y, h); break; } } };
+  for (const a of roids) for (const b of roids) if (a.i < b.i && Math.hypot(a.x - b.x, a.z - b.z) - a.round - b.round < 11) A.link('P' + a.i, 'P' + b.i); // (bots jump the gaps)
+  place(wall()); place(wall()); // (where they are now, before anyone spawns)
 
   // ---- small rocks drifting round the cluster: grapple them to swing across
   const small = [];
@@ -109,6 +127,7 @@ export function buildComet(A, T) {
   const P = new THREE.Vector3(), tmp = new THREE.Vector3();
   A.cometTick = (dt, p, ended) => {
     dt = Math.min(0.1, dt || 0); clock += dt;
+    if (impactT < 0 && !still) place(wall()); else if (!still) { still = true; for (const p of roids) p.prev = { x: p.x, y: p.y, z: p.z }; } // (at impact they stop weaving and are blown apart)
     if (ended && impactT < 0) impactT = 0;
     if (impactT >= 0) { impactT += dt; prog = Math.min(1.02, prog + dt * 0.5); }
     else { // a soft spring toward where the match is (time left, players left, the score): after a death it starts gently, picks up and settles, over a few seconds; and it always creeps a little closer
