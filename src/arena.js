@@ -3,23 +3,23 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { barkMat, barkUV, barkMap } from './bark.js?v=20261117201651';
-import { buildTilt } from './tilt.js?v=20261117201651';
-import { buildFoundry } from './foundry.js?v=20261117201651';
-import { buildBamboo } from './bamboo.js?v=20261117201651';
-import { buildCity } from './city.js?v=20261117201651';
-import { buildDojo } from './dojo.js?v=20261117201651';
-import { buildComet } from './comet.js?v=20261117201651';
-import { buildLava } from './lava.js?v=20261117201651';
-import { buildRun } from './run.js?v=20261117201651';
-import { buildGrove } from './grove.js?v=20261117201651';
-import { buildTransport } from './transport.js?v=20261117201651';
-import { buildTutorial } from './tutorial.js?v=20261117201651';
-import { buildTrain } from './train.js?v=20261117201651';
-import { applyLook } from './look.js?v=20261117201651';
-import { addScenery } from './scenery.js?v=20261117201651';
-import { addAtmosphere } from './atmos.js?v=20261117201651';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261117201651';
+import { barkMat, barkUV, barkMap } from './bark.js?v=20261117214044';
+import { buildTilt } from './tilt.js?v=20261117214044';
+import { buildFoundry } from './foundry.js?v=20261117214044';
+import { buildBamboo } from './bamboo.js?v=20261117214044';
+import { buildCity } from './city.js?v=20261117214044';
+import { buildDojo } from './dojo.js?v=20261117214044';
+import { buildComet } from './comet.js?v=20261117214044';
+import { buildLava } from './lava.js?v=20261117214044';
+import { buildRun } from './run.js?v=20261117214044';
+import { buildGrove } from './grove.js?v=20261117214044';
+import { buildTransport } from './transport.js?v=20261117214044';
+import { buildTutorial } from './tutorial.js?v=20261117214044';
+import { buildTrain } from './train.js?v=20261117214044';
+import { applyLook } from './look.js?v=20261117214044';
+import { addScenery } from './scenery.js?v=20261117214044';
+import { addAtmosphere } from './atmos.js?v=20261117214044';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261117214044';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -297,6 +297,7 @@ export class Arena {
   buildCanopy() {
     const S = this.scene, M = this.mats, r = rng(424242);
     M.bark = barkMat({ worn: true });
+    M.limb = barkMat({ worn: true, color: 0xcccccc }); // (the limbs you run on: a shade darker than the trunks, under the roof of leaves)
     M.bamboo = new THREE.MeshStandardMaterial({ map: bambooTex(), roughness: 0.55 });
     M.leaf = new THREE.MeshStandardMaterial({ color: 0x4f8f3a, roughness: 0.7, side: THREE.DoubleSide });
     M.leafDark = new THREE.MeshStandardMaterial({ color: 0x2c5a26, roughness: 0.9, flatShading: true });
@@ -366,12 +367,12 @@ export class Arena {
         k = Math.hypot(L, B.y - A.y) / L; // on a slope a round log stands taller: sink it so its top stays at your feet
       const a3 = new THREE.Vector3(A.x, A.y - Ra * (k - 0.15), A.z), b3 = new THREE.Vector3(B.x, B.y - Rb * (k - 0.15), B.z);
       const dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(Rb, Ra, len + R * 0.15, 12, 1), M.bark);
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(Rb, Ra, len + R * 0.15, 12, 1), M.limb);
       log.geometry.scale(OV, 1, 1); barkUV(log.geometry, 4.6 * (Ra + Rb), len);
       const sx = new THREE.Vector3(-dir.z, 0, dir.x).normalize(), sz = new THREE.Vector3().crossVectors(sx, dir), qb = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(sx, dir, sz));
       log.position.copy(a3).add(b3).multiplyScalar(0.5); log.quaternion.copy(qb);
       log.castShadow = log.receiveShadow = true; S.add(log); this.own(p, log);
-      const knot = new THREE.Mesh(barkUV(new THREE.SphereGeometry(Rb * 1.02, 12, 8), 9 * Rb, 3 * Rb), M.bark); knot.scale.set(OV, 1, 1); knot.quaternion.copy(qb); knot.position.copy(b3); knot.castShadow = true; S.add(knot); this.own(p, knot);
+      const knot = new THREE.Mesh(barkUV(new THREE.SphereGeometry(Rb * 1.02, 12, 8), 9 * Rb, 3 * Rb), M.limb); knot.scale.set(OV, 1, 1); knot.quaternion.copy(qb); knot.position.copy(b3); knot.castShadow = true; S.add(knot); this.own(p, knot);
       // grapple-only boxes along the log, so you can hook the branch (but never bump into them)
       for (let s = 0; s <= len; s += 5) {
         const c = a3.clone().addScaledVector(dir, s);

@@ -18,7 +18,7 @@ export function barkMat({ worn = false, ...o } = {}) {
   if (worn) { m.onBeforeCompile = (s) => { s.fragmentShader = s.fragmentShader
     .replace('#include <map_fragment>', `#include <map_fragment>
 { float wornUp = smoothstep(0.88, 0.99, inverseTransformDirection(normalize(vNormal), viewMatrix).y);
-  vec3 pale = diffuseColor.rgb * 0.62 + vec3(0.8, 0.71, 0.56) * 0.5;
+  vec3 pale = diffuseColor.rgb * 0.62 + vec3(0.8, 0.71, 0.56) * 0.5 * diffuse;
   diffuseColor.rgb = mix(diffuseColor.rgb, pale, wornUp * 0.7); }`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
 { float wornUp = smoothstep(0.88, 0.99, inverseTransformDirection(normalize(vNormal), viewMatrix).y);
