@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117222112';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117222112';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117222112';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117222112';
-import * as net from './net.js?v=20261117222112';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117222112';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117222112';
-import { makeKillFx } from './killfx.js?v=20261117222112';
-import { makeGrapple } from './grapple.js?v=20261117222112';
-import { initShop } from './shop.js?v=20261117222112';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117222112';
-import { portal } from './portal.js?v=20261117222112';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117222112';
-import { makePost } from './post.js?v=20261117222112';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117222112';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117222112';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261117222112';
+import { Arena, MAPS } from './arena.js?v=20261117224337';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117224337';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117224337';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117224337';
+import * as net from './net.js?v=20261117224337';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117224337';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117224337';
+import { makeKillFx } from './killfx.js?v=20261117224337';
+import { makeGrapple } from './grapple.js?v=20261117224337';
+import { initShop } from './shop.js?v=20261117224337';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117224337';
+import { portal } from './portal.js?v=20261117224337';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117224337';
+import { makePost } from './post.js?v=20261117224337';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117224337';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117224337';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261117224337';
 
 // ---------- settings ----------
 const store = {
@@ -117,7 +117,7 @@ const isEnemy = (a, b) => a.team !== b.team;
 const TEAMS = { A: { name: 'Red', col: 0xd23b3b, css: '#e0524a' }, B: { name: 'Blue', col: 0x2f7ae0, css: '#4a8fe8' } };
 function teamColours() { Object.assign(TEAMS.A, settings.cb ? { name: 'Orange', col: 0xf0981a, css: '#f2a43a' } : { name: 'Red', col: 0xd23b3b, css: '#e0524a' }); } // (colourblind option: orange against blue)
 teamColours();
-const teamMode = () => S.mode === 'team' || S.mode === 'transport';
+const teamMode = () => S.mode === 'team' || S.mode === 'transport' || S.mode === 'ships';
 // Transport: blue escorts the wagon, red raids it
 const ESCORT = 'B', RAID = 'A', CART = { hp: 100, speed: 2.3, hit: 1.5 };
 const teamKills = (t) => S.roster.reduce((s, r) => s + (r.team === t ? r.k : 0), 0);
@@ -353,7 +353,7 @@ function fireHook(f, origin, dir) {
   { const g = gateFor(f); if (g && h.point.y > g.y - 0.2) { sfx.hookFire(f.pos); return false; } } // (a shut gate: nothing above it can be hooked)
   if (barrierFor(f, h.point)) { sfx.hookFire(f.pos); return false; } // (a shut arena: nothing inside it can be hooked)
   if (h.box && h.box.tend !== undefined && arena.tendrilPoint) { h.tendHit = { i: h.box.tend, s: h.box.ts }; arena.tendrilPoint(h.tendHit.i, h.tendHit.s, h.point); } // (a tendril's own box: hook that tendril, right on it)
-  const onT = h.tendHit || (arena.tendrilAt && arena.tendrilAt(h.point)), under = arena.trainMap && h.box && h.point.y < h.box.y0 + 0.9, lh = onT || under ? null : lipHook(f, h.point); // (Bullet Train: hooked low on a car, the undercarriage: stay there and swing under it) if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead; never moves a tendril hook)
+  const onT = h.tendHit || (arena.tendrilAt && arena.tendrilAt(h.point)), under = !!h.box && (arena.trainMap ? h.point.y < h.box.y0 + 0.9 : !!h.box.under), lh = onT || under ? null : lipHook(f, h.point); // (Bullet Train: hooked low on a car, the undercarriage: stay there and swing under it) if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead; never moves a tendril hook)
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const L = h.point.distanceTo(chest);
   if (L > HOOK_MAX * upm(f, 'rope') || L < 1.4) return false;
@@ -970,8 +970,10 @@ function spawnPoint(f) {
   let best = null, bs = -Infinity;
   for (const sp of spawnList()) {
     if (arena.plats[sp.plat]?.gone) continue; // that platform has fallen
+    if (sp.team && f.team && sp.team !== f.team) continue; // (Sky Duel: each crew comes back in on its own ship)
     let md = 60;
     for (const g of fighters.values()) if (g !== f && g.alive && isEnemy(f, g)) md = Math.min(md, g.pos.distanceTo(sp));
+    if (arena.shipMap) for (const g of fighters.values()) if (g !== f && g.alive && g.pos.distanceToSquared(sp) < 9) md -= 40; // (Sky Duel: not on top of a crewmate)
     // big map: come back in near the action (about 18 m from the nearest enemy) so brawls grow; small map: far away
     // (Last Blade Standing has no respawns, so everyone starts spread out instead)
     const sc = (arena.mapId === 'plateaus' && S.mode !== 'lbs' ? -Math.abs(Math.min(md, 60) - 18) : md) + Math.random() * 6;
@@ -1495,7 +1497,7 @@ function fillBots() {
 }
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave, q: !!S.quick, pub: !!S.pub, bots: S.bots, hid: S.myId }); renderLobby(); }
 function startMatch() {
-  const SP = ['lava', 'run', 'transport', 'train'];
+  const SP = ['lava', 'run', 'transport', 'train', 'ships'];
   for (const sp of SP) { if (S.mode === sp) S.map = sp; else if (S.map === sp) S.mode = sp; } // (special maps: the mode and its map go together)
   if (!SP.includes(S.mode) && SP.includes(S.map)) S.map = 'spire';
   useMap(S.map);
@@ -2218,10 +2220,10 @@ function showEnd(res) {
   else if (res.mode === 'transport') { const my = res.list.find((r) => r.id === S.myId), home = res.winner === ESCORT;
     $('endTitle').textContent = my && my.team === res.winner ? 'Victory' : home ? 'The wagon got through' : 'The wagon was wrecked';
     setTimeout(() => { $('endSub').textContent = `Transport · ${home ? 'the escort brought it home' : 'the raiders took it'}`; }, 0); }
-  else if (res.mode === 'team') { // Team Battle: the winning side, and the score
+  else if (res.mode === 'team' || res.mode === 'ships') { // Team Battle: the winning side, and the score
     const my = res.list.find((r) => r.id === S.myId), sum = (t) => res.list.reduce((s, r) => s + (r.team === t ? r.k : 0), 0);
     $('endTitle').textContent = !res.winner ? 'Draw' : my && my.team === res.winner ? 'Victory' : `${TEAMS[res.winner].name} team wins`;
-    setTimeout(() => { $('endSub').innerHTML = `Team Battle · <span style="color:${TEAMS.A.css}">Red ${sum('A')}</span> – <span style="color:${TEAMS.B.css}">${sum('B')} Blue</span>`; }, 0);
+    setTimeout(() => { $('endSub').innerHTML = `${res.mode === 'ships' ? 'Sky Duel' : 'Team Battle'} · <span style="color:${TEAMS.A.css}">Red ${sum('A')}</span> – <span style="color:${TEAMS.B.css}">${sum('B')} Blue</span>`; }, 0);
   }
   else {
     const w = res.mode === 'lbs' || res.mode === 'lava' ? (res.winner ? rosterGet(res.winner) || res.list.find((r) => r.id === res.winner) : null) : list[0];
@@ -2236,7 +2238,7 @@ function showEnd(res) {
   if (mine && now() - (S.matchStart || now()) > 40) {
     const mdl = MD.at === S.matchStart, airK = mdl ? Math.min(MD.n.air || 0, mine.k) : 0, mp = mdl ? MD.pts : 0; if (mp) bonus.push(`medals +${mp}`); if (airK) bonus.push(`${airK} mid-air kill${airK > 1 ? 's' : ''} x2`);
     coins = 10 + 5 * (mine.k + airK) + mp + (POINT_MODES.has(res.mode) ? Math.floor((mine.pts || 0) / 4) : 0) + (res.mode === 'horde' ? 5 * res.wave : 0) + (res.mode === 'boss' ? 25 * (mine.pts || 0) : 0);
-    if (res.mode === 'team' || res.mode === 'transport' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) { coins += 30; won = true; } // (Team Battle: everyone on the winning side)
+    if (res.mode === 'team' || res.mode === 'ships' || res.mode === 'transport' ? res.winner && mine.team === res.winner : res.mode !== 'horde' && top === S.myId && res.list.length > 1) { coins += 30; won = true; } // (Team Battle: everyone on the winning side)
     // bonuses: the bot difficulty (whenever there were bots, solo or online), and +10% per friend in the match (up to +30%)
     const bots = res.mode === 'horde' || res.list.some((r) => !r.human), friends = Math.min(3, res.list.filter((r) => r.human).length - 1);
     const dm = bots ? [0.75, 1, 1.3, 1.6, 2, 2.5, 3, 4][S.diff ?? 1] : 1, fm = 1 + 0.1 * Math.max(0, friends);
@@ -2246,7 +2248,7 @@ function showEnd(res) {
     if (friends > 0) bonus.push(`${friends} friend${friends > 1 ? 's' : ''} +${friends * 10}%`);
     addCoins(coins);
     { lbAdd('kills', mine.k); lbAdd('best', mine.k); if (won) lbAdd('wins'); if (res.mode === 'horde') lbAdd('horde', res.wave); // the leaderboards: your match, and everyone you shared it with
-      const wonBy = (r) => (res.mode === 'team' || res.mode === 'transport' ? res.winner && r.team === res.winner : res.mode !== 'horde' && top === r.id && res.list.length > 1);
+      const wonBy = (r) => (res.mode === 'team' || res.mode === 'ships' || res.mode === 'transport' ? res.winner && r.team === res.winner : res.mode !== 'horde' && top === r.id && res.list.length > 1);
       if (S.online) for (const r of res.list) if (r.human && r.id !== S.myId) lbMet(r.name, { kills: r.k, best: r.k, wins: wonBy(r) ? 1 : 0 }); }
     { const done = [...track('matches'), ...(won ? track('wins') : []), ...(S.online ? track('online') : []), ...(SPECIAL[res.mode] ? track('special') : [])]; // experience, levels and today's challenges
       const xp = 25 + 8 * (mine.k + airK) + mp + (won ? 40 : 0), up = addXp(xp);
@@ -2292,7 +2294,7 @@ function updateHud(dt) {
   if (S.mode === 'transport') { const c = o.cart, C = arena.caravan, pct = c && C ? Math.round(c.s / C.len * 100) : 0, hp = c ? Math.ceil(c.hp) : 0;
     $('topbar').innerHTML = `Transport · ${clock(S.timeLeft)} · Wagon <span style="color:${hp > 50 ? '#5ad06a' : hp > 25 ? '#f0c040' : '#e04a3a'}">${hp}%</span> · ${pct}% of the way`;
     if (me && me.alive && mr) status = mr.team === ESCORT ? (c && !c.mv ? 'The wagon waits for its escort: walk beside it' : c && c.mv === 1 ? 'Raiders at the wagon: drive them off' : `You <span style="color:${TEAMS.B.css}">ESCORT</span> the wagon: keep it rolling, fight off the raiders`) : `You <span style="color:${TEAMS.A.css}">RAID</span>: hack the wagon apart before it reaches the village`; }
-  else if (teamMode()) { const a = teamKills('A'), b = teamKills('B'), mt = mr && TEAMS[mr.team]; $('topbar').innerHTML = `Team Battle · ${clock(S.timeLeft)} · <span style="color:${TEAMS.A.css}">Red ${a}</span> – <span style="color:${TEAMS.B.css}">${b} Blue</span> · first to ${MODE_GOAL.team}`; if (me && me.alive && mt) status = `You are on <span style="color:${mt.css}">${mt.name.toUpperCase()}</span>`; }
+  else if (teamMode()) { const a = teamKills('A'), b = teamKills('B'), mt = mr && TEAMS[mr.team]; $('topbar').innerHTML = `${S.mode === 'ships' ? 'Sky Duel' : 'Team Battle'} · ${clock(S.timeLeft)} · <span style="color:${TEAMS.A.css}">Red ${a}</span> – <span style="color:${TEAMS.B.css}">${b} Blue</span> · first to ${MODE_GOAL.team}`; if (me && me.alive && mt) status = `You are on <span style="color:${mt.css}">${mt.name.toUpperCase()}</span>`; }
   else if (S.mode === 'tutorial') $('topbar').textContent = tut && !tut.done ? `Training · step ${Math.min(TUT.length, tut.step + 1)} of ${TUT.length}` : 'Training';
   else if (S.mode === 'ffa' || S.mode === 'run' || S.mode === 'train') $('topbar').innerHTML = `${S.mode === 'run' ? 'Branch Run · ' : S.mode === 'train' ? 'Bullet Train · ' : ''}${clock(S.timeLeft)} · First to ${FFA_KILLS} · ${lead}`;
   else if (S.mode === 'koth') {
@@ -2567,7 +2569,7 @@ function killCamStart(kId, vId, n, pt, imp) {
   kc = { kId, vId, n: n.clone(), pt: pt.clone(), imp: imp ? imp.clone() : new THREE.Vector3(), fr, t: fr[0].t, t1: fr[fr.length - 1].t, at: t1 + 0.5, cut: false, hold: 0, cam: false, gk: ghostOf(k), gv: ghostOf(v) };
   return true;
 }
-function killCamEnd() { if (kc) { kc.gk.group.visible = kc.gv.group.visible = false; kc.gk.trailMesh.visible = kc.gv.trailMesh.visible = false; } kc = null; }
+function killCamEnd() { arena.replayAt = null; if (kc) { kc.gk.group.visible = kc.gv.group.visible = false; kc.gk.trailMesh.visible = kc.gv.trailMesh.visible = false; } kc = null; }
 function ghostSet(g, a, b, u, span, t, dt) { const L = (x, y) => x + (y - x) * u; // put a stand-in between two recorded states
   let dy = b[3] - a[3]; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
   g.pos.set(L(a[0], b[0]), L(a[1], b[1]), L(a[2], b[2])); g.vel.set((b[0] - a[0]) / span, (b[1] - a[1]) / span, (b[2] - a[2]) / span); g.yaw = a[3] + dy * u; g.pitch = L(a[4], b[4]); g.s.x = L(a[5], b[5]); g.s.y = L(a[6], b[6]);
@@ -2579,7 +2581,7 @@ function ghostPose(g, id, t, dt) {
 }
 function killCamTick(dt) { // true while the replay is on screen
   if (!kc) return false; if (!me || me.alive || S.phase !== 'game') { killCamEnd(); return false; } if (now() < kc.at) return false;
-  const sp = kc.cut ? 0.3 : kc.t > kc.t1 - 0.3 ? 0.35 : 0.7; kc.t += dt * sp;
+  const sp = kc.cut ? 0.3 : kc.t > kc.t1 - 0.3 ? 0.35 : 0.7; kc.t += dt * sp; arena.replayAt = Math.min(kc.t, kc.t1); // (anything that moves by the clock, like Sky Duel's ships, is shown where it was then)
   if (!kc.cut) { const t = Math.min(kc.t, kc.t1); ghostPose(kc.gk, kc.kId, t, dt * sp); ghostPose(kc.gv, kc.vId, t, dt * sp);
     if (kc.t >= kc.t1) { kc.cut = true; kc.gv.pose(0); const at = pieces.split(bakeMeshes(kc.gv.meshes), kc.n, -kc.n.dot(kc.pt), kc.gv.vel, kc.imp, 1); kc.gv.group.visible = false; if (at) sliceLines.emit(at, kc.n, camera); sfx.slice(kc.pt); } }
   else { ghostPose(kc.gk, kc.kId, kc.t1, dt * sp); kc.hold += dt; if (kc.hold > 0.7) { killCamEnd(); return false; } }
@@ -2624,7 +2626,7 @@ function potmStart(res) { // true if the replay has taken the stage (the results
   $('potm').classList.remove('hidden'); $('hud').classList.add('hidden'); sfx.gong();
   return true;
 }
-function potmStop() { // (clear the stage, without the results)
+function potmStop() { arena.replayAt = null; // (clear the stage, without the results)
   if (!pm) return; for (const g of pm.g.values()) g.group.visible = g.trailMesh.visible = false;
   for (const f of fighters.values()) f.group.visible = f.alive;
   $('potm').classList.add('hidden'); pm = null;
@@ -2633,7 +2635,7 @@ function potmEnd() { if (!pm) return; const res = pm.res, same = pm.at === S.mat
 function potmTick(dt) { // true while the replay is on screen
   if (!pm) return false;
   const ev = pm.ev, fr = pm.fr, slow = (pm.i < ev.length && ev[pm.i].t - pm.t < 0.3) || (pm.i > 0 && pm.t - ev[pm.i - 1].t < 0.35),
-    far = pm.i > 0 && pm.i < ev.length && ev[pm.i].t - pm.t > 1.2 && pm.t - ev[pm.i - 1].t > 0.7, sp = slow ? 0.3 : far ? 1.8 : 0.85; pm.t += dt * sp; // (slow for each cut; quicker through a long gap between two)
+    far = pm.i > 0 && pm.i < ev.length && ev[pm.i].t - pm.t > 1.2 && pm.t - ev[pm.i - 1].t > 0.7, sp = slow ? 0.3 : far ? 1.8 : 0.85; pm.t += dt * sp; arena.replayAt = pm.t; // (slow for each cut; quicker through a long gap between two)
   while (pm.fi < fr.length - 2 && fr[pm.fi + 1].t < pm.t) pm.fi++;
   const A = fr[pm.fi], B = fr[pm.fi + 1], span = B.t - A.t || 1, u = Math.max(0, Math.min(1, (pm.t - A.t) / span));
   for (const [id, g] of pm.g) { const a = A.m.get(id); // (absent: dead, or not there yet)
@@ -2775,13 +2777,13 @@ window.__sever = { get pm() { return pm; }, PM, ghosts, S, fighters, pieces, sce
 // ---------- map picker: a thumbnail card for each map (the hidden select still holds the choice) ----------
 function thumb(id) { return `thumbs/${id}.jpg?v=${document.querySelector('meta[name=build]').content}`; }
 // special maps come with their own mode (and that mode with its map)
-const SPECIAL = { lava: 'lava', run: 'run', transport: 'transport', train: 'train' };
+const SPECIAL = { lava: 'lava', run: 'run', transport: 'transport', train: 'train', ships: 'ships' };
 // a painted card for each mode: a colour wash and an emblem drawn on a canvas (made once)
 const modeArt = {};
 function modeThumb(id) {
   if (modeArt[id]) return modeArt[id];
   const W = 240, H = 180, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-  const pal = { ffa: ['#5a1418', '#d6403a'], run: ['#173a1a', '#7ac04a'], team: ['#1a2b5e', '#c23b3b'], koth: ['#3d2a0c', '#e0a83a'], jugg: ['#2a0f2e', '#c08a2e'], lbs: ['#1d2430', '#7f93b0'], hunt: ['#2e2208', '#f0c419'], horde: ['#1a0c0c', '#8e1717'], boss: ['#120a1c', '#7a3ab8'], lava: ['#2a0804', '#ff6a20'], transport: ['#3a2410', '#e0a050'], train: ['#141c2c', '#ffb050'] }[id] || ['#222', '#888'];
+  const pal = { ffa: ['#5a1418', '#d6403a'], run: ['#173a1a', '#7ac04a'], team: ['#1a2b5e', '#c23b3b'], koth: ['#3d2a0c', '#e0a83a'], jugg: ['#2a0f2e', '#c08a2e'], lbs: ['#1d2430', '#7f93b0'], hunt: ['#2e2208', '#f0c419'], horde: ['#1a0c0c', '#8e1717'], boss: ['#120a1c', '#7a3ab8'], lava: ['#2a0804', '#ff6a20'], transport: ['#3a2410', '#e0a050'], train: ['#141c2c', '#ffb050'], ships: ['#16345e', '#8ec8ff'] }[id] || ['#222', '#888'];
   const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, pal[0]); bg.addColorStop(1, '#0c0b0b'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
   const glow = g.createRadialGradient(W / 2, H * 0.48, 4, W / 2, H * 0.48, W * 0.55); glow.addColorStop(0, pal[1] + 'aa'); glow.addColorStop(1, pal[1] + '00'); g.fillStyle = glow; g.fillRect(0, 0, W, H);
   const cx = W / 2, cy = H * 0.47;
@@ -2804,6 +2806,7 @@ function modeThumb(id) {
   else if (id === 'run') { g.fillStyle = '#3a2614'; for (const s of [-1, 1]) g.fillRect(cx + s * 78 - 9, 0, 18, H); const br = (x, y, w) => { g.fillStyle = '#6b4a2c'; g.beginPath(); g.ellipse(x, y, w, w * 0.22, 0, 0, 7); g.fill(); g.fillStyle = '#4a8f3a'; g.beginPath(); g.arc(x - w, y - 6, 9, 0, 7); g.fill(); }; br(cx - 10, cy + 52, 46); br(cx + 22, cy + 14, 32); br(cx - 14, cy - 18, 22); br(cx + 8, cy - 40, 14); g.strokeStyle = '#ffd25a'; g.lineWidth = 4; g.beginPath(); g.moveTo(cx - 40, cy + 30); g.quadraticCurveTo(cx - 30, cy - 10, cx + 4, cy - 2); g.stroke(); g.beginPath(); g.moveTo(cx - 4, cy - 10); g.lineTo(cx + 6, cy - 1); g.lineTo(cx - 6, cy + 4); g.fill(); }
   else if (id === 'lava') { const fl = g.createLinearGradient(0, cy + 70, 0, cy - 40); fl.addColorStop(0, '#ffe08a'); fl.addColorStop(0.4, '#ff6a20'); fl.addColorStop(1, 'rgba(255,60,10,0)'); g.fillStyle = fl; g.fillRect(0, cy + 20, W, H); plat(cx - 46, cy + 18, 24, '#4a3f38'); plat(cx + 10, cy - 10, 22, '#4a3f38'); plat(cx + 50, cy - 42, 20, '#4a3f38'); g.fillStyle = '#ffd27a'; g.fillRect(cx + 48, 0, 4, cy - 46); }
   else if (id === 'transport') { g.fillStyle = '#9a7048'; g.beginPath(); g.moveTo(cx - 20, H); g.quadraticCurveTo(cx + 40, cy + 20, cx - 6, cy - 30); g.lineTo(cx + 6, cy - 30); g.quadraticCurveTo(cx + 56, cy + 20, cx + 20, H); g.fill(); g.fillStyle = '#eee0c4'; g.beginPath(); g.ellipse(cx, cy + 6, 34, 26, 0, Math.PI, 0); g.fill(); g.fillStyle = '#6b4a2c'; g.fillRect(cx - 36, cy + 6, 72, 10); g.fillStyle = '#2a1d14'; for (const x of [-24, 24]) { g.beginPath(); g.arc(cx + x, cy + 22, 10, 0, 7); g.fill(); } g.fillStyle = '#c89a5e'; g.beginPath(); g.ellipse(cx + 60, cy - 2, 16, 11, 0, 0, 7); g.ellipse(cx + 60, cy - 12, 8, 7, 0, 0, 7); g.fill(); g.fillRect(cx + 70, cy - 26, 5, 18); g.fillRect(cx + 50, cy + 6, 4, 18); g.fillRect(cx + 66, cy + 6, 4, 18); blade(-0.9, 80, '#ff8a7a'); }
+  else if (id === 'ships') { for (const [x, y, c, k] of [[cx - 34, cy - 20, '#e0524a', 1], [cx + 34, cy + 24, '#4a8fe8', -1]]) { g.save(); g.translate(x, y); g.rotate(k * 0.35); g.fillStyle = c; g.beginPath(); g.ellipse(0, 0, 9, 40, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(-54, 6); g.lineTo(54, 6); g.lineTo(42, -9); g.lineTo(-42, -9); g.fill(); g.fillRect(-16, 30, 32, 6); g.restore(); } }
   else if (id === 'train') { g.fillStyle = '#ffd890'; for (let i = 0; i < 9; i++) g.fillRect(i * 28, cy + 50, 14, 4); g.fillStyle = '#c8202a'; g.fillRect(cx - 100, cy + 4, 70, 36); g.fillStyle = '#3a3e46'; g.fillRect(cx - 26, cy + 10, 60, 30); g.fillRect(cx + 38, cy + 10, 60, 30); g.fillStyle = '#15161a'; for (const x of [-90, -50, -16, 20, 46, 84]) { g.beginPath(); g.arc(cx + x, cy + 44, 6, 0, 7); g.fill(); } g.fillStyle = '#e8b422'; g.fillRect(cx - 110, cy - 30, 220, 6); blade(-0.5, 80); }
   else blade(0);
   g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over';
