@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117224337';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117224337';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117224337';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117224337';
-import * as net from './net.js?v=20261117224337';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117224337';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117224337';
-import { makeKillFx } from './killfx.js?v=20261117224337';
-import { makeGrapple } from './grapple.js?v=20261117224337';
-import { initShop } from './shop.js?v=20261117224337';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117224337';
-import { portal } from './portal.js?v=20261117224337';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117224337';
-import { makePost } from './post.js?v=20261117224337';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117224337';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117224337';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261117224337';
+import { Arena, MAPS } from './arena.js?v=20261118000714';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261118000714';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261118000714';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261118000714';
+import * as net from './net.js?v=20261118000714';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261118000714';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261118000714';
+import { makeKillFx } from './killfx.js?v=20261118000714';
+import { makeGrapple } from './grapple.js?v=20261118000714';
+import { initShop } from './shop.js?v=20261118000714';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261118000714';
+import { portal } from './portal.js?v=20261118000714';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261118000714';
+import { makePost } from './post.js?v=20261118000714';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261118000714';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261118000714';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261118000714';
 
 // ---------- settings ----------
 const store = {
@@ -2361,7 +2361,7 @@ function updateHud(dt) {
       else if (S.mode === 'lava') c = `${esc(deathBy)}<small>You're out. Watching the climb…</small>`;
       else { const w = Math.max(0, Math.ceil((me.respawnAt === Infinity ? 3 - (now() - (me.diedAt || 0)) : me.respawnAt - now()))); c = `${esc(deathBy)}<small>Back in ${w}…</small>`; }
       { const g = (coop() || teamMode()) && spectateTarget(); if (g) c += `<small>Watching ${esc(rosterGet(g.id)?.name || 'your teammate')}</small>`; } // (team modes: we follow a teammate)
-    } else if (status) c = `<small style="font-size:16px;color:var(--gold)">${status}</small>`;
+    } else if (status) c = `<small style="font-size:13px;color:var(--gold)">${status}</small>`;
     $('center').innerHTML = c;
     $('bladeHint').classList.toggle('hidden', !(swingHeld() && me.alive));
   }

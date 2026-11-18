@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261117224337">
+<meta name="build" content="20261118000714">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -167,19 +167,20 @@ window.severVersion.check();
   .bar i { display:block; height:100%; width:100%; background:var(--cyan); }
   #pips { display:flex; gap:10px; font-size:12px; color:var(--muted); margin-top:6px; }
   #pips span.on { color:#fff; }
-  #center { position:absolute; left:50%; top:34%; transform:translate(-50%,-50%); font-family:'Russo One',system-ui; font-size:30px; text-align:center; text-shadow:0 2px 8px #000; }
-  #center small { display:block; font-family:Inter,system-ui; font-size:15px; color:var(--muted); margin-top:6px; }
-  #banner { position:absolute; left:50%; top:22%; transform:translateX(-50%); font-family:'Russo One',system-ui; font-size:56px; text-shadow:0 3px 12px #000; transition:opacity .6s; }
+  #callouts { position:absolute; left:50%; top:72%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:3px; pointer-events:none; white-space:nowrap; } /* (every mid-fight message sits here, just under the character's hips, clear of where the sword is swung) */
+  #center { font-family:'Russo One',system-ui; font-size:19px; text-align:center; text-shadow:0 2px 8px #000; }
+  #center small { display:block; font-family:Inter,system-ui; font-size:12px; color:var(--muted); margin-top:3px; }
+  #banner { font-family:'Russo One',system-ui; font-size:26px; text-shadow:0 3px 12px #000; transition:opacity .6s; }
   #potm { position:fixed; inset:0; pointer-events:none; z-index:5; text-align:center; text-shadow:0 3px 12px #000; }
   #potm::before, #potm::after { content:''; position:absolute; left:0; right:0; height:9%; background:#000; }
   #potm::before { top:0; } #potm::after { bottom:0; }
   #potm b { position:absolute; left:0; right:0; top:11%; font-family:'Russo One',system-ui; font-size:38px; font-weight:400; color:var(--gold); letter-spacing:3px; }
   #potm span { position:absolute; left:0; right:0; top:calc(11% + 50px); font-size:20px; font-weight:700; }
   #potm small { position:absolute; left:0; right:0; bottom:11%; font-size:13px; color:var(--muted); }
-  #medals { position:absolute; left:50%; top:60%; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:2px; pointer-events:none; }
-  #medals div { font-family:'Russo One',system-ui; font-size:22px; color:var(--gold); text-shadow:0 2px 8px #000; white-space:nowrap; animation:medal 2.3s forwards; }
-  #medals div.big { font-size:40px; color:#fff; text-shadow:0 0 18px var(--red), 0 3px 10px #000; }
-  #medals small { font-family:Inter,system-ui; font-size:13px; color:#fff; opacity:.8; margin-left:8px; }
+  #medals { display:flex; flex-direction:column; align-items:center; gap:1px; }
+  #medals div { font-family:'Russo One',system-ui; font-size:15px; color:var(--gold); text-shadow:0 2px 8px #000; white-space:nowrap; animation:medal 2.3s forwards; }
+  #medals div.big { font-size:23px; color:#fff; text-shadow:0 0 18px var(--red), 0 3px 10px #000; }
+  #medals small { font-family:Inter,system-ui; font-size:11px; color:#fff; opacity:.8; margin-left:8px; }
   @keyframes medal { 0% { opacity:0; transform:scale(1.7); } 9% { opacity:1; transform:scale(1); } 75% { opacity:1; transform:none; } 100% { opacity:0; transform:translateY(-10px); } }
   #xhair { position:absolute; left:50%; top:50%; width:22px; height:22px; margin:-11px 0 0 -11px; border:2px solid rgba(255,255,255,.55); border-radius:50%; }
   #xhair.hook { border-color:var(--cyan); box-shadow:0 0 8px var(--cyan); }
@@ -202,12 +203,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261117224337",
-  "./src/arena.js": "./src/arena.js?v=20261117224337",
-  "./src/fighter.js": "./src/fighter.js?v=20261117224337",
-  "./src/slice.js": "./src/slice.js?v=20261117224337",
-  "./src/audio.js": "./src/audio.js?v=20261117224337",
-  "./src/net.js": "./src/net.js?v=20261117224337"
+  "./src/main.js": "./src/main.js?v=20261118000714",
+  "./src/arena.js": "./src/arena.js?v=20261118000714",
+  "./src/fighter.js": "./src/fighter.js?v=20261118000714",
+  "./src/slice.js": "./src/slice.js?v=20261118000714",
+  "./src/audio.js": "./src/audio.js?v=20261118000714",
+  "./src/net.js": "./src/net.js?v=20261118000714"
 } }
 </script>
 </head>
@@ -374,9 +375,7 @@ window.severVersion.check();
     <div class="bar"><i id="stamBar"></i></div>
     <div id="pips"><span id="pipDash">DASH</span><span id="pipHook">HOOK</span></div>
   </div>
-  <div id="center"></div>
-  <div id="banner"></div>
-  <div id="medals"></div>
+  <div id="callouts"><div id="center"></div><div id="medals"></div><div id="banner"></div></div>
   <div id="board" class="hidden"></div>
   <div id="hint">Hold left mouse and drag to swing · Right mouse grapple · Shift dash (A/D + Shift: side dash) · Space jump (on a pad: launch; against a wall: kick off it) · Kills grow your sword</div>
 </div>
@@ -384,6 +383,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261117224337"></script>
+<script type="module" src="src/main.js?v=20261118000714"></script>
 </body>
 </html>
