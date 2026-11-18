@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261117185521';
-import { buildBody, poseBody } from './body.js?v=20261117185521';
-import { item, cleanLook } from './cosmetics.js?v=20261117185521';
+import { rim } from './vfx.js?v=20261117190906';
+import { buildBody, poseBody } from './body.js?v=20261117190906';
+import { item, cleanLook } from './cosmetics.js?v=20261117190906';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -118,31 +118,44 @@ function torso() {
   }
   g.computeVertexNormals(); return g;
 }
-// a sculpted head (unit size, stretched into place like the rest; forward is -z): a skull longer front to back, a brow
-// ridge, eye sockets, cheekbones, a nose with a bridge and a tip, a groove for the mouth, a jaw narrowing to a chin
+// a planar head (unit size, stretched into place like the rest; forward is -z): the head cut into flat planes, the way
+// a sculptor blocks it in. A faceted skull, a forehead turning at the temples, a brow ridge overhanging deep sockets, a
+// wedge of a nose, cheekbones with a hollow under them, a mouth barrel, a square jaw and a block of a chin.
+// It is built as rings from the crown down to under the chin. Each ring has the same nine points on its right half, from
+// the centre line of the face round to the centre of the back (mirrored for the left): 0 centre line, 1 side of the nose,
+// 2 middle of the eye, 3 corner of the brow and cheekbone, 4 temple, 5 in front of the ear, 6 behind it, 7 back corner, 8 back.
 function headGeo(withNose = true) {
-  const g = new THREE.SphereGeometry(1, 40, 30), p = g.attributes.position;
-  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-  const gs = (x, y, cx, cy, sx, sy) => Math.exp(-(((x - cx) / sx) ** 2) - (((y - cy) / sy) ** 2));
-  for (let i = 0; i < p.count; i++) {
-    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const fr = ss(-0.2, -0.85, z); // how much this point faces forward
-    if (z > 0) z *= 1.08; // the back of the skull
-    if (y > -0.2) x *= 0.94; // flatter at the temples
-    const low = ss(-0.15, -0.85, y); // the lower face: the jaw narrows toward the chin and the chin comes down and forward
-    x *= 1 - 0.3 * low * (0.4 + 0.6 * fr); y -= 0.16 * low * (0.3 + 0.7 * fr); z -= 0.07 * gs(x, y, 0, -0.95, 0.35, 0.18) * fr;
-    if (z < 0) {
-      z -= 0.07 * gs(x, y, 0, 0.27, 0.6, 0.07) * fr; // brow ridge
-      z += 0.1 * (gs(x, y, -0.36, 0.1, 0.17, 0.12) + gs(x, y, 0.36, 0.1, 0.17, 0.12)) * fr; // eye sockets
-      x *= 1 + 0.06 * (gs(x, y, -0.55, -0.15, 0.2, 0.15) + gs(x, y, 0.55, -0.15, 0.2, 0.15)); // cheekbones
-      const nose = y < 0.2 && y > -0.36 ? (0.07 + 0.22 * ss(0.16, -0.22, y)) * (1 - ss(-0.24, -0.34, y)) : 0, nw = 0.1 + 0.07 * ss(-0.05, -0.24, y);
-      if (withNose) z -= nose * Math.exp(-((x / nw) ** 2)) * fr; // the nose: a narrow bridge growing out to a broader tip
-      z += 0.03 * gs(x, y, 0, -0.5, 0.2, 0.025) * fr; // the line of the mouth
-      z -= 0.025 * gs(x, y, 0, -0.43, 0.22, 0.05) * fr; // upper lip
-    }
-    p.setXYZ(i, x, y, z);
-  }
-  g.computeVertexNormals(); return g;
+  const R = [
+    [[0, 0.93, -0.3], [0.12, 0.93, -0.29], [0.24, 0.93, -0.24], [0.33, 0.92, -0.16], [0.4, 0.92, -0.05], [0.42, 0.92, 0.1], [0.38, 0.92, 0.28], [0.22, 0.92, 0.42], [0, 0.92, 0.46]], // round the crown
+    [[0, 0.74, -0.7], [0.2, 0.74, -0.69], [0.4, 0.73, -0.63], [0.58, 0.72, -0.5], [0.72, 0.7, -0.3], [0.8, 0.7, 0.05], [0.74, 0.7, 0.48], [0.44, 0.7, 0.8], [0, 0.7, 0.9]], // top of the forehead
+    [[0, 0.46, -0.93], [0.2, 0.46, -0.92], [0.42, 0.46, -0.86], [0.64, 0.45, -0.7], [0.84, 0.44, -0.38], [0.93, 0.42, 0.05], [0.88, 0.42, 0.55], [0.52, 0.42, 0.95], [0, 0.42, 1.07]], // forehead
+    [[0, 0.22, -1.02], [0.18, 0.23, -1.03], [0.4, 0.28, -1.0], [0.64, 0.27, -0.86], [0.86, 0.24, -0.42], [0.95, 0.2, 0.05], [0.9, 0.2, 0.58], [0.54, 0.2, 1.0], [0, 0.2, 1.1]], // brow ridge
+    [[0, 0.13, -0.9], [0.16, 0.13, -0.78], [0.38, 0.16, -0.72], [0.6, 0.15, -0.72], [0.85, 0.1, -0.42], [0.95, 0.02, 0.05], [0.9, 0.02, 0.58], [0.54, 0, 1.0], [0, 0, 1.1]], // under the brow: the root of the nose, the sockets
+    [[0, -0.02, -1.02], [0.12, -0.01, -0.9], [0.38, -0.02, -0.8], [0.63, 0, -0.82], [0.87, -0.04, -0.45], [0.95, -0.12, 0.05], [0.88, -0.15, 0.58], [0.52, -0.2, 0.98], [0, -0.2, 1.06]], // bridge of the nose, the top of the cheeks
+    [[0, -0.22, -1.22], [0.14, -0.2, -0.98], [0.4, -0.2, -0.9], [0.7, -0.18, -0.8], [0.89, -0.2, -0.42], [0.94, -0.3, 0.05], [0.84, -0.32, 0.55], [0.48, -0.38, 0.92], [0, -0.4, 1.0]], // tip of the nose, the cheekbones
+    [[0, -0.31, -1.18], [0.2, -0.3, -1.0], [0.4, -0.3, -0.88], [0.64, -0.32, -0.76], [0.84, -0.34, -0.4], [0.9, -0.42, 0.05], [0.76, -0.44, 0.5], [0.42, -0.5, 0.82], [0, -0.52, 0.9]], // under the tip, the wings of the nose
+    [[0, -0.38, -0.95], [0.17, -0.37, -0.93], [0.38, -0.4, -0.86], [0.56, -0.46, -0.68], [0.78, -0.48, -0.36], [0.86, -0.52, 0.05], [0.66, -0.54, 0.42], [0.36, -0.58, 0.68], [0, -0.6, 0.74]], // base of the nose, the hollow of the cheek
+    [[0, -0.48, -1.0], [0.17, -0.48, -0.97], [0.34, -0.5, -0.86], [0.56, -0.54, -0.66], [0.76, -0.56, -0.32], [0.78, -0.6, 0.05], [0.58, -0.62, 0.36], [0.32, -0.64, 0.56], [0, -0.66, 0.6]], // upper lip
+    [[0, -0.53, -0.94], [0.17, -0.53, -0.92], [0.35, -0.55, -0.83], [0.54, -0.62, -0.64], [0.76, -0.64, -0.28], [0.8, -0.66, 0.06], [0.56, -0.68, 0.34], [0.3, -0.7, 0.5], [0, -0.7, 0.52]], // line of the mouth, the angle of the jaw
+    [[0, -0.6, -0.98], [0.16, -0.6, -0.95], [0.32, -0.61, -0.83], [0.52, -0.7, -0.62], [0.69, -0.72, -0.24], [0.64, -0.72, 0.05], [0.46, -0.73, 0.28], [0.25, -0.74, 0.42], [0, -0.74, 0.44]], // lower lip
+    [[0, -0.72, -0.88], [0.17, -0.72, -0.86], [0.32, -0.73, -0.8], [0.52, -0.78, -0.6], [0.68, -0.78, -0.22], [0.64, -0.78, 0.05], [0.44, -0.78, 0.26], [0.24, -0.78, 0.38], [0, -0.78, 0.4]], // the dip above the chin
+    [[0, -0.9, -0.96], [0.19, -0.9, -0.95], [0.36, -0.9, -0.85], [0.52, -0.9, -0.58], [0.6, -0.86, -0.2], [0.54, -0.83, 0.03], [0.34, -0.82, 0.2], [0.19, -0.82, 0.3], [0, -0.82, 0.32]], // front of the chin, the jawline
+    [[0, -1.08, -0.86], [0.19, -1.08, -0.84], [0.33, -1.06, -0.74], [0.44, -1.0, -0.5], [0.48, -0.93, -0.18], [0.42, -0.88, 0.02], [0.27, -0.86, 0.15], [0.15, -0.86, 0.22], [0, -0.86, 0.24]], // bottom of the chin
+    [[0, -1.06, -0.5], [0.13, -1.05, -0.48], [0.22, -1.03, -0.42], [0.3, -0.98, -0.3], [0.32, -0.93, -0.12], [0.3, -0.9, 0], [0.22, -0.89, 0.1], [0.12, -0.89, 0.14], [0, -0.89, 0.16]], // under the chin
+  ];
+  for (const r of R) for (const q of r) if (q[2] > -0.45 || q[1] > 0.55) { const e = Math.hypot(q[0], q[1] / 1.04, q[2] / (q[2] > 0 ? 1.13 : 1.03)), lim = q[1] > 0.55 ? 0.92 : 0.955; if (e > lim) { q[0] *= lim / e; q[1] *= lim / e; q[2] *= lim / e; } } // (the skull stays inside the hair and the headband)
+  // broad planes: away from the features that need them, neighbouring rings share their points (the lips and the underside of
+  // the nose exist only at the front; the back of the skull is cut in fewer, larger faces)
+  const same = (rows, cols, from) => { for (const i of rows) for (const c of cols) R[i][c] = R[from][c]; };
+  same([7], [3, 4, 5, 6, 7, 8], 6); same([9, 11], [3, 4, 5, 6, 7, 8], 10); same([4], [6, 7, 8], 3); same([6], [7, 8], 5); same([13], [6, 7, 8], 12); same([14], [6, 7, 8], 15);
+  if (!withNose) for (let i = 5; i <= 8; i++) for (const c of [0, 1]) R[i][c][2] = Math.max(R[i][c][2], -0.93); // (under a face mask: no nose to poke through it)
+  const rings = R.map((r) => Array.from({ length: 16 }, (_, k) => { const m = k > 8, q = r[m ? 16 - k : k]; return [m ? -q[0] : q[0], q[1], q[2]]; }));
+  const P = [], eq = (p, q) => p[0] === q[0] && p[1] === q[1] && p[2] === q[2], tri = (a, b, c) => { if (!eq(a, b) && !eq(b, c) && !eq(a, c)) P.push(...a, ...b, ...c); }, top = [0, 0.95, 0.08], bot = [0, -0.95, -0.12];
+  for (let k = 0; k < 16; k++) { const k1 = (k + 1) % 16; tri(top, rings[0][k1], rings[0][k]); tri(bot, rings[R.length - 1][k], rings[R.length - 1][k1]); }
+  for (let i = 0; i < R.length - 1; i++) for (let k = 0; k < 16; k++) { const k1 = (k + 1) % 16, a = rings[i][k], b = rings[i][k1], c = rings[i + 1][k1], d = rings[i + 1][k];
+    if (k < 8) { tri(a, b, c); tri(a, c, d); } else { tri(a, b, d); tri(b, c, d); } } // (each four-sided plane is split the same way on both sides of the face)
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
+  g.computeVertexNormals(); return g; // (no shared points: every plane keeps its own flat face)
 }
 // hair that follows the skull and stops at a hairline (low at the back, up at the forehead) instead of a ball on top
 function hairGeo() {
@@ -194,6 +207,7 @@ const GEO = {
   neck: lathe([[1.7, -0.49], [1.25, -0.3], [1.0, -0.05], [0.95, 0.49]], 12), // flaring into the trapezius
   headS: headGeo(), headFlat: headGeo(false), hairS: hairGeo(), // (headFlat: under a face mask, no nose to poke through it)
   sph: new THREE.SphereGeometry(1, 16, 11),
+  ear: (() => { const g = new THREE.CylinderGeometry(1, 0.72, 1, 6).rotateZ(Math.PI / 2).toNonIndexed(); g.computeVertexNormals(); return g; })(), // (a flat six-sided slab, like the planes of the head)
   sphLo: new THREE.SphereGeometry(1, 9, 6), // small round parts (ears, joints): fewer triangles to cut
   box: new THREE.BoxGeometry(1, 1, 1),
   round: roundBox(), // hands, feet, shoulder pads, collar, nose...
@@ -288,7 +302,7 @@ export class Fighter {
       dou: mk(GEO.chest, lamDou, CAP.steel), buckle: mk(GEO.round, M.gold, CAP.steel), delL: mk(GEO.sphLo, gi), delR: mk(GEO.sphLo, gi),
       // head
       neck: mk(GEO.neck, M.skinShade), head: mk(GEO.headS, M.skin), jaw: mk(GEO.sph, M.skin), nose: mk(GEO.round, M.skinShade),
-      earL: mk(GEO.sphLo, M.skinShade), earR: mk(GEO.sphLo, M.skinShade), eyeL: mk(GEO.sph, M.eye), eyeR: mk(GEO.sph, M.eye),
+      earL: mk(GEO.ear, M.skinShade), earR: mk(GEO.ear, M.skinShade), eyeL: mk(GEO.sph, M.eye), eyeR: mk(GEO.sph, M.eye),
       browL: mk(GEO.box, M.hair), browR: mk(GEO.box, M.hair),
       hair: mk(GEO.hairS, M.hair), band: mk(GEO.cyl, horde ? M.oni : gi), knot: mk(GEO.sphLo, M.hair), mask: horde ? mk(GEO.round, M.oni) : null,
       // arms
@@ -435,10 +449,10 @@ export class Fighter {
     P.jaw.position.copy(H(0, -0.07, -0.02)); P.jaw.scale.set(0.078, 0.058, 0.082); headRot(P.jaw);
     P.nose.position.copy(H(0, -0.01, -0.112)); P.nose.scale.set(0.024, 0.042, 0.03); headRot(P.nose);
     P.earL.position.copy(H(-0.1, 0, 0.005)); P.earR.position.copy(H(0.1, 0, 0.005));
-    P.earL.scale.set(0.013, 0.03, 0.02); P.earR.scale.set(0.013, 0.03, 0.02);
-    P.eyeL.position.copy(H(-0.035, 0.0105, -0.0975)); P.eyeR.position.copy(H(0.035, 0.0105, -0.0975)); // (in the sockets: the socket's surface is at z -0.0986, so half of each eye stands out of it)
+    P.earL.scale.set(0.014, 0.03, 0.019); P.earR.scale.set(0.014, 0.03, 0.019); P.earL.rotation.set(hp, -0.45, 0); P.earR.rotation.set(hp, Math.PI - 0.45, 0);
+    P.eyeL.position.copy(H(-0.037, 0.0085, -0.0885)); P.eyeR.position.copy(H(0.037, 0.0085, -0.0885)); // (in the sockets: the socket's surface is at z -0.0986, so half of each eye stands out of it)
     P.eyeL.scale.set(0.018, 0.0092, 0.011); P.eyeR.scale.set(0.018, 0.0092, 0.011); headRot(P.eyeL); headRot(P.eyeR);
-    P.browL.position.copy(H(-0.035, 0.0345, -0.104)); P.browR.position.copy(H(0.035, 0.0345, -0.104));
+    P.browL.position.copy(H(-0.037, 0.035, -0.112)); P.browR.position.copy(H(0.037, 0.035, -0.112));
     P.browL.scale.set(0.03, 0.006, 0.012); P.browR.scale.set(0.03, 0.006, 0.012); headRot(P.browL); headRot(P.browR); P.browL.rotateZ(-0.14); P.browR.rotateZ(0.14);
     P.hair.position.copy(H(0, 0.004, 0.004)); P.hair.scale.set(0.108, 0.131, 0.12); headRot(P.hair); // (follows the skull, down to a hairline)
     P.band.position.copy(H(0, 0.052, 0.004)); P.band.scale.set(0.104, 0.03, 0.116); headRot(P.band);
