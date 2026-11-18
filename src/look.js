@@ -3,7 +3,7 @@
 // it depth, shafts of light slant down through the air, and a few coloured lights sit where the map has a reason for
 // them. Each map's settings are one line in LOOK; the Colosseum has its own, fuller treatment (see maps2.js and maw.js).
 import * as THREE from 'three';
-import { setRim, sway, ripple, WIND } from './vfx.js?v=20261117194512';
+import { setRim, sway, ripple, WIND } from './vfx.js?v=20261117193021';
 
 const TAU = Math.PI * 2;
 // env: how strongly surfaces mirror the sky. gloss: [material name in A.mats, new roughness] pairs (polished or wet

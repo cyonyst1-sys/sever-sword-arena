@@ -3,8 +3,8 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261117194512';
-import { glow, aurora } from './look.js?v=20261117194512';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261117193021';
+import { glow, aurora } from './look.js?v=20261117193021';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
@@ -217,7 +217,7 @@ export function buildIsles(A, T) {
   A.setSky({ top: 0x04051a, mid: 0x1c1648, bot: 0x0c0a24, fog: 0x161236, near: 90, far: 400, hemiSky: 0x9098e8, hemiGround: 0x3a1450, hemi: 1.0, sunColor: 0xc8dcff, sun: 1.7, sunOff: new THREE.Vector3(-40, 60, -70) });
   M.bamboo = new THREE.MeshStandardMaterial({ map: T.bambooTex(), roughness: 0.55 });
   const grass = std(0x244a40, { roughness: 0.6 }), rock = std(0x2e2a40, { roughness: 1, flatShading: true }), rope = std(0x9a7a50, { roughness: 0.9 });
-  const lantern = new THREE.MeshBasicMaterial({ color: 0xff7ae0 }), bark = T.barkMat({ color: 0xd8c4b4 }), blossom = std(0xff8ae0, { roughness: 0.8, emissive: 0xd030a0, emissiveIntensity: 1.0, flatShading: true });
+  const lantern = new THREE.MeshBasicMaterial({ color: 0xff7ae0 }), bark = std(0x4a3226, { roughness: 1 }), blossom = std(0xff8ae0, { roughness: 0.8, emissive: 0xd030a0, emissiveIntensity: 1.0, flatShading: true });
 
   // glowing crystals, and the falls of light that pour off every island into the dark water
   const crysG = new THREE.OctahedronGeometry(1, 0), crysM = [0xff50d0, 0x50a8ff, 0x9a60ff].map((c) => std(c, { roughness: 0.15, emissive: c, emissiveIntensity: 1.3, flatShading: true }));
@@ -242,7 +242,7 @@ export function buildIsles(A, T) {
   // the big middle island and its great cherry tree (the trunk is solid; you can hook the blossom)
   const C = island(0, 0, 0, 30, 30);
   A.tag = C; A.addBox(-1.2, 1.2, 0, 12, -1.2, 1.2, bark); A.tag = null;
-  prop(A, C, new THREE.Mesh(T.barkUV(new THREE.CylinderGeometry(1.0, 1.6, 12, 9), 8, 12), bark), 0, 6, 0);
+  prop(A, C, new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.6, 12, 9), bark), 0, 6, 0);
   for (let i = 0; i < 7; i++) { const a = i / 7 * TAU, m = new THREE.Mesh(new THREE.IcosahedronGeometry(4 + r() * 2, 1), blossom); prop(A, C, m, Math.cos(a) * 4.5, 14 + r() * 3, Math.sin(a) * 4.5); }
   prop(A, C, new THREE.Mesh(new THREE.IcosahedronGeometry(5.5, 1), blossom), 0, 18, 0);
   { const box = { x0: -8, x1: 8, y0: 12, y1: 21, z0: -8, z1: 8 }; A.rayBoxes.push(box); C.rays.push(box); }

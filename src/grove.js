@@ -17,7 +17,7 @@ export function buildGrove(A, T) {
     for (let i = 0; i < 18; i++) { const x = q() * s, y = q() * s; g.fillStyle = 'rgba(20,14,10,0.6)'; g.beginPath(); g.ellipse(x, y, 5 + q() * 10, 9 + q() * 18, q(), 0, TAU); g.fill(); } // hollows and knots
     T.speckle(g, s, q, 5000, 0.2);
   }, 512);
-  const barkM = T.barkMat();
+  const barkM = new THREE.MeshStandardMaterial({ map: bark, bumpMap: bark, bumpScale: 3, roughness: 0.95, color: 0xf0e2d4 });
   const leafTex = T.canvasTex((g, s) => { const q = T.rng(57); g.fillStyle = '#3d5a2a'; g.fillRect(0, 0, s, s); for (let i = 0; i < 1400; i++) { g.fillStyle = `rgba(${q() < 0.5 ? '25,45,18' : '110,150,70'},${0.3 + q() * 0.5})`; g.beginPath(); g.ellipse(q() * s, q() * s, 1 + q() * 3, 0.8 + q() * 1.6, q() * 3, 0, TAU); g.fill(); } }, 256);
   const leafM = new THREE.MeshStandardMaterial({ map: leafTex, bumpMap: leafTex, bumpScale: 2, roughness: 0.9, color: 0xe8f8d0, emissive: 0x16240c });
   leafM.userData.sway = ['leaf', 0.05]; // (the clipped pads stir a little in the wind)
@@ -49,7 +49,7 @@ export function buildGrove(A, T) {
   const limb = (a, b, r0, r1) => {
     const mid = a.clone().lerp(b, 0.5).add(new THREE.Vector3((r() - 0.5) * 2, (r() - 0.2) * 2, (r() - 0.5) * 2)); // (a crook in the middle)
     for (const [p0, p1, ra, rb] of [[a, mid, r0, (r0 + r1) / 2], [mid, b, (r0 + r1) / 2, r1]]) {
-      const d = p1.clone().sub(p0), L = d.length(), m = new THREE.Mesh(T.barkUV(new THREE.CylinderGeometry(rb, ra, L, 10, 3), 3.14 * (ra + rb), L), barkM);
+      const d = p1.clone().sub(p0), L = d.length(), m = new THREE.Mesh(new THREE.CylinderGeometry(rb, ra, L, 10, 3), barkM);
       m.position.copy(p0).addScaledVector(d, 0.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); m.castShadow = true; S.add(m);
       for (let s = 0.15; s < 1; s += 0.3) { const q = p0.clone().lerp(p1, s), w = ra * 0.8; A.rayBoxes.push({ x0: q.x - w, x1: q.x + w, y0: q.y - w, y1: q.y + w, z0: q.z - w, z1: q.z + w }); }
     }
@@ -65,7 +65,7 @@ export function buildGrove(A, T) {
     // the trunk: thick and swollen, twisting as it rises out of the mist
     const tg = new THREE.CylinderGeometry(R0 * 0.62, R0 * 1.3, H, 20, 14, false), tp = tg.attributes.position, ph = r() * TAU;
     for (let i = 0; i < tp.count; i++) { const y = tp.getY(i) / H + 0.5, a = Math.atan2(tp.getZ(i), tp.getX(i)), rr = Math.hypot(tp.getX(i), tp.getZ(i)), k2 = 1 + 0.16 * Math.sin(a * 3 + y * 7 + ph) + 0.08 * Math.sin(a * 7 - y * 12), tw = a + y * 1.4; tp.setX(i, Math.cos(tw) * rr * k2); tp.setZ(i, Math.sin(tw) * rr * k2); }
-    tg.computeVertexNormals(); T.barkUV(tg, 6.3 * R0, H);
+    tg.computeVertexNormals();
     const tm = new THREE.Mesh(tg, barkM); tm.position.set(x, BASE + H / 2, z); tm.castShadow = tm.receiveShadow = true; S.add(tm);
     const tc = { x, z, r: R0 * 1.05, y0: BASE, y1: top }; A.discs.push(tc); A.rayBoxes.push({ x0: x - R0, x1: x + R0, y0: BASE, y1: top, z0: z - R0, z1: z + R0 }); A.pillars.push({ x, z, w: R0 * 2 });
     const tree = { x, z, pads: [] };
