@@ -3,7 +3,7 @@
 // it depth, shafts of light slant down through the air, and a few coloured lights sit where the map has a reason for
 // them. Each map's settings are one line in LOOK; the Colosseum has its own, fuller treatment (see maps2.js and maw.js).
 import * as THREE from 'three';
-import { setRim, sway, ripple, WIND } from './vfx.js?v=20261117195439';
+import { setRim, sway, ripple, WIND } from './vfx.js?v=20261117200250';
 
 const TAU = Math.PI * 2;
 // env: how strongly surfaces mirror the sky. gloss: [material name in A.mats, new roughness] pairs (polished or wet
@@ -14,7 +14,7 @@ const LOOK = {
   spire: { env: 0.6, wet: 0.55, haze: [[0x8a6aff, 0.3, -0.6]], shafts: [0xffb0d8, 0.09, 7], custom: spireLook },
   plateaus: { env: 0.45, haze: [[0xffb070, 0.34, -0.5]], shafts: [0xffc080, 0.13, 8], custom: plateauLook },
   tilt: { env: 0.7, wet: 0.5, haze: [[0x4a6aff, 0.3, -0.7]] },
-  canopy: { custom: fireflies(0xb8ff70, 420, 1.3), bump: 3, env: 0.6, wet: 0.5, haze: [[0xc8f0a0, 0.3, -0.3], [0x9ad0a0, 0.18, 0.2]], shafts: [0xf4ffc0, 0.16, 12] },
+  canopy: { custom: fireflies(0xb8ff70, 420, 1.3), bump: 3, env: 0.4, wet: 0.5, haze: [[0xc8f0a0, 0.3, -0.3], [0x9ad0a0, 0.18, 0.2]], shafts: [0xf4ffc0, 0.16, 12] },
   grove: { custom: fireflies(0xb8ff70, 300, 1.2), bump: 1.6, env: 0.55, wet: 0.6, shafts: [0xf4ffc0, 0.15, 10], flat: true },
   run: { custom: (A, T) => motes(A, T, { n: 300, color: 0xb8ff70, size: 1.2, flat: true }), bump: 2.2, env: 0.5, wet: 0.65, shafts: [0xe8ffb0, 0.13, 10], flat: true },
   isles: { env: 0.7, wet: 0.45, haze: [[0x6a58ff, 0.34, -0.5]] },

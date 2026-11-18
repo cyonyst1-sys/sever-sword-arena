@@ -3,23 +3,23 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { barkMat, barkUV, barkMap } from './bark.js?v=20261117195439';
-import { buildTilt } from './tilt.js?v=20261117195439';
-import { buildFoundry } from './foundry.js?v=20261117195439';
-import { buildBamboo } from './bamboo.js?v=20261117195439';
-import { buildCity } from './city.js?v=20261117195439';
-import { buildDojo } from './dojo.js?v=20261117195439';
-import { buildComet } from './comet.js?v=20261117195439';
-import { buildLava } from './lava.js?v=20261117195439';
-import { buildRun } from './run.js?v=20261117195439';
-import { buildGrove } from './grove.js?v=20261117195439';
-import { buildTransport } from './transport.js?v=20261117195439';
-import { buildTutorial } from './tutorial.js?v=20261117195439';
-import { buildTrain } from './train.js?v=20261117195439';
-import { applyLook } from './look.js?v=20261117195439';
-import { addScenery } from './scenery.js?v=20261117195439';
-import { addAtmosphere } from './atmos.js?v=20261117195439';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261117195439';
+import { barkMat, barkUV, barkMap } from './bark.js?v=20261117200250';
+import { buildTilt } from './tilt.js?v=20261117200250';
+import { buildFoundry } from './foundry.js?v=20261117200250';
+import { buildBamboo } from './bamboo.js?v=20261117200250';
+import { buildCity } from './city.js?v=20261117200250';
+import { buildDojo } from './dojo.js?v=20261117200250';
+import { buildComet } from './comet.js?v=20261117200250';
+import { buildLava } from './lava.js?v=20261117200250';
+import { buildRun } from './run.js?v=20261117200250';
+import { buildGrove } from './grove.js?v=20261117200250';
+import { buildTransport } from './transport.js?v=20261117200250';
+import { buildTutorial } from './tutorial.js?v=20261117200250';
+import { buildTrain } from './train.js?v=20261117200250';
+import { applyLook } from './look.js?v=20261117200250';
+import { addScenery } from './scenery.js?v=20261117200250';
+import { addAtmosphere } from './atmos.js?v=20261117200250';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261117200250';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -303,16 +303,16 @@ export class Arena {
     M.leaf.userData.sway = ['leaf', 0.07]; // (leaves stir in the wind: see vfx.js)
     M.vein = new THREE.MeshStandardMaterial({ color: 0x9ccf74, roughness: 0.7 });
     M.stem = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 });
-    // green forest light under a leafy roof
-    this.realScene.background = new THREE.Color(0x7d9c74);
-    this.realScene.fog = new THREE.Fog(0x7b9a72, 45, 240);
-    S.add(new THREE.HemisphereLight(0xd8f0c8, 0x2b3622, 0.95));
-    const sun = new THREE.DirectionalLight(0xffe7b8, 1.7);
-    this.sun = sun; this.sunOff = new THREE.Vector3(25, 55, 12); sun.position.copy(this.sunOff);
+    // green forest light under a leafy roof: dim and green in the shade, with warm sunlight coming down through the gaps
+    this.realScene.background = new THREE.Color(0x64855e);
+    this.realScene.fog = new THREE.Fog(0x62835c, 45, 240);
+    S.add(new THREE.HemisphereLight(0xc4e8b0, 0x263222, 0.8)); // (less fill light, and darker from below: shadows are deeper and round things look round)
+    const sun = new THREE.DirectionalLight(0xffe2a8, 2.0);
+    this.sun = sun; this.sunOff = new THREE.Vector3(48, 105, 23); sun.position.copy(this.sunOff); // (from above the leafy roof, so the roof's shadow falls on the fight: dappled light)
     if (this.quality !== 'low') {
       sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-      const c = sun.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 170;
-      sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.09;
+      const c = sun.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 300;
+      sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.09;
     }
     S.add(sun); S.add(sun.target);
     this.killY = -45;
@@ -329,7 +329,7 @@ export class Arena {
     for (let i = 0; i < 110; i++) {
       const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 150, s = 10 + r() * 16;
       const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 1), M.leafDark);
-      m.position.set(Math.cos(a) * d, 70 + r() * 14, Math.sin(a) * d); m.scale.y = 0.35; m.rotation.y = r() * 3; S.add(m);
+      m.position.set(Math.cos(a) * d, 70 + r() * 14, Math.sin(a) * d); m.scale.y = 0.35; m.rotation.y = r() * 3; m.castShadow = i % 2 === 0; S.add(m); // (half the roof shades the fight below: about as much sun as shade)
     }
     const plats = this.plats = []; this.pillars = [];
     // giant trunks from the floor to the roof: one in the middle, four around it
