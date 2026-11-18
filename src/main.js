@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261117193021';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117193021';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117193021';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117193021';
-import * as net from './net.js?v=20261117193021';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117193021';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117193021';
-import { makeKillFx } from './killfx.js?v=20261117193021';
-import { makeGrapple } from './grapple.js?v=20261117193021';
-import { initShop } from './shop.js?v=20261117193021';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261117193021';
-import { portal } from './portal.js?v=20261117193021';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117193021';
-import { makePost } from './post.js?v=20261117193021';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261117193021';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117193021';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261117193021';
+import { Arena, MAPS } from './arena.js?v=20261117194647';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261117194647';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261117194647';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261117194647';
+import * as net from './net.js?v=20261117194647';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261117194647';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261117194647';
+import { makeKillFx } from './killfx.js?v=20261117194647';
+import { makeGrapple } from './grapple.js?v=20261117194647';
+import { initShop } from './shop.js?v=20261117194647';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261117194647';
+import { portal } from './portal.js?v=20261117194647';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261117194647';
+import { makePost } from './post.js?v=20261117194647';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261117194647';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261117194647';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261117194647';
 
 // ---------- settings ----------
 const store = {
