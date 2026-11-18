@@ -2,11 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261117200250';
-import { buildBody, poseBody } from './body.js?v=20261117200250';
-import { loadModel, modelReady, buildModelBody, poseModelBody } from './charbody.js?v=20261117200250';
-loadModel('coat'); // (the long-coat body: fetched at start; until it arrives, anyone wearing it gets the built-in body)
-import { item, cleanLook } from './cosmetics.js?v=20261117200250';
+import { rim } from './vfx.js?v=20261117201651';
+import { buildBody, poseBody } from './body.js?v=20261117201651';
+import { item, cleanLook } from './cosmetics.js?v=20261117201651';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -43,7 +41,6 @@ const M = {
   blade: new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.18, metalness: 0.9 }),
   gold: new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.35, metalness: 0.8 }),
   grip: new THREE.MeshStandardMaterial({ color: 0x2a1d14, roughness: 0.9 }),
-  under: new THREE.MeshStandardMaterial({ color: 0xe8e0cc, roughness: 0.85 }), // (the robe under a coat, showing at the chest)
   eye: new THREE.MeshStandardMaterial({ color: 0xf2eee6, roughness: 0.25 }), // (the whites)
   iris: new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.2 }),
   oni: new THREE.MeshStandardMaterial({ color: 0x8e1717, roughness: 0.5, emissive: 0x220000 }),
@@ -293,7 +290,6 @@ export class Fighter {
     this.group = new THREE.Group();
     this.meshes = [];
     const O = L.outfit.gi !== undefined && !horde ? L.outfit : null;
-    const bodyModel = !horde && L.outfit.body && modelReady(L.outfit.body) ? L.outfit.body : null; // (an outfit with a body of its own, from a model file)
     const gi = cloth(horde ? HORDE_COLOR : O ? O.gi : color), trim = cloth(horde ? 0x8e1717 : O ? O.trim : color, O ? 1 : 0.55, O && O.glow || 0), pants = horde ? M.dark : cloth(O ? O.pants : 0x2c2f3a);
     // armour, in the outfit's colours: lacquered plates for the shoulders, chest and skirt; steel splints for the bracers and greaves
     const tc = horde ? 0x8e1717 : O ? O.trim : color, gc = horde ? HORDE_COLOR : O ? O.gi : color;
@@ -355,13 +351,12 @@ export class Fighter {
     // of a plain standing pose; from here on its bones follow the joints every frame
     { const keep = { onGround: this.onGround, stride: this.stride, walk: this.walk, dashT: this.dashT, hook: this.hook };
       this.onGround = true; this.stride = 0; this.walk = 0; this.dashT = 0; this.hook = null; this.pose(0);
-      const mats = bodyModel ? [gi, trim, M.under, M.skin, pants, M.dark] : [gi, M.skin, pants, M.skinShade];
-      this.body = bodyModel ? buildModelBody(bodyModel, mats) : buildBody(this, mats); this.modelBody = !!bodyModel; Object.assign(this, keep);
+      const mats = [gi, M.skin, pants, M.skinShade];
+      this.body = buildBody(this, mats); Object.assign(this, keep);
       this.body.userData.cap = CAP.flesh; this.body.userData.mis = mats.map(regMat); this.body.userData.mi = this.body.userData.mis[0];
       this.group.add(this.body); this.meshes.push(this.body);
       for (const e of [this.p.eyeL, this.p.eyeR]) { const ir = new THREE.Mesh(GEO.sph, M.iris); ir.position.z = -0.78; ir.scale.set(0.55, 0.95, 0.32); e.add(ir); } // (an iris and pupil in each eye)
-      const worn = bodyModel ? ['skirt', 'ku0', 'ku1', 'ku2', 'ku3', 'ku4', 'ku5', 'ku6', 'obi', 'collar', 'padL', 'padR', 'pad2L', 'pad2R', 'dou', 'buckle', 'lapL', 'lapR', 'obiK', 'tailL', 'tailR', 'wrL', 'wrR', 'kyL', 'kyR', 'ftL', 'ftR'].filter((n) => !(L.outfit.keep || []).includes(n)) : []; // (a model body brings its own clothes and boots; an outfit can keep some armour over it)
-      for (const n of ['jaw', 'nose', 'pelvis', 'abdomen', 'chest', 'neck', 'uaL', 'uaR', 'faL', 'faR', 'elL', 'elR', 'thL', 'thR', 'shL', 'shR', 'knL', 'knR', 'delL', 'delR', ...worn]) { const m = this.p[n]; if (m) { this.group.remove(m); this.meshes = this.meshes.filter((x) => x !== m); } }
+      for (const n of ['jaw', 'nose', 'pelvis', 'abdomen', 'chest', 'neck', 'uaL', 'uaR', 'faL', 'faR', 'elL', 'elR', 'thL', 'thR', 'shL', 'shR', 'knL', 'knR', 'delL', 'delR']) { const m = this.p[n]; if (m) { this.group.remove(m); this.meshes = this.meshes.filter((x) => x !== m); } }
       this.pose(0); }
   }
 
@@ -546,7 +541,7 @@ export class Fighter {
     boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, 0.09), 0.13, 0.025, 0.07);
     const bl = this.bladeLen, bw = (0.05 + (bl - BLADE_LEN) * 0.012) * this.bladeW;
     boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, 0.1 + bl / 2), bw, bl, (0.012 + (bl - BLADE_LEN) * 0.003) * this.bladeT);
-    if (this.body) (this.modelBody ? poseModelBody : poseBody)(this);
+    if (this.body) poseBody(this);
     // world hand/tip for hit tests
     g.updateMatrixWorld(true);
     this.hand.copy(hand).applyMatrix4(g.matrixWorld);

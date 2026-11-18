@@ -371,10 +371,6 @@ const oHalf = (M, T, tusk) => [['round', M, [0, -0.062, -0.098], [0.158, 0.09, 0
 const fam = (id, name, price, vs) => vs.map(([v, vn, gi, trim, pants, o = {}]) => ({ id: `${id}-${v}`, name: `${name} · ${vn}`, price, sw: gi === 0x111111 || gi < 0x202020 ? trim : gi, gi, trim, pants, ...o }));
 CATALOG.outfit.push(
   ...fam('ronin', 'Ronin', 300, [['ash', 'Ash', 0x6b6b6b, 0x2a2a2a, 0x1e1e1e], ['indigo', 'Indigo', 0x2c3a6b, 0xc9c9c9, 0x1a1f33], ['rust', 'Rust', 0x8a4a22, 0x2a1a10, 0x24170e], ['moss', 'Moss', 0x4a5a2a, 0xc9b36b, 0x232a14]]),
-  // a body of its own (src/models/coat.bin): a long coat, sash, trousers and boots in one piece, in place of the armour
-  { id: 'coat-team', name: 'Long Coat · Team Colour', price: 0, sw: 0x8a8f99, body: 'coat' },
-  ...fam('coat', 'Long Coat', 400, [['indigo', 'Indigo', 0x2c3a6b, 0xc9a23c, 0x1a1f33, { body: 'coat' }], ['crimson', 'Crimson', 0x8a1c22, 0x1a1a1a, 0x24170e, { body: 'coat' }], ['ash', 'Ash', 0x6e6e72, 0x2a2a2e, 0x1e1e1e, { body: 'coat' }], ['bone', 'Bone', 0xe8e0cc, 0x7c1018, 0x3a3028, { body: 'coat' }], ['night', 'Night', 0x16161c, 0x4ab0ff, 0x0e0e12, { body: 'coat' }]]),
-  ...fam('warcoat', 'War Coat', 700, [['iron', 'Iron', 0x3a3f4a, 0xb3191f, 0x16181d], ['ember', 'Ember', 0x7c1018, 0xd9ad3c, 0x1c1214], ['frost', 'Frost', 0xdfe6ee, 0x2c3a6b, 0x39414d]].map((v) => [...v, { body: 'coat', keep: ['padL', 'padR', 'pad2L', 'pad2R', 'wrL', 'wrR'] }])), // (the coat, with shoulder plates and bracers over it)
   ...fam('monk', 'Warrior Monk', 350, [['saffron', 'Saffron', 0xe08a1a, 0x7c1018, 0x5a1010], ['maroon', 'Maroon', 0x7c1018, 0xe0a83a, 0x3a0a0e], ['slate', 'Slate', 0x5a6470, 0xe08a1a, 0x2a2f36]]),
   ...fam('shinobi', 'Shinobi', 450, [['night', 'Night', 0x16161c, 0xc0262c, 0x0e0e12], ['storm', 'Storm', 0x1e2430, 0x4ab0ff, 0x10141c], ['venom', 'Venom', 0x16161c, 0x5af09a, 0x0e0e12], ['dusk', 'Dusk', 0x1a1424, 0xb07aff, 0x0e0b14]]),
   ...fam('festival', 'Festival', 500, [['koi', 'Koi', 0xf07f1f, 0xffffff, 0x1e3f8a], ['lantern', 'Lantern', 0xd7262e, 0xffc23d, 0x2a1a10], ['wisteria', 'Wisteria', 0xb07aff, 0xf4f1ea, 0x3a2a5a]]),
@@ -451,6 +447,7 @@ export const profile = (() => {
   if (!p || typeof p !== 'object') p = {};
   p.coins = Math.max(0, Math.floor(+p.coins || (p.coins === 0 ? 0 : START_COINS)));
   p.owned = Array.isArray(p.owned) ? p.owned : [];
+  { const gone = p.owned.filter((k) => /^outfit:(coat|warcoat)-/.test(k)); if (gone.length) { p.coins += gone.reduce((s, k) => s + (k.startsWith('outfit:warcoat-') ? 700 : 400), 0); p.owned = p.owned.filter((k) => !gone.includes(k)); } } // (the Long Coat and War Coat outfits were withdrawn: refund them)
   p.equip = cleanLook(p.equip);
   p.up = cleanUp(p.up);
   return p;
