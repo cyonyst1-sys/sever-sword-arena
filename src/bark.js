@@ -10,8 +10,22 @@ const tex = (k, rx, ry) => { const t = new THREE.Texture(); t.wrapS = t.wrapT = 
 
 /** The bark's colour image alone, tiled rx by ry (for far-off scenery). */
 export const barkMap = (rx = 1, ry = 1) => tex('color', rx, ry);
-/** A bark material. Its tiling comes from the shape's own UVs: see barkUV. */
-export const barkMat = (o = {}) => new THREE.MeshStandardMaterial({ map: tex('color', 1, 1), normalMap: tex('normal', 1, 1), normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.95, ...o });
+/** A bark material. Its tiling comes from the shape's own UVs: see barkUV. worn: the upward-facing top of a limb is
+ *  paler and smoother, a path rubbed into the bark by years of feet (it follows whatever faces the sky, so it runs
+ *  along the top of every branch and fades out down its sides). */
+export function barkMat({ worn = false, ...o } = {}) {
+  const m = new THREE.MeshStandardMaterial({ map: tex('color', 1, 1), normalMap: tex('normal', 1, 1), normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.95, ...o });
+  if (worn) { m.onBeforeCompile = (s) => { s.fragmentShader = s.fragmentShader
+    .replace('#include <map_fragment>', `#include <map_fragment>
+{ float wornUp = smoothstep(0.88, 0.99, inverseTransformDirection(normalize(vNormal), viewMatrix).y);
+  vec3 pale = diffuseColor.rgb * 0.62 + vec3(0.8, 0.71, 0.56) * 0.5;
+  diffuseColor.rgb = mix(diffuseColor.rgb, pale, wornUp * 0.7); }`)
+    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+{ float wornUp = smoothstep(0.88, 0.99, inverseTransformDirection(normalize(vNormal), viewMatrix).y);
+  normal = normalize(mix(normal, nonPerturbedNormal, wornUp * 0.6)); }`); };
+    m.customProgramCacheKey = () => 'barkworn'; }
+  return m;
+}
 /** Tile the bark on a trunk, limb or knot in proportion to its size: around is the distance round it and along its length, in
  *  metres. One sheet of bark wraps right round whatever the size (so a giant trunk gets giant plates of bark and nothing
  *  repeats in a small grid), and repeats up the length at that same size. */

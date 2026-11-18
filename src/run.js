@@ -21,7 +21,7 @@ export function buildRun(A, T) {
     for (let i = 0; i < 40; i++) { const gr = g.createRadialGradient(q() * s, q() * s, 0, q() * s, q() * s, 6 + q() * 16); gr.addColorStop(0, 'rgba(90,130,50,0.5)'); gr.addColorStop(1, 'rgba(90,130,50,0)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); } // moss
     T.speckle(g, s, q, 4000, 0.18);
   }, 512);
-  const barkM = T.barkMat();
+  const barkM = T.barkMat({ worn: true });
   const topM = new THREE.MeshStandardMaterial({ map: bark, bumpMap: bark, bumpScale: 1.5, roughness: 0.9, color: 0xc8b89a }); // (the worn, walked-on top of a branch)
   const leafM = new THREE.MeshStandardMaterial({ color: 0x3f7a34, roughness: 0.8, flatShading: true });
   const leafM2 = new THREE.MeshStandardMaterial({ color: 0x5a9a3a, roughness: 0.8, flatShading: true });
