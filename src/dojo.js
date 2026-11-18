@@ -6,7 +6,7 @@
 // Vertical: a four-tier dojo tower with stairs spiralling up it, two-storey houses, rooftop bridges, watchtowers
 // and floating shrine islands around the town.
 import * as THREE from 'three';
-import { regMat } from './fighter.js?v=20261117221916';
+import { regMat } from './fighter.js?v=20261117222112';
 import { deck, prop, bridge, stalk, drift, farRing } from './maps2.js';
 
 const TAU = Math.PI * 2, CELL = 6;
@@ -373,7 +373,7 @@ export function buildDojo(A, T) {
   A.curPlat = undefined;
 
   // ---- eight lacquered pillars ringing the dojo, each on the street block under it: hook them to swing round the tower, or stand on their caps
-  { const lac = std(0xa3281c, { roughness: 0.45 }), PH = 9;
+  { const lac = std(0xa3281c, { roughness: 0.45 }), PH = 37, LH = 5; // (taller than the dojo: its finial tops out at 33)
     for (let k = 0; k < 8; k++) {
       const a = (k + 0.5) * TAU / 8, x = Math.cos(a) * 18, z = Math.sin(a) * 18; // (between the compass points: clear of the doors, the spawn spots and the rooftop bridges)
       const t = tiles[(Math.abs(x) > 14 ? Math.sign(x) : 0) + ',' + (Math.abs(z) > 14 ? Math.sign(z) : 0)];
@@ -382,11 +382,12 @@ export function buildDojo(A, T) {
       A.addDisc(x, z, 0.58, 0.45, PH, lac, 16);
       A.addBox(x - 1, x + 1, PH, PH + 0.3, z - 1, z + 1, dark, { plain: true }); // (the cap: a perch)
       A.tag = null;
-      prop(A, t, new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.66, 0.4, 16), dark), x, 0.75, z);
+      for (const y of [0.75, 9, 18, 27]) prop(A, t, new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.66, 0.4, 16), dark), x, y, z);
       prop(A, t, new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.66, 0.4, 16), bronze), x, PH - 0.3, z);
-      const ox = x + Math.cos(a) * 0.78, oz = z + Math.sin(a) * 0.78; // (a paper lantern hanging from the cap, on the side away from the dojo)
-      prop(A, t, new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 4), dark), ox, PH - 0.25, oz).castShadow = false;
-      prop(A, t, new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.55, 8), lamp), ox, PH - 0.77, oz).castShadow = false;
+      const ox = x + Math.cos(a) * 0.78, oz = z + Math.sin(a) * 0.78; // (a paper lantern on a bracket low down, on the side away from the dojo)
+      prop(A, t, new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.08), dark), x + Math.cos(a) * 0.72, LH, z + Math.sin(a) * 0.72).rotation.y = -a;
+      prop(A, t, new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 4), dark), ox, LH - 0.25, oz).castShadow = false;
+      prop(A, t, new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.55, 8), lamp), ox, LH - 0.77, oz).castShadow = false;
       A.pillars.push({ x, z, w: 1.2 }); foot.push([x - 1, x + 1, z - 1, z + 1]);
     }
     A.curPlat = undefined; }
