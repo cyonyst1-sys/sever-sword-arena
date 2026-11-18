@@ -21,14 +21,14 @@ export function buildRun(A, T) {
     for (let i = 0; i < 40; i++) { const gr = g.createRadialGradient(q() * s, q() * s, 0, q() * s, q() * s, 6 + q() * 16); gr.addColorStop(0, 'rgba(90,130,50,0.5)'); gr.addColorStop(1, 'rgba(90,130,50,0)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); } // moss
     T.speckle(g, s, q, 4000, 0.18);
   }, 512);
-  const barkM = new THREE.MeshStandardMaterial({ map: bark, bumpMap: bark, bumpScale: 2, roughness: 0.95 });
+  const barkM = T.barkMat();
   const topM = new THREE.MeshStandardMaterial({ map: bark, bumpMap: bark, bumpScale: 1.5, roughness: 0.9, color: 0xc8b89a }); // (the worn, walked-on top of a branch)
   const leafM = new THREE.MeshStandardMaterial({ color: 0x3f7a34, roughness: 0.8, flatShading: true });
   const leafM2 = new THREE.MeshStandardMaterial({ color: 0x5a9a3a, roughness: 0.8, flatShading: true });
 
   // ---- the backdrop: rows of giant trunks receding into the fog on both sides, a canopy overhead, mist below
-  { const g = new THREE.CylinderGeometry(1, 1.15, 1, 14, 1, true);
-    const farLimb = new THREE.CylinderGeometry(0.55, 1, 1, 7), farLeaf = new THREE.IcosahedronGeometry(1, 1), limbM = [], leafMx = [], trunkMx = [];
+  { const g = T.barkUV(new THREE.CylinderGeometry(1, 1.15, 1, 14, 1, true), 11, 200);
+    const farLimb = T.barkUV(new THREE.CylinderGeometry(0.55, 1, 1, 7), 5, 10), farLeaf = new THREE.IcosahedronGeometry(1, 1), limbM = [], leafMx = [], trunkMx = [];
     for (let i = 0; i < 70; i++) {
       const side = i % 2 ? 1 : -1, x = side * (26 + r() * 90), z = 60 - r() * 300, R = 1.1 + r() * 1.3; // (slender)
       trunkMx.push(new THREE.Matrix4().compose(new THREE.Vector3(x, 40, z), new THREE.Quaternion(), new THREE.Vector3(R, 200, R)));
@@ -73,7 +73,7 @@ export function buildRun(A, T) {
     S.add(tree.group);
     const tx = side * (LANE + 4), tR = 3.4 + q() * 1.6;
     { const g = new THREE.CylinderGeometry(tR * 0.85, tR * 1.2, 160, 18, 8), gp = g.attributes.position; for (let i = 0; i < gp.count; i++) { const s = 1 + (q() - 0.5) * 0.12; gp.setX(i, gp.getX(i) * s); gp.setZ(i, gp.getZ(i) * s); }
-      const m = new THREE.Mesh(g, barkM); m.position.set(tx, 20, 0); m.castShadow = true; tree.group.add(m);
+      T.barkUV(g, 6.4 * tR, 160); const m = new THREE.Mesh(g, barkM); m.position.set(tx, 20, 0); m.castShadow = true; tree.group.add(m);
       tree.tbox = { lx0: tx - tR * 0.8, lx1: tx + tR * 0.8, lz0: -tR * 0.8, lz1: tR * 0.8, x0: 0, x1: 0, y0: -60, y1: 80, z0: 0, z1: 0 }; A.rayBoxes.push(tree.tbox); }
     const addPlat = (p) => { p.i = A.plats.length; p.meshes = []; p.boxes = []; p.ramps = []; p.rays = []; p.tree = tree; A.plats.push(p); tree.plats.push(p); allPlats.push(p);
       p.l = { x: p.x, z: p.z, y: p.y, ya: p.ya, yb: p.yb }; p.node = A.node('P' + p.i, p.x, p.y, p.z); p.node.plat = p.i; p.sp = new THREE.Vector3(); p.sp.plat = p.i; A.spawns.push(p.sp); return p; };
@@ -93,10 +93,10 @@ export function buildRun(A, T) {
       ramp(p, a.x, a.z, b.x, b.z, a.y, b.y, width, Math.min(a.y, b.y) - 1.2);
       const OV = 1.8, R = width * 0.39, Ra = wA * 0.39, Rb = wB * 0.39, k = Math.hypot(L, b.y - a.y) / L;
       const a3 = new THREE.Vector3(a.x, a.y - Ra * (k - 0.15), a.z), b3 = new THREE.Vector3(b.x, b.y - Rb * (k - 0.15), b.z), dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(Rb, Ra, len + R * 0.15, 12, 1), barkM); log.geometry.scale(OV, 1, 1);
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(Rb, Ra, len + R * 0.15, 12, 1), barkM); log.geometry.scale(OV, 1, 1); T.barkUV(log.geometry, 4.6 * (Ra + Rb), len);
       const sx = new THREE.Vector3(-dir.z, 0, dir.x).normalize(), sz = new THREE.Vector3().crossVectors(sx, dir), qb = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(sx, dir, sz));
       log.position.copy(a3).add(b3).multiplyScalar(0.5); log.quaternion.copy(qb); log.castShadow = log.receiveShadow = true; tree.group.add(log);
-      const knot = new THREE.Mesh(new THREE.SphereGeometry(Rb * 1.02, 12, 8), barkM); knot.scale.set(OV, 1, 1); knot.quaternion.copy(qb); knot.position.copy(b3); knot.castShadow = true; tree.group.add(knot);
+      const knot = new THREE.Mesh(T.barkUV(new THREE.SphereGeometry(Rb * 1.02, 12, 8), 9 * Rb, 3 * Rb), barkM); knot.scale.set(OV, 1, 1); knot.quaternion.copy(qb); knot.position.copy(b3); knot.castShadow = true; tree.group.add(knot);
       for (let s = 0; s <= len; s += 5) { const c = a3.clone().addScaledVector(dir, s); ray(p, { x0: c.x - R * 0.7, x1: c.x + R * 0.7, y0: c.y - R * 0.7, y1: c.y + R * 0.9, z0: c.z - R * 0.7, z1: c.z + R * 0.7 }); }
       return p;
     };
