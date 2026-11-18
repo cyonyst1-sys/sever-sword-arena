@@ -3,22 +3,23 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { buildTilt } from './tilt.js?v=20261117193021';
-import { buildFoundry } from './foundry.js?v=20261117193021';
-import { buildBamboo } from './bamboo.js?v=20261117193021';
-import { buildCity } from './city.js?v=20261117193021';
-import { buildDojo } from './dojo.js?v=20261117193021';
-import { buildComet } from './comet.js?v=20261117193021';
-import { buildLava } from './lava.js?v=20261117193021';
-import { buildRun } from './run.js?v=20261117193021';
-import { buildGrove } from './grove.js?v=20261117193021';
-import { buildTransport } from './transport.js?v=20261117193021';
-import { buildTutorial } from './tutorial.js?v=20261117193021';
-import { buildTrain } from './train.js?v=20261117193021';
-import { applyLook } from './look.js?v=20261117193021';
-import { addScenery } from './scenery.js?v=20261117193021';
-import { addAtmosphere } from './atmos.js?v=20261117193021';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261117193021';
+import { barkMat, barkUV, barkMap } from './bark.js?v=20261117194512';
+import { buildTilt } from './tilt.js?v=20261117194512';
+import { buildFoundry } from './foundry.js?v=20261117194512';
+import { buildBamboo } from './bamboo.js?v=20261117194512';
+import { buildCity } from './city.js?v=20261117194512';
+import { buildDojo } from './dojo.js?v=20261117194512';
+import { buildComet } from './comet.js?v=20261117194512';
+import { buildLava } from './lava.js?v=20261117194512';
+import { buildRun } from './run.js?v=20261117194512';
+import { buildGrove } from './grove.js?v=20261117194512';
+import { buildTransport } from './transport.js?v=20261117194512';
+import { buildTutorial } from './tutorial.js?v=20261117194512';
+import { buildTrain } from './train.js?v=20261117194512';
+import { applyLook } from './look.js?v=20261117194512';
+import { addScenery } from './scenery.js?v=20261117194512';
+import { addAtmosphere } from './atmos.js?v=20261117194512';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261117194512';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -141,7 +142,7 @@ function worldUV(geo, sc) {
 }
 // rotate a point a quarter turn k times around the centre
 // texture helpers for the map builders in maps2.js
-export const TEX = { rng, canvasTex, stoneTex, woodTex, bambooTex, worldUV, speckle };
+export const TEX = { rng, canvasTex, stoneTex, woodTex, bambooTex, worldUV, speckle, barkMat, barkUV, barkMap };
 const PLAIN_MAPS = ['foundry', 'city', 'tilt', 'comet', 'bamboo', 'run']; // (steel, glass, planks and bamboo stay straight-edged)
 function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; } return [x, z]; }
 
@@ -295,7 +296,7 @@ export class Arena {
   // ---------- the Great Canopy: giant trunks, branches to run along, big leaves, bamboo to swing from ----------
   buildCanopy() {
     const S = this.scene, M = this.mats, r = rng(424242);
-    M.bark = new THREE.MeshStandardMaterial({ map: barkTex(), roughness: 0.95 });
+    M.bark = barkMat();
     M.bamboo = new THREE.MeshStandardMaterial({ map: bambooTex(), roughness: 0.55 });
     M.leaf = new THREE.MeshStandardMaterial({ color: 0x4f8f3a, roughness: 0.7, side: THREE.DoubleSide });
     M.leafDark = new THREE.MeshStandardMaterial({ color: 0x2c5a26, roughness: 0.9, flatShading: true });
@@ -338,7 +339,7 @@ export class Arena {
       const g = new THREE.CylinderGeometry(t.r * 0.85, t.r * 1.25, 150, 18, 8);
       const gp = g.attributes.position;
       for (let i = 0; i < gp.count; i++) { const s = 1 + (r() - 0.5) * 0.12; gp.setX(i, gp.getX(i) * s); gp.setZ(i, gp.getZ(i) * s); }
-      g.computeVertexNormals(); g.translate(t.x, 5, t.z);
+      g.computeVertexNormals(); g.translate(t.x, 5, t.z); barkUV(g, 6.6 * t.r, 150);
       const m = new THREE.Mesh(g, M.bark); m.castShadow = m.receiveShadow = true; S.add(m);
       const h = t.r * 0.8; this.boxes.push({ x0: t.x - h, x1: t.x + h, y0: -70, y1: 80, z0: t.z - h, z1: t.z + h }); // solid, and grapple-able
     }
@@ -366,11 +367,11 @@ export class Arena {
       const a3 = new THREE.Vector3(A.x, A.y - Ra * (k - 0.15), A.z), b3 = new THREE.Vector3(B.x, B.y - Rb * (k - 0.15), B.z);
       const dir = b3.clone().sub(a3), len = dir.length(); dir.normalize();
       const log = new THREE.Mesh(new THREE.CylinderGeometry(Rb, Ra, len + R * 0.15, 12, 1), M.bark);
-      log.geometry.scale(OV, 1, 1);
+      log.geometry.scale(OV, 1, 1); barkUV(log.geometry, 4.6 * (Ra + Rb), len);
       const sx = new THREE.Vector3(-dir.z, 0, dir.x).normalize(), sz = new THREE.Vector3().crossVectors(sx, dir), qb = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(sx, dir, sz));
       log.position.copy(a3).add(b3).multiplyScalar(0.5); log.quaternion.copy(qb);
       log.castShadow = log.receiveShadow = true; S.add(log); this.own(p, log);
-      const knot = new THREE.Mesh(new THREE.SphereGeometry(Rb * 1.02, 12, 8), M.bark); knot.scale.set(OV, 1, 1); knot.quaternion.copy(qb); knot.position.copy(b3); knot.castShadow = true; S.add(knot); this.own(p, knot);
+      const knot = new THREE.Mesh(barkUV(new THREE.SphereGeometry(Rb * 1.02, 12, 8), 9 * Rb, 3 * Rb), M.bark); knot.scale.set(OV, 1, 1); knot.quaternion.copy(qb); knot.position.copy(b3); knot.castShadow = true; S.add(knot); this.own(p, knot);
       // grapple-only boxes along the log, so you can hook the branch (but never bump into them)
       for (let s = 0; s <= len; s += 5) {
         const c = a3.clone().addScaledVector(dir, s);

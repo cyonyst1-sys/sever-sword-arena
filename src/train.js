@@ -136,7 +136,7 @@ export function buildTrain(A, T) {
     if (ty === 'G') { // scenery for the landscape (well clear of the track)
       const P = []; const side = () => (q() < 0.5 ? -1 : 1) * (16 + q() * 120), N = low ? 26 : 60;
       if (bi === 0 || bi === 1) { const tr = [], cn = []; for (let k = 0; k < N; k++) { const x = side(), z = -q() * SEG, h = 8 + q() * 12; tr.push([x, h * 0.15, z, 0.5, h * 0.3, 0.5]); cn.push([x, h * 0.55, z, h * 0.28, h * 0.8, h * 0.28]); }
-        addL(inst(new THREE.CylinderGeometry(1, 1, 1, 6), mat('trunk', () => std(0x4a3424)), tr)); addL(inst(new THREE.ConeGeometry(1, 1, 8), mat('pine' + bi, () => std(bi ? 0xe8f0f6 : 0x2a5a2a, { flatShading: true })), cn), true); }
+        addL(inst(new THREE.CylinderGeometry(1, 1, 1, 6), mat('trunk', () => std(0xb8a898, { map: T.barkMap(2, 3) })), tr)); addL(inst(new THREE.ConeGeometry(1, 1, 8), mat('pine' + bi, () => std(bi ? 0xe8f0f6 : 0x2a5a2a, { flatShading: true })), cn), true); }
       if (bi === 2) { for (let k = 0; k < N / 3; k++) P.push([side(), 2, -q() * SEG, 4 + q() * 9, 3 + q() * 8, 4 + q() * 9, q() * 3]); addL(inst(new THREE.DodecahedronGeometry(1, 0), mat('mesa', () => std(0xb87a4a, { flatShading: true })), P), true);
         const cs = []; for (let k = 0; k < N / 2; k++) cs.push([side(), 1.2, -q() * SEG, 0.3, 2.6 + q() * 2, 0.3]); addL(inst(new THREE.CylinderGeometry(1, 1, 1, 6), mat('cactus', () => std(0x4a7a3a)), cs), true); }
       if (bi === 3) { for (let k = 0; k < N / 3; k++) P.push([-(16 + q() * 120), 2, -q() * SEG, 4 + q() * 8, 2 + q() * 6, 4 + q() * 8, q() * 3]); addL(inst(new THREE.DodecahedronGeometry(1, 0), mat('coastrock', () => std(0x7a7468, { flatShading: true })), P), true); }
