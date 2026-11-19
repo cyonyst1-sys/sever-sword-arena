@@ -33,10 +33,21 @@ const SOLIDS = [
   [-9.4, -7.6, -3.6, -1.5, -7, 4], [7.6, 9.4, -3.6, -1.5, -7, 4], // gas pods under the wings
 ];
 for (const s of [-1, 1]) for (let j = 0; j < 3; j++) { const a = 3 + j * 4.07, b = a + 4.07, m = (a + b) / 2, t = wingTop(m); SOLIDS.push([s < 0 ? -b : a, s < 0 ? -a : b, t - 0.7, t, wingV0(m), wingV1(m), true]); }
-// what a grapple can bite: the solid parts, plus the keel rail (under: stay hooked there and swing below the ship)
-const HOOKS = [...SOLIDS.map((s, i) => [...s.slice(0, 6), i === 6 || i === 7]), [-0.25, 0.25, -4.1, -3.8, -12, 12, true]];
-for (const [v0, v1, un] of [[-16, -6.5, false], [-6.5, 3.5, true], [3.5, 12, false], [12, 20, false]]) HOOKS.push([-3, 3, -1.6, 0, v0, v1, un]); // (the long hull in pieces, so its box hugs it as the ship pitches; between the wings there is no open edge to climb, so a hook there stays put)
-HOOKS.splice(0, 1); HOOKS[1][6] = true; // (the belly too)
+// what a grapple can bite: the solid parts and the keel rail. Wherever it bites below the deck, the rope is led round an
+// open edge and brings you up on top (see shipHook)
+const HOOKS = [...SOLIDS.slice(1).map((s) => s.slice(0, 6)), [-0.25, 0.25, -4.1, -3.8, -12, 12]];
+for (const [v0, v1] of [[-16, -6.5], [-6.5, 3.5], [3.5, 12], [12, 20]]) HOOKS.push([-3, 3, -1.6, 0, v0, v1]); // (the long hull in pieces, so its box hugs it as the ship pitches)
+// the open edges of a ship's top, where a rope can lead you up and over: [u, v, outward nu, nv, height of the top just inside].
+// Not the wings' leading edges in front of the propellers, nor where a gas pod pokes out behind, nor beside the sterncastle.
+const EDGES = [];
+for (const s of [-1, 1]) {
+  for (let au = 3.5; au <= 14.3; au += 0.5) { if (au < 4.6 || au > 12.4) EDGES.push([s * au, wingV0(au), 0, -1]); if (au < 6.6 || au > 10.4) EDGES.push([s * au, wingV1(au), 0, 1]); }
+  for (let v = -3.5; v <= 1.6; v += 0.5) EDGES.push([s * 15.2, v, s, 0]); // (not the corners: easy to miss)
+  for (let v = -19; v <= 13; v += 0.5) if (v < -6.6 || v > 4.1) EDGES.push([s * hullHalf(v), v, s, 0]);
+}
+for (let i = EDGES.length - 1; i >= 0; i--) { const e = EDGES[i]; e[4] = top(e[0] - e[2] * 0.7, e[1] - e[3] * 0.7); if (e[4] < -1e8) EDGES.splice(i, 1); }
+const edgeIn = (u, v) => { const au = Math.abs(u); return Math.min(v - wingV0(au), wingV1(au) - v, 15.2 - au); }; // how far inside a wing's open edges
+const PROP = [8.5, -2.55, -8.05, 2.35]; // a propeller: across, up, along, radius (one each side)
 
 // ---- where a ship is at wall-clock time t (the same on every machine): s = +1 for the red ship, -1 for the blue
 function poseAt(s, t, o = {}) {
@@ -74,6 +85,7 @@ export function buildAirship(A, T) {
   const hullG = uvFlat(flat(OUT, 1.6), 0.22), keelG = uvFlat(flat(OUT.map(([u, v]) => [u * 0.73, v * 0.88 + 0.8]), 1.6), 0.22), deckG = uvFlat(flat(OUT.map(([u, v]) => [u * 0.94, v * 0.985]), 0.06), 0.3);
   const wingG = (s) => uvFlat(flat([[0, -6], [12, -4.5], [12.45, -1], [12, 2.5], [0, 3.5]].map(([u, v]) => [u * s, v]), 0.7), 0.125);
   const podG = new THREE.SphereGeometry(1, 20, 14).scale(1.15, 1.15, 6.2), bladeG = new THREE.BoxGeometry(0.34, 2.3, 0.07).translate(0, 1.15, 0), discG = new THREE.CircleGeometry(2.35, 28);
+  const ringG = new THREE.RingGeometry(2.08, 2.35, 36), warn = new THREE.MeshBasicMaterial({ color: 0xff3418, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false });
 
   // ---- build a ship
   const ships = TEAM.map(([team, col, paint], k) => {
@@ -94,7 +106,7 @@ export function buildAirship(A, T) {
       add(new THREE.BoxGeometry(0.06, 0.9, 1.5), paintM, s * 2.05, 5.75, 19.2);
       for (const v of [-13, -3, 7]) add(new THREE.BoxGeometry(0.34, 0.34, 0.5), glass, s * 2.96, -0.8, v, false); // lamps along the hull
     }
-    const props = [-1, 1].map((s) => { const p = new THREE.Group(); p.position.set(s * 8.5, -2.55, -8.05); g.add(p);
+    const props = [-1, 1].map((s) => { const p = new THREE.Group(); p.position.set(s * PROP[0], PROP[1], PROP[2]); g.add(p); p.add(new THREE.Mesh(ringG, warn)); // (a red rim on the blur: these kill)
       for (let b = 0; b < 3; b++) { const m = new THREE.Mesh(bladeG, darkM); m.rotation.z = b * TAU / 3; m.castShadow = true; p.add(m); }
       p.add(new THREE.Mesh(discG, blur)); p.add(new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.9, 10).rotateX(-Math.PI / 2), brass)); return p; });
     // the sterncastle (lit windows), the keel rail on its struts, a bowsprit and its lantern, crates on the deck
@@ -141,16 +153,45 @@ export function buildAirship(A, T) {
   // bodies out of its hull, pods and fins, and from rising up through its wings
   const riding = (f, ship, P) => { toLocal(P, f.pos.x, f.pos.y, f.pos.z, _l); const t = top(_l.u, _l.v); return t > -1e8 && Math.abs(_l.h - t) < 0.9; };
   const carry = (ship, v) => { toLocal(ship.last, v.x, v.y, v.z, _l); toWorld(ship.cur, _l.u, _l.h, _l.v, _w); v.x = _w.x; v.y = _w.y; v.z = _w.z; };
+  // a hook that bites a ship anywhere below its deck (a wing's underside, a gas pod, the belly, the keel rail, the hull's
+  // side) is led round the open edge that makes the shortest way up: you swing out from under, and it lifts you onto the top
+  A.shipHook = (f, pt) => {
+    for (const ship of ships) {
+      const P = ship.cur; toLocal(P, pt.x, pt.y, pt.z, _l); const pu = _l.u, ph = _l.h, pv = _l.v;
+      if (Math.abs(pu) > 17.5 || pv < -27 || pv > 22.5 || ph < -7.5 || ph > 7.5) continue; // (generous: a hook box is squared off round the banking ship)
+      const tp = top(pu, pv); if (ph > 0.25 || (tp > -1e8 && ph > tp - 0.3)) return null; // bit the top, the sterncastle or a fin: it holds where it bit
+      toLocal(P, f.pos.x, f.pos.y + 1.3, f.pos.z, _l); const fu = _l.u, fh = _l.h, fv = _l.v;
+      let e = null, bc = 1e9;
+      for (const c of EDGES) { let d = Math.hypot(fu - c[0], fh - c[4], fv - c[1]) + 0.6 * Math.hypot(pu - c[0], ph - c[4], pv - c[1]);
+        const k = (PROP[2] - fv) / (c[1] + c[3] * 1.1 - fv); if (k > -0.1 && k < 1.1 && Math.hypot(Math.abs(fu + (c[0] - fu) * k) - PROP[0], fh - 1.3 + (c[4] - 1.7 - fh) * k - PROP[1]) < PROP[3] + 2.2) d += 40; // (never a way that leads through a propeller)
+        if (d < bc) { bc = d; e = c; } }
+      const V = (u, h, v) => { toWorld(P, u, h, v, _w); return new THREE.Vector3(_w.x, _w.y, _w.z); };
+      const out = { p: V(e[0] - e[2] * 0.7, e[4] + 0.05, e[1] - e[3] * 0.7), via: fh < e[4] - 0.6 ? V(e[0] + e[2] * 1.1, e[4] - 1.3, e[1] + e[3] * 1.1) : null, aim: V(e[0] - e[2] * 3, e[4], e[1] - e[3] * 3) };
+      out.aim.ship = ship; return out; // (aim: the way in over the edge, for the last heave onto the top)
+    }
+    return null;
+  };
+  // the propellers: a body that meets a spinning disc is cut across, along the disc's plane
+  A.hazText = 'was minced by a propeller'; A.hazBy = 'Minced by a propeller';
+  A.hazardHit = (pos) => {
+    for (const ship of ships) {
+      const P = ship.cur; toLocal(P, pos.x, pos.y, pos.z, _l);
+      if (Math.abs(_l.v - PROP[2]) > 0.65) continue;
+      const du = Math.abs(_l.u) - PROP[0], ch = Math.max(_l.h + 0.1, Math.min(PROP[1], _l.h + 1.75)), dh = ch - PROP[1];
+      if (du * du + dh * dh < (PROP[3] + 0.2) ** 2) return { n: new THREE.Vector3(0, -P.sp, P.cp), pt: new THREE.Vector3(pos.x, pos.y + ch - _l.h, pos.z) };
+    }
+    return null;
+  };
   A.tickTilt = (fighters, mine, dt) => {
     dt = Math.min(0.05, dt || 0); if (!dt) return;
-    const t = wall(); for (const ship of ships) place(ship, t);
+    const t = wall(); for (const ship of ships) { place(ship, t); ship.vx = (ship.cur.x - ship.last.x) / dt; ship.vz = (ship.cur.z - ship.last.z) / dt; }
     for (const f of fighters) {
       if (!f.alive || !mine(f)) continue;
       const hk = f.hook && !f.hook.enemy ? f.hook : null;
       if (hk && hk.ship === undefined) { hk.ship = -1; for (const ship of ships) { toLocal(ship.last, hk.p.x, hk.p.y, hk.p.z, _l); if (Math.abs(_l.u) < 16.5 && _l.v > -26 && _l.v < 21.5 && _l.h > -5.2 && _l.h < 7.5) hk.ship = ship.k; } }
       for (const ship of ships) {
         const P = ship.cur, L = ship.last;
-        if (hk && hk.ship === ship.k) { carry(ship, hk.p); if (hk.via) carry(ship, hk.via); }
+        if (hk && hk.ship === ship.k) { carry(ship, hk.p); if (hk.via) carry(ship, hk.via); if (hk.aim) carry(ship, hk.aim); }
         if ((f.pos.x - L.x) ** 2 + (f.pos.z - L.z) ** 2 > 900 || Math.abs(f.pos.y - L.y) > 16) { if (f.onShip === ship) f.onShip = null; continue; }
         if ((f.onGround || f.dashT > 0) && riding(f, ship, L)) { // planted on the deck (or dashing along it): moved with it, feet kept on it as it banks
           carry(ship, f.pos); if (f.onGround) { const h = heightAt(P, f.pos.x, f.pos.z); if (h > -1e8) f.pos.y = h; } f.onShip = ship;
@@ -162,7 +203,7 @@ export function buildAirship(A, T) {
           if (h >= b[3] - 0.5 || h + 1.7 <= b[2] - 0.15) continue; // standing on it (or stepping up), or well below it
           const cu = Math.max(b[0], Math.min(u, b[1])), cv = Math.max(b[4], Math.min(v, b[5])), du = u - cu, dv = v - cv, d2 = du * du + dv * dv;
           if (d2 >= 0.16) continue;
-          if (h + 1.7 < b[2] + 0.8) { if (d2 < 1e-9 || b[6]) { if (d2 < 1e-9) { h = b[2] - 1.86; hit |= 2; } continue; } } // head against its underside: held below it
+          if (h + 1.7 < b[2] + 0.8) { if (d2 < 1e-9 || b[6]) { if (d2 < 1e-9 && !(b[6] && edgeIn(u, v) < ((f.hook && f.hook.aim) || f.mantle ? 2.6 : 1.3))) { h = b[2] - 1.86; hit |= 2; } continue; } } // head against its underside: held below it (but a wing's open rim lets you up: that is where a rope brings you over)
           if (b[6]) continue;
           if (d2 > 1e-9) { const d = Math.sqrt(d2), k = (0.4 - d) / d; u += du * k; v += dv * k; pu = du; pv = dv; }
           else { const o = [u - b[0], b[1] - u, v - b[4], b[5] - v], i = o.indexOf(Math.min(...o)); if (i === 0) { u = b[0] - 0.4; pu = -1; } else if (i === 1) { u = b[1] + 0.4; pu = 1; } else if (i === 2) { v = b[4] - 0.4; pv = -1; } else { v = b[5] + 0.4; pv = 1; } }

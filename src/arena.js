@@ -3,24 +3,24 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { barkMat, barkUV, barkMap } from './bark.js?v=20261118000714';
-import { buildTilt } from './tilt.js?v=20261118000714';
-import { buildFoundry } from './foundry.js?v=20261118000714';
-import { buildBamboo } from './bamboo.js?v=20261118000714';
-import { buildCity } from './city.js?v=20261118000714';
-import { buildDojo } from './dojo.js?v=20261118000714';
-import { buildComet } from './comet.js?v=20261118000714';
-import { buildLava } from './lava.js?v=20261118000714';
-import { buildRun } from './run.js?v=20261118000714';
-import { buildGrove } from './grove.js?v=20261118000714';
-import { buildTransport } from './transport.js?v=20261118000714';
-import { buildTutorial } from './tutorial.js?v=20261118000714';
-import { buildTrain } from './train.js?v=20261118000714';
-import { buildAirship } from './airship.js?v=20261118000714';
-import { applyLook } from './look.js?v=20261118000714';
-import { addScenery } from './scenery.js?v=20261118000714';
-import { addAtmosphere } from './atmos.js?v=20261118000714';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261118000714';
+import { barkMat, barkUV, barkMap } from './bark.js?v=20261118194955';
+import { buildTilt } from './tilt.js?v=20261118194955';
+import { buildFoundry } from './foundry.js?v=20261118194955';
+import { buildBamboo } from './bamboo.js?v=20261118194955';
+import { buildCity } from './city.js?v=20261118194955';
+import { buildDojo } from './dojo.js?v=20261118194955';
+import { buildComet } from './comet.js?v=20261118194955';
+import { buildLava } from './lava.js?v=20261118194955';
+import { buildRun } from './run.js?v=20261118194955';
+import { buildGrove } from './grove.js?v=20261118194955';
+import { buildTransport } from './transport.js?v=20261118194955';
+import { buildTutorial } from './tutorial.js?v=20261118194955';
+import { buildTrain } from './train.js?v=20261118194955';
+import { buildAirship } from './airship.js?v=20261118194955';
+import { applyLook } from './look.js?v=20261118194955';
+import { addScenery } from './scenery.js?v=20261118194955';
+import { addAtmosphere } from './atmos.js?v=20261118194955';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261118194955';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -165,7 +165,7 @@ export const MAPS = {
   grove: { name: 'Topiary Grove', blurb: 'two rows of huge, ancient cloud-pruned trees facing each other over a gulf of sunset mist: no floor, just the clipped foliage pads to fight on and swing between' },
   transport: { name: 'Transport', blurb: 'a sandstone canyon at golden hour: a camel hauls a covered wagon down a winding road from one adobe village to the next, past rock arches, palms and watchtowers' },
   train: { name: 'Bullet Train', blurb: 'the roofs of a very long train racing through forest, snowy mountains, desert canyon, sea coast and a city at night: bridges, tunnels and signal arms' },
-  ships: { name: 'Sky Duel', blurb: 'two great airship planes racing side by side above the clouds, weaving round each other: decks and wings to fight on, gas pods and a keel rail underneath to swing from' },
+  ships: { name: 'Sky Duel', blurb: 'two great airship planes racing side by side above the clouds, weaving round each other: decks and wings to fight on; hook anything underneath and the rope swings you out and up over the edge; keep clear of the propellers' },
   tutorial: { name: 'Training Ground', blurb: 'four platforms in a line: a short course that teaches every move' },
 };
 

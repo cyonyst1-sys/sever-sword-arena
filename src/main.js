@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261118000714';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261118000714';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261118000714';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261118000714';
-import * as net from './net.js?v=20261118000714';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261118000714';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261118000714';
-import { makeKillFx } from './killfx.js?v=20261118000714';
-import { makeGrapple } from './grapple.js?v=20261118000714';
-import { initShop } from './shop.js?v=20261118000714';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261118000714';
-import { portal } from './portal.js?v=20261118000714';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261118000714';
-import { makePost } from './post.js?v=20261118000714';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261118000714';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261118000714';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261118000714';
+import { Arena, MAPS } from './arena.js?v=20261118194955';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261118194955';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261118194955';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261118194955';
+import * as net from './net.js?v=20261118194955';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261118194955';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261118194955';
+import { makeKillFx } from './killfx.js?v=20261118194955';
+import { makeGrapple } from './grapple.js?v=20261118194955';
+import { initShop } from './shop.js?v=20261118194955';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261118194955';
+import { portal } from './portal.js?v=20261118194955';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261118194955';
+import { makePost } from './post.js?v=20261118194955';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261118194955';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261118194955';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261118194955';
 
 // ---------- settings ----------
 const store = {
@@ -353,11 +353,12 @@ function fireHook(f, origin, dir) {
   { const g = gateFor(f); if (g && h.point.y > g.y - 0.2) { sfx.hookFire(f.pos); return false; } } // (a shut gate: nothing above it can be hooked)
   if (barrierFor(f, h.point)) { sfx.hookFire(f.pos); return false; } // (a shut arena: nothing inside it can be hooked)
   if (h.box && h.box.tend !== undefined && arena.tendrilPoint) { h.tendHit = { i: h.box.tend, s: h.box.ts }; arena.tendrilPoint(h.tendHit.i, h.tendHit.s, h.point); } // (a tendril's own box: hook that tendril, right on it)
-  const onT = h.tendHit || (arena.tendrilAt && arena.tendrilAt(h.point)), under = !!h.box && (arena.trainMap ? h.point.y < h.box.y0 + 0.9 : !!h.box.under), lh = onT || under ? null : lipHook(f, h.point); // (Bullet Train: hooked low on a car, the undercarriage: stay there and swing under it) if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead; never moves a tendril hook)
+  const onT = h.tendHit || (arena.tendrilAt && arena.tendrilAt(h.point)), under = !!h.box && (arena.trainMap ? h.point.y < h.box.y0 + 0.9 : !!h.box.under), lh = onT || under ? null : arena.shipHook ? arena.shipHook(f, h.point) : lipHook(f, h.point); // (Bullet Train: hooked low on a car, the undercarriage: stay there and swing under it)
+  if (lh) h.point = lh.p; // (a platform's side or underside: hook its top lip instead; never moves a tendril hook)
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const L = h.point.distanceTo(chest);
   if (L > HOOK_MAX * upm(f, 'rope') || L < 1.4) return false;
-  f.hook = { p: h.point, len: L, via: lh && lh.via, tend: h.tendHit || (arena.tendrilAt ? arena.tendrilAt(h.point) : null) }; // (tend: hooked onto a Colosseum tendril)
+  f.hook = { p: h.point, len: L, via: lh && lh.via, aim: lh && lh.aim, tend: h.tendHit || (arena.tendrilAt ? arena.tendrilAt(h.point) : null) }; // (tend: hooked onto a Colosseum tendril)
   if (f.hook.via) f.hook.len = f.hook.via.distanceTo(chest) + 0.5; // (round the edge first)
   f.dashT = 0; f.onGround = false;
   sfx.hookFire(f.pos); sfx.hookHit(h.point);
@@ -371,21 +372,23 @@ function releaseHook(f, boost) {
 function applyHook(f, dt) {
   const chest = _t.copy(f.pos); chest.y += 1.3;
   const via = f.hook.via; // (hooked from underneath: head for the edge first, then up to the lip)
-  if (via && via.distanceTo(chest) < 1.8) { f.hook.via = null; f.hook.len = f.hook.p.distanceTo(chest) + 0.3; }
+  if (via && via.distanceTo(chest) < 1.8) { f.hook.via = null; f.hook.len = f.hook.p.distanceTo(chest) + 0.3;
+    if (f.hook.aim) { const s = f.hook.aim.ship, sx = (s && s.vx) || 0, sz = (s && s.vz) || 0; f.vel.x = sx + (f.vel.x - sx) * 0.3; f.vel.z = sz + (f.vel.z - sz) * 0.3; if (f.vel.y < 0) f.vel.y *= 0.3; } } // (Sky Duel: the rope catches on the ship's edge and checks your swing, so you come up over it and not past it)
   const d = _t2.subVectors(f.hook.via || f.hook.p, chest); const L = d.length(); d.divideScalar(L || 1);
   f.vel.addScaledVector(d, PULL * upm(f, 'reel') * dt);
   f.hook.len = Math.max(1.2, Math.min(f.hook.len, L) - REEL * upm(f, 'reel') * dt);
   const vr = f.vel.dot(d); if (L > f.hook.len && vr < 0) f.vel.addScaledVector(d, -vr);
   const sp = f.vel.length(); if (sp > 36) f.vel.multiplyScalar(36 / sp);
   if (L < 1.7 && !f.hook.via) { // reeled all the way in: pop up, and if it's a platform's edge, onto its top
-    const a = f.hook.p; f.hook = null;
-    const lip = arena.plats.find((p) => !p.gone && arena.inPlat(p, a, 0.3) && Math.abs(a.y - surfY(p, a.x, a.z)) < 0.6);
+    const a = f.hook.p, aim = f.hook.aim; f.hook = null; // (aim: Sky Duel: the way in over a ship's edge)
+    const lip = aim || arena.plats.find((p) => !p.gone && arena.inPlat(p, a, 0.3) && Math.abs(a.y - surfY(p, a.x, a.z)) < 0.6);
     if (lip) {
       const cx = lip.x - f.pos.x, cz = lip.z - f.pos.z, cl = Math.hypot(cx, cz) || 1;
       const vy = Math.sqrt(2 * G * Math.max(0.6, a.y + 0.9 - f.pos.y)); // high enough to clear the lip, however far below it you are
       const mk = arena.trainMap ? 1.5 : 4.5; // (Bullet Train: a narrow roof: climb onto it, don't sail over it)
-      f.vel.set(cx / cl * mk, Math.max(8, vy, f.vel.y * 0.3), cz / cl * mk);
-      f.mantle = { x: cx / cl * mk, z: cz / cl * mk, t: Math.max(0.35, vy / G + 0.25) }; // keep climbing over the lip
+      const sx = aim && aim.ship ? aim.ship.vx || 0 : 0, sz = aim && aim.ship ? aim.ship.vz || 0 : 0; // (a moving ship: keep up with it)
+      f.vel.set(cx / cl * mk + sx, Math.max(8, vy, f.vel.y * 0.3), cz / cl * mk + sz);
+      f.mantle = { x: cx / cl * mk + sx, z: cz / cl * mk + sz, t: Math.max(0.35, vy / G + 0.25) }; // keep climbing over the lip
     } else { f.vel.y = Math.max(f.vel.y, 7); f.vel.x += d.x * 3; f.vel.z += d.z * 3; }
   }
 }
@@ -904,9 +907,9 @@ function applyKill(vId, kId, n, pt, imp, fell) {
     sfx.kill(v.pos); if (v === me) shake = Math.max(shake, 0.6);
   });
   const kn = kId ? rosterGet(kId)?.name || '?' : null, vn = rosterGet(vId)?.name || '?';
-  feed(fell ? (sawn ? `${vn} was sawn in half` : lily ? `${vn} was snapped up by a lily pad` : birdy ? `${vn} was snatched by a giant bird` : eaten ? `${vn} was eaten by the piranha` : arena.fallText ? `${vn} ${arena.fallText(v.pos)}` : `${vn} fell into the sky`) : `${kn} <span style="color:var(--red)">⟋</span> ${vn}`);
+  feed(fell ? (sawn ? `${vn} was sawn in half` : lily ? `${vn} was snapped up by a lily pad` : birdy ? `${vn} was snatched by a giant bird` : eaten ? `${vn} was eaten by the piranha` : arena.fallText ? `${vn} ${arena.fallText(v.pos)}` : `${vn} fell into the sky`) : kn ? `${kn} <span style="color:var(--red)">⟋</span> ${vn}` : `${vn} ${arena.hazText || 'was cut in two'}`);
   if (!fell && n && pt && kId && kId !== vId) potmKill(kId, vId, n, pt, imp);
-  if (vId === S.myId) { medalReset(); myStreak = 0; MD.by = kId && kId !== vId ? kId : null; deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : `Cut down by ${kn}`; deathEaten = eaten ? (birdy ? 26 : 13) : 0; deathA = ca; deathLook.copy(deathAt); overviewFrom(deathAt, deathOv);
+  if (vId === S.myId) { medalReset(); myStreak = 0; MD.by = kId && kId !== vId ? kId : null; deathAt.copy(v.pos); deathBy = fell ? (sawn ? 'Sawn in half' : lily ? 'Snapped up by a lily pad' : birdy ? 'Snatched by a giant bird' : eaten ? 'Eaten by the piranha' : arena.fallBy ? arena.fallBy(v.pos) : 'You fell') : kn ? `Cut down by ${kn}` : arena.hazBy || 'Cut in two'; deathEaten = eaten ? (birdy ? 26 : 13) : 0; deathA = ca; deathLook.copy(deathAt); overviewFrom(deathAt, deathOv);
     if (!fell && n && pt && kId && kId !== vId && killCamStart(kId, vId, n, pt, imp)) deathBy = 'Kill cam · ' + deathBy; }
   if (kId === S.myId) {
     shake = Math.max(shake, 0.35); hitstop = 0.07; punch = 1;
