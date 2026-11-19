@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261118194955';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261118194955';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261118194955';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261118194955';
-import * as net from './net.js?v=20261118194955';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261118194955';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261118194955';
-import { makeKillFx } from './killfx.js?v=20261118194955';
-import { makeGrapple } from './grapple.js?v=20261118194955';
-import { initShop } from './shop.js?v=20261118194955';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261118194955';
-import { portal } from './portal.js?v=20261118194955';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261118194955';
-import { makePost } from './post.js?v=20261118194955';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261118194955';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261118194955';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261118194955';
+import { Arena, MAPS } from './arena.js?v=20261118200143';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261118200143';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261118200143';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261118200143';
+import * as net from './net.js?v=20261118200143';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261118200143';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261118200143';
+import { makeKillFx } from './killfx.js?v=20261118200143';
+import { makeGrapple } from './grapple.js?v=20261118200143';
+import { initShop } from './shop.js?v=20261118200143';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261118200143';
+import { portal } from './portal.js?v=20261118200143';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261118200143';
+import { makePost } from './post.js?v=20261118200143';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261118200143';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261118200143';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261118200143';
 
 // ---------- settings ----------
 const store = {
@@ -1945,8 +1945,8 @@ function hostMsg(from, d) {
 }
 function clientMsg(d) {
   S.migAt = 0; S.lastHost = now(); // (the host is talking to us)
-  if (d.t === 'vote' && Array.isArray(d.opts) && d.opts.length === 3 && d.opts.every((m) => MAPS[m]) && MODES[d.mode]) { showVote(d.opts, d.mode); return; }
-  if (d.t === 'votes' && Array.isArray(d.c)) { voteCounts(d.c); return; }
+  if (d.t === 'vote' && Array.isArray(d.opts) && (d.opts.length === 3 || (d.room && !d.opts.length)) && d.opts.every((m) => MAPS[m]) && MODES[d.mode]) { showVote(d.opts, d.mode, !!d.room, Math.max(3, Math.min(30, +d.s || 5))); return; }
+  if (d.t === 'votes' && Array.isArray(d.c)) { voteCounts(d.c, typeof d.hp === 'string' ? d.hp : null); return; }
   if (d.t === 'welcome') { S.myId = d.id; S.roster = d.list; S.mode = d.mode; S.map = d.map || 'spire'; if (d.phase === 'game') { useMap(S.map); clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = []; if (d.obj) applyObj(d.obj); for (const [s, y] of d.bamboo || []) cutBamboo(s, y); for (const c of d.brk || []) smashChunk(c[0], c[1], c[2]); syncFighters(); enterGame(); } else showLobby(); }
   else if (d.t === 'full') { toast('That room is full.'); toMenu(); }
   else if (d.t === 'roster') { S.mig = { q: !!d.q, pub: d.pub !== false, bots: Number.isInteger(d.bots) ? d.bots : null }; if (typeof d.hid === 'string') S.hostId = d.hid; S.roster = d.list; S.mode = d.mode; if (d.diff != null) S.diff = d.diff; S.noUp = !!d.noUp; S.map = d.map || S.map; S.timeLeft = d.tl; S.wave = d.wv; syncFighters(); renderLobby(); }
@@ -2066,7 +2066,7 @@ $('menuBtn').onclick = () => { leaveRoom(); toMenu(); };
 $('againBtn').onclick = () => {
   if (!S.online) { startSolo(S.mode); return; }
   if (S.quick) { if (S.host && S.phase === 'end') { quickRoll(); startMatch(); } return; } // (quick match rolls on by itself)
-  if (S.host) { S.phase = 'lobby'; clearWorld(); net.broadcast({ t: 'lobby' }); showLobby(); }
+  if (S.host) { vote = null; S.phase = 'lobby'; clearWorld(); net.broadcast({ t: 'lobby' }); showLobby(); } // (a created room: out of the rolling games, back to the lobby to change the mode, bots and the rest)
 };
 $('joinBtn').onclick = () => joinRoom($('joinCode').value);
 $('joinCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom($('joinCode').value); });
@@ -2090,7 +2090,7 @@ function renderLive() {
   el.textContent = !roomsAt ? 'Looking for live games…' : g ? `${g} live game${g > 1 ? 's' : ''} · ${n} player${n > 1 ? 's' : ''} online` : 'No live games right now. Quick Match starts one for others to join.';
 }
 function quickRoll() {
-  const pick = (a) => a[(Math.random() * a.length) | 0], maps = Object.keys(MAPS).filter((k) => !SPECIAL[k]); // (special maps bring their own modes: not for quick match)
+  const pick = (a) => a[(Math.random() * a.length) | 0], maps = Object.keys(MAPS).filter((k) => !SPECIAL[k] && k !== 'tutorial'); // (special maps bring their own modes: not for quick match; nor the training ground)
   let m, mp, n = 0; do { m = pick(QUICK_MODES); mp = pick(maps); } while (m === S.mode && mp === S.map && ++n < 10);
   S.mode = m; S.map = mp;
 }
@@ -2149,13 +2149,13 @@ function renderLobby() {
   $('lobbyPlayers').innerHTML = S.roster.filter((r) => r.human).map((r) => `<div class="item"><span class="dot" style="background:${colorOf(r)}"></span><span class="grow">${esc(r.name)}${r.id === S.myId ? ' (you)' : ''}${r.id === 'host' ? ' · host' : ''}</span></div>`).join('');
   $('lobbyHostOpts').classList.toggle('hidden', !S.host);
   $('startBtn').classList.toggle('hidden', !S.host);
-  $('lobbyWait').textContent = S.host ? (coop() ? 'Press Start when everyone is in.' : 'Bots fill the empty slots. Press Start when everyone is in.') : 'Waiting for the host to start…';
+  $('lobbyWait').textContent = S.host ? (coop() ? 'Press Start when everyone is in.' : 'Bots fill the empty slots. Press Start when everyone is in.') + ' The room keeps playing: after each game everyone votes for the next map.' : 'Waiting for the host to start…';
   if (!S.host) $('lobbyWait').textContent += S.noUp ? ' Shop upgrades are off in this room.' : ' Shop upgrades are on.';
   $('lobbyMapName').textContent = (MAPS[S.map] || MAPS.spire).name + ': ' + (MAPS[S.map] || MAPS.spire).blurb;
   $('lobbyThumb').src = thumb(S.map);
   if (S.host) { $('lobbyModeSel').value = S.mode; $('lobbyMap').value = S.map; $('lobbyBots').value = S.bots; $('lobbyDiff').value = S.diff; }
 }
-function showLobby() { portal.gameplayStop(); S.phase = 'lobby'; show('lobby'); $('hud').classList.add('hidden'); if (document.pointerLockElement) document.exitPointerLock(); renderLobby(); }
+function showLobby() { hideVote(); portal.gameplayStop(); S.phase = 'lobby'; show('lobby'); $('hud').classList.add('hidden'); if (document.pointerLockElement) document.exitPointerLock(); renderLobby(); }
 
 async function hostRoom() {
   ensureAudio();
@@ -2185,6 +2185,7 @@ async function joinRoom(code) {
 }
 function leaveRoom() {
   if (S.online) { net.dirSetRoom(null); net.leave(); net.dirStop(); portal.leftRoom(); }
+  vote = null; hideVote(); $('endNext').style.display = 'none';
   S.online = false; S.host = true; S.quick = false; S.myId = 'host'; S.hostId = 'host'; S.mig = null; S.migAt = 0;
 }
 function startSolo(mode) {
@@ -2265,6 +2266,8 @@ function showEnd(res) {
   if (res.q) { // quick match: no results screen; the result and your coins show as a banner, and the next round loads over it
     const msg = `${$('endTitle').textContent}${coins ? ` · +${coins} coins` : ''}`;
     showBanner(msg); setTimeout(() => { if (S.phase === 'game') showBanner(msg); }, 700);
+  } else if (S.online) { if (S.host) startVote(); // a created room rolls on: everyone votes for the next map here on the results (see startVote)
+  } else { $('endNext').style.display = 'none';
   }
 }
 
@@ -2503,7 +2506,7 @@ function migrate() {
   if (S.phase === 'game' && (S.mode === 'horde' || S.mode === 'boss')) { S.phase = 'lobby'; clearWorld(); S.roster = S.roster.filter((r) => r.human); }
   if (S.phase === 'game') { fillBots(); syncFighters();
     for (const f of fighters.values()) { if (f !== me) f.net = f.isBot ? null : f.net; if (!f.alive && f.respawnAt === Infinity && !['lbs', 'lava'].includes(S.mode)) f.respawnAt = now() + 2; }
-  } else { syncFighters(); if (S.phase === 'lobby') showLobby(); else { $('againBtn').classList.remove('hidden'); if (S.quick) setTimeout(() => { if (S.quick && S.host && S.online && S.phase === 'end') startVote(); }, 1200); } }
+  } else { syncFighters(); if (S.phase === 'lobby') showLobby(); else { $('againBtn').classList.remove('hidden'); setTimeout(() => { if (S.host && S.online && S.phase === 'end') startVote(); }, 1200); } } // (the room rolls on under its new host)
   sendRoster(); net.dirStart(onRooms); net.dirSetRoom(roomInfo()); portalRoom();
   setTimeout(() => { // anyone who went down with the old host and never arrived leaves the roster
     if (!S.online || !S.host) return; const gone = S.roster.filter((r) => r.human && r.id !== S.myId && !net.net.conns.has(r.id)); if (!gone.length) return;
@@ -2512,46 +2515,74 @@ function migrate() {
   return true;
 }
 
-// ---------- quick match: vote for the next map ----------
-// Between rounds everyone gets five seconds to pick one of three maps (click a card or press 1, 2 or 3). The map with
-// the most votes is played, so a single vote is enough; a tie goes to one of the leaders at random, and if nobody
-// votes the map is random as before. The mode is rolled at random and shown with the vote.
-let vote = null, voteEl = null, voteEnds = 0;
+// ---------- between games: vote for the next map ----------
+// Quick match: between rounds everyone gets five seconds to pick one of three maps (click a card or press 1, 2 or 3),
+// shown over the game. The map with the most votes is played, so a single vote is enough; a tie goes to one of the
+// leaders at random, and if nobody votes the map is random as before. The mode is rolled at random and shown with the vote.
+// A created room rolls on the same way, but the vote sits on the results screen and runs longer, the mode stays the
+// host's, and the host can overrule the vote with any map (or start at once, or go back to the lobby to change the rest).
+// A special mode brings its own map, so there the next game simply counts down.
+let vote = null, voteEl = null, voteBox = null, voteEnds = 0;
+const ROOM_VOTE = 15, modeHasMap = (m) => Object.values(SPECIAL).includes(m);
 const voteOn = () => !!voteEl && voteEl.style.display !== 'none';
-function showVote(opts, mode) {
-  if (!voteEl) { voteEl = document.createElement('div'); voteEl.style.cssText = 'position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:30;display:flex;flex-direction:column;align-items:center;gap:10px;max-width:96vw'; document.body.appendChild(voteEl); }
-  voteEnds = performance.now() + 5000;
-  voteEl.innerHTML = `<div style="background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:8px 16px;font-size:16px">Next: <b>${esc(MODES[mode].name)}</b> &middot; vote for the map &middot; <b id="voteT">5</b></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">`
-    + opts.map((id, i) => `<button data-i="${i}" style="padding:6px;border-radius:12px;background:var(--glass);border:1px solid var(--line);color:var(--ink);cursor:pointer"><img src="${thumb(id)}" alt="" style="width:min(200px,26vw);aspect-ratio:16/9;object-fit:cover;display:block;border-radius:8px"><span style="display:block;margin-top:5px;font-size:14px"><b style="color:var(--gold)">${i + 1}</b> ${esc(MAPS[id].name)}<span class="vc"></span></span></button>`).join('') + '</div>';
-  for (const b of voteEl.querySelectorAll('button')) b.onclick = () => { sendPick(+b.dataset.i); lockPointer(); };
-  voteEl.style.display = 'flex';
+function showVote(opts, mode, room, secs = 5) {
+  if (!voteBox) { voteBox = document.createElement('div'); voteBox.style.cssText = 'position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:30;display:none;flex-direction:column;align-items:center;gap:10px;max-width:96vw'; document.body.appendChild(voteBox); }
+  hideVote(); voteEl = room ? $('endNext') : voteBox;
+  voteEnds = performance.now() + secs * 1000;
+  const w = room ? 'min(132px,22vw)' : 'min(200px,26vw)';
+  const cards = opts.length ? `<div style="display:flex;gap:${room ? 8 : 10}px;flex-wrap:${room ? 'nowrap' : 'wrap'};justify-content:center">`
+    + opts.map((id, i) => `<button data-i="${i}" style="padding:6px;border-radius:12px;background:var(--glass);border:1px solid var(--line);color:var(--ink);cursor:pointer"><img src="${thumb(id)}" alt="" style="width:${w};aspect-ratio:16/9;object-fit:cover;display:block;border-radius:8px"><span style="display:block;margin-top:5px;font-size:14px"><b style="color:var(--gold)">${i + 1}</b> ${esc(MAPS[id].name)}<span class="vc"></span></span></button>`).join('') + '</div>' : '';
+  if (room) {
+    const maps = Object.keys(MAPS).filter((k) => !SPECIAL[k] && k !== 'tutorial');
+    voteEl.innerHTML = `<div style="font-size:15px">Next game: <b>${esc(MODES[mode].name)}</b> &middot; ${opts.length ? 'vote for the map &middot; ' : (MAPS[S.map] || MAPS.spire).name !== MODES[mode].name ? esc((MAPS[S.map] || MAPS.spire).name) + ' &middot; ' : ''}starts in <b id="voteT">${secs}</b></div>` + cards
+      + '<div id="votePicked" style="font-size:13px;color:var(--gold)"></div>'
+      + (S.host ? `<div style="display:flex;gap:8px;align-items:flex-end;justify-content:center;width:100%">${opts.length ? `<label style="flex:1;max-width:260px">Host's pick <select id="hostPick"><option value="">Let the vote decide</option>${maps.map((k) => `<option value="${k}">${esc(MAPS[k].name)}</option>`).join('')}</select></label>` : ''}<button id="voteGo">Start now</button></div>` : '');
+    voteEl.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px;margin:14px 0 4px;padding-top:12px;border-top:1px solid var(--line)';
+    if (S.host) { const hp = $('hostPick'); if (hp) hp.onchange = () => { if (vote) { vote.hp = hp.value || null; sendCounts(); } }; $('voteGo').onclick = () => { if (vote) vote.until = 0; }; }
+  } else {
+    voteEl.innerHTML = `<div style="background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:8px 16px;font-size:16px">Next: <b>${esc(MODES[mode].name)}</b> &middot; vote for the map &middot; <b id="voteT">${secs}</b></div>` + cards;
+    voteEl.style.display = 'flex';
+  }
+  for (const b of voteEl.querySelectorAll('button[data-i]')) b.onclick = () => { sendPick(+b.dataset.i); if (!room) lockPointer(); };
 }
 function hideVote() { if (voteEl) voteEl.style.display = 'none'; }
 function sendPick(i) {
   if (!voteOn()) return;
-  for (const b of voteEl.querySelectorAll('button')) b.style.outline = +b.dataset.i === i ? '3px solid var(--gold)' : 'none';
+  const bs = voteEl.querySelectorAll('button[data-i]'); if (!(i >= 0 && i < bs.length)) return;
+  for (const b of bs) b.style.outline = +b.dataset.i === i ? '3px solid var(--gold)' : 'none';
   if (S.host) votePick(S.myId, i); else net.send({ t: 'pick', i });
 }
-function voteCounts(c) { if (voteEl) voteEl.querySelectorAll('.vc').forEach((e, i) => { e.textContent = c[i] ? ` · ${c[i]} vote${c[i] > 1 ? 's' : ''}` : ''; }); }
+function voteCounts(c, hp) {
+  if (!voteEl) return;
+  voteEl.querySelectorAll('.vc').forEach((e, i) => { e.textContent = c[i] ? ` · ${c[i]} vote${c[i] > 1 ? 's' : ''}` : ''; });
+  const el = voteEl.querySelector('#votePicked'); if (el) el.textContent = hp && MAPS[hp] ? `The host picked ${MAPS[hp].name}` : '';
+}
+function sendCounts() { const c = [0, 0, 0]; for (const v of vote.picks.values()) c[v]++; net.broadcast({ t: 'votes', c, hp: vote.hp || null }); voteCounts(c, vote.hp); } // (host)
 function startVote() { // (host)
-  const pick = (a) => a[(Math.random() * a.length) | 0], maps = Object.keys(MAPS).filter((k) => !SPECIAL[k] && k !== S.map), opts = [];
-  while (opts.length < 3) { const m = pick(maps); if (!opts.includes(m)) opts.push(m); }
-  let mode, n = 0; do { mode = pick(QUICK_MODES); } while (mode === S.mode && ++n < 6);
-  vote = { opts, mode, picks: new Map(), until: now() + 5, code: net.net.code };
-  net.broadcast({ t: 'vote', opts, mode }); showVote(opts, mode);
+  if (vote) return;
+  const room = !S.quick, pick = (a) => a[(Math.random() * a.length) | 0], maps = Object.keys(MAPS).filter((k) => !SPECIAL[k] && k !== 'tutorial' && k !== S.map), opts = [];
+  if (!(room && modeHasMap(S.mode))) while (opts.length < 3) { const m = pick(maps); if (!opts.includes(m)) opts.push(m); }
+  let mode = S.mode, n = 0; if (!room) do { mode = pick(QUICK_MODES); } while (mode === S.mode && ++n < 6);
+  const secs = room ? ROOM_VOTE : 5;
+  vote = { opts, mode, picks: new Map(), until: now() + secs, code: net.net.code, room, hp: null };
+  net.broadcast({ t: 'vote', opts, mode, room, s: secs }); showVote(opts, mode, room, secs);
 }
 function votePick(id, i) { // (host)
-  if (!vote || !(i >= 0 && i < 3)) return; vote.picks.set(id, i);
-  const c = [0, 0, 0]; for (const v of vote.picks.values()) c[v]++; net.broadcast({ t: 'votes', c }); voteCounts(c);
-  if (vote.picks.size >= S.roster.filter((r) => r.human).length) vote.until = Math.min(vote.until, now() + 0.5); // (everyone has voted: no need to wait)
+  if (!vote || !(i >= 0 && i < vote.opts.length)) return; vote.picks.set(id, i);
+  sendCounts();
+  if (vote.picks.size >= S.roster.filter((r) => r.human).length) vote.until = Math.min(vote.until, now() + (vote.room ? 1.5 : 0.5)); // (everyone has voted: no need to wait)
 }
 function voteTick() {
   if (voteOn()) { const el = $('voteT'); if (el) el.textContent = Math.max(0, Math.ceil((voteEnds - performance.now()) / 1000)); if (S.phase === 'game' && !S.ended) hideVote(); }
   if (!vote || now() < vote.until) return;
   const v = vote; vote = null;
-  if (!(S.quick && S.host && S.online && net.net.code === v.code && S.phase === 'end')) { hideVote(); return; }
+  if (!(S.host && S.online && !!S.quick === !v.room && net.net.code === v.code && S.phase === 'end')) { hideVote(); return; }
   const c = [0, 0, 0]; for (const x of v.picks.values()) c[x]++; const top = Math.max(...c);
-  if (top > 0) { const best = [0, 1, 2].filter((i) => c[i] === top); S.map = v.opts[best[(Math.random() * best.length) | 0]]; S.mode = v.mode; } else quickRoll();
+  if (v.room && v.hp && MAPS[v.hp]) S.map = v.hp; // (the host's pick overrules the vote)
+  else if (!v.opts.length) { /* a mode with its own map: the same again */ }
+  else if (top > 0) { const best = [0, 1, 2].filter((i) => c[i] === top); S.map = v.opts[best[(Math.random() * best.length) | 0]]; S.mode = v.mode; }
+  else if (v.room) S.map = v.opts[(Math.random() * v.opts.length) | 0];
+  else quickRoll();
   hideVote(); startMatch();
 }
 
