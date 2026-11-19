@@ -41,16 +41,35 @@ export function buildTrain(A, T) {
   let hemi = null, dome = null; S.traverse((o) => { if (o.isHemisphereLight) hemi = o; if (o.material && o.material.uniforms && o.material.uniforms.top) dome = o.material.uniforms; });
 
   // ---- bending: every piece of the world is drawn bent along the track (a shader offset by where it is along the run)
-  const uS = { value: 0 };
-  const GLSL = `uniform float uS; float ez(float t) { t = clamp(t, 0.0, 1.0); return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
+  const uS = { value: 0 }, uCr = { value: 1e9 }; // (uCr: how far back along the train the track starts to crumble away)
+  const GLSL = `uniform float uS; uniform float uCr; float ez(float t) { t = clamp(t, 0.0, 1.0); return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
     vec3 pathOff(float s) { s = mod(s, ${LOOP.toFixed(1)}); return vec3(${glsl(BENDS, BW)}, ${glsl(HILLS, HW_)}, 0.0); }\n`;
-  const bend = (m) => { m.onBeforeCompile = (sh) => { sh.uniforms.uS = uS; sh.vertexShader = GLSL + sh.vertexShader.replace('#include <project_vertex>', `vec4 mvPosition = vec4(transformed, 1.0);
+  const bend = (m, crumble) => { m.onBeforeCompile = (sh) => { sh.uniforms.uS = uS; sh.uniforms.uCr = uCr; sh.vertexShader = (crumble ? '#define CRUMBLE\n' : '') + GLSL + sh.vertexShader.replace('#include <project_vertex>', `vec4 mvPosition = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
         mvPosition = instanceMatrix * mvPosition;
       #endif
-      vec4 wP = modelMatrix * mvPosition; wP.xyz += pathOff(uS - wP.z); mvPosition = viewMatrix * wP; gl_Position = projectionMatrix * mvPosition;`); };
-    m.customProgramCacheKey = () => 'trainbend'; return m; };
+      vec4 wP = modelMatrix * mvPosition;
+      #ifdef CRUMBLE
+        // the track behind the train is falling to pieces: each piece (an instance) drops away once the last car has
+        // passed over it, tumbling as it goes. Its own number comes from where it lies along the run, so it never changes.
+        #ifdef USE_INSTANCING
+          vec3 pO = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+        #else
+          vec3 pO = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+        #endif
+        vec3 pn = vec3(floor((uS - pO.z) * 2.0 + 0.5), floor(pO.x * 4.0 + 0.5), floor(pO.y + 0.5));
+        vec3 pr = fract(sin(vec3(dot(pn, vec3(0.137, 1.71, 0.93)), dot(pn, vec3(0.291, 0.57, 2.31)), dot(pn, vec3(0.413, 3.13, 1.27)))) * 43758.5453);
+        float ct = max(0.0, pO.z - uCr - pr.x * 9.0) / 38.0;
+        if (ct > 0.0) {
+          vec3 pd = wP.xyz - pO; float ca = cos(ct * (1.2 + 2.6 * pr.y)), sa = sin(ct * (1.2 + 2.6 * pr.y)), cb = cos(ct * (pr.z - 0.5) * 3.6), sb = sin(ct * (pr.z - 0.5) * 3.6);
+          pd.yz = vec2(pd.y * ca - pd.z * sa, pd.y * sa + pd.z * ca); pd.xy = vec2(pd.x * cb - pd.y * sb, pd.x * sb + pd.y * cb);
+          wP.xyz = pO + pd; wP.y -= 12.0 * ct * ct; wP.x += (pr.z - 0.5) * 5.0 * ct;
+        }
+      #endif
+      wP.xyz += pathOff(uS - wP.z); mvPosition = viewMatrix * wP; gl_Position = projectionMatrix * mvPosition;`); };
+    m.customProgramCacheKey = () => (crumble ? 'trainbendC' : 'trainbend'); return m; };
   const std = (color, o = {}) => bend(new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...o }));
+  const brk = (color, o = {}) => bend(new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...o }), true); // (for what the track is made of: it falls away behind the train)
 
   // ---- the train: 14 cars, front (the engine) toward -z where the world comes from
   const steelM = new THREE.MeshStandardMaterial({ color: 0x3a3e46, metalness: 0.7, roughness: 0.4 }), darkM = new THREE.MeshStandardMaterial({ color: 0x15161a, metalness: 0.6, roughness: 0.5 });
@@ -58,7 +77,7 @@ export function buildTrain(A, T) {
   roofT.repeat.set(3, 18);
   const roofM = new THREE.MeshStandardMaterial({ map: roofT, metalness: 0.5, roughness: 0.55 });
   const winT = T.canvasTex((g, s) => { g.fillStyle = '#0c1018'; g.fillRect(0, 0, s, s); for (let x = 0; x < 8; x++) { g.fillStyle = '#9ad0ff'; g.fillRect(x * s / 8 + 4, s * 0.3, s / 8 - 8, s * 0.4); } }, 128); winT.repeat.set(3, 1);
-  const L = 57, GAP = 2.4, PITCH = L + GAP, NC = 7, Z0 = -(NC * PITCH) / 2 + L / 2;
+  const L = 57, GAP = 2.4, PITCH = L + GAP, NC = 7, Z0 = -(NC * PITCH) / 2 + L / 2; uCr.value = NC * PITCH / 2 - 5; // (the track gives way right under the tail of the last car)
   const TYPES = ['engine', 'flat', 'flat', 'box', 'flat', 'flat', 'pass']; // (two long runs of flatbeds coupled together: room to keep fighting down there through a tunnel)
   const COLS = { box: [0x8a2a1e, 0x2a4a7a, 0x6a5a2a, 0x2a6a4a], pass: [0xc8ccd4], tank: [0x2a2c30, 0xd8d0c0], engine: [0xc8202a], flat: [0x3a3028] };
   const cars = [], topOf = (ty) => (ty === 'flat' ? DECK : ty === 'tank' ? 3.9 : ROOF), endTop = (k) => (TYPES[k] === 'flat' ? Math.max(topOf(TYPES[k - 1] || 'box'), topOf(TYPES[k + 1] || 'box')) : topOf(TYPES[k])), slopes = [];
@@ -118,9 +137,10 @@ export function buildTrain(A, T) {
     const add = (o, under) => { o.frustumCulled = false; (under ? low : g).add(o); return o; };
     const addL = (o) => add(o, true); // (on the land)
     // the track: sleepers, rails, ballast (no ballast on a bridge)
-    add(inst(sleeperG, mat('sleeper', () => std(0x4a3626)), Array.from({ length: SEG }, (_, k) => [0, -0.32, -k - 0.5, 1, 1, 1])));
-    for (const x of [-2.25, 2.25]) add(mk(railG, mat('rail', () => std(0x9aa0a8, { metalness: 0.8, roughness: 0.3 })), x, -0.12, -H));
-    if (ty !== 'B') { add(mk(new THREE.BoxGeometry(2 * HW + 2.8, 1.4, SEG), mat('viaduct', () => std(0x8a8478)), 0, -1.1, -H)); // a viaduct carries the track high above the land, on piers every 25 m
+    add(inst(sleeperG, mat('sleeper', () => brk(0x4a3626)), Array.from({ length: SEG }, (_, k) => [0, -0.32, -k - 0.5, 1, 1, 1])));
+    const unit = new THREE.BoxGeometry(1, 1, 1), run = (n, f) => Array.from({ length: n }, (_, k) => f(k)); // (everything the track is made of is laid in short pieces, so it can break up behind the train)
+    add(inst(unit, mat('rail', () => brk(0x9aa0a8, { metalness: 0.8, roughness: 0.3 })), [-2.25, 2.25].flatMap((x) => run(SEG / 3, (k) => [x, -0.12, -1.5 - k * 3, 0.12, 0.2, 3]))));
+    if (ty !== 'B') { add(inst(unit, mat('viaduct', () => brk(0x8a8478)), run(SEG / 5, (k) => [0, -1.1, -2.5 - k * 5, 2 * HW + 2.8, 1.4, 5]))); // a viaduct carries the track high above the land, on piers every 25 m
       add(inst(new THREE.BoxGeometry(1, 1, 1), mat('viaduct'), Array.from({ length: 6 }, (_, k) => [0, GD / 2 - 1, -12 - k * 25, 7.8, -GD, 2.2]))); }
     const gm = mat('ground' + bi, () => { const t = groundTex(B.ground); t.repeat.set(20, 5); return std(0xffffff, { map: t, roughness: 1 }); });
     if (ty === 'G' || ty === 'T') { // the ground either side (coast: land one side, the sea the other)
@@ -131,9 +151,9 @@ export function buildTrain(A, T) {
       const cliffM = () => mat('cliff' + bi, () => std(bi === 1 ? 0xb8c4d4 : bi === 2 ? 0xb87a4a : 0x6a6458, { flatShading: true }));
       add(mk(new THREE.PlaneGeometry(2 * GORGE + 60, SEG, 4, 15).rotateX(-Math.PI / 2), mat('river' + bi, () => std(bi === 1 ? 0xcfe6f6 : bi === 4 ? 0x10142a : 0x2a5a8a, { roughness: 0.2, metalness: 0.3 })), 0, -48, -H));
       if (cap) add(mk(new THREE.BoxGeometry(2 * GORGE + 20, 60, 10), cliffM(), 0, GD - 30, cap === 'a' ? 5 : -SEG - 5)); // (the valley's end wall, under the land it opens out of)
-      for (const x of [-3.9, 3.9]) add(mk(new THREE.BoxGeometry(0.4, 1.0, SEG), mat('girder', () => std(0x5a4a3a)), x, -1.0, -H));
+      add(inst(unit, mat('girder', () => brk(0x5a4a3a)), [-3.9, 3.9].flatMap((x) => run(SEG / 5, (k) => [x, -1.0, -2.5 - k * 5, 0.4, 1.0, 5]))));
       const legs = []; for (let z = -5; z > -SEG; z -= 12) for (const sx of [-1, 1]) legs.push([sx * HW, -24, z, 0.5, 46, 0.5]);
-      add(inst(new THREE.BoxGeometry(1, 1, 1), mat('trestle', () => std(0x4a3a2a)), legs));
+      add(inst(new THREE.BoxGeometry(1, 1, 1), mat('trestle', () => brk(0x4a3a2a)), legs));
       const cross = []; for (let z = -5; z > -SEG; z -= 12) for (let y = -6; y > -46; y -= 9) cross.push([0, y, z, 2 * HW + 0.4, 0.35, 0.35]); add(inst(new THREE.BoxGeometry(1, 1, 1), mat('trestle'), cross));
       for (const sx of [-1, 1]) add(mk(new THREE.BoxGeometry(260, 60, SEG), cliffM(), sx * (GORGE + 130), GD - 30, -H));
     }
@@ -141,7 +161,7 @@ export function buildTrain(A, T) {
       const rockM = mat('rock' + bi, () => std(bi === 1 ? 0xc8d0dc : bi === 2 ? 0xa8704a : bi === 4 ? 0x30323a : 0x5a5650, { flatShading: true }));
       for (const sx of [-1, 1]) add(mk(new THREE.BoxGeometry(0.8, CEIL - GD + 1, SEG), mat('tunwall', () => std(0x3a3836)), sx * (WALLX + 0.4), (CEIL + GD) / 2, -H)); // (the tunnel goes all the way down: a deep shaft under the track)
       add(mk(new THREE.BoxGeometry(2 * WALLX + 1.6, 1.0, SEG), mat('tunwall'), 0, CEIL + 0.5, -H));
-      add(mk(new THREE.BoxGeometry(2 * WALLX + 1.6, 0.5, SEG), mat('tunfloor', () => std(0x24221f)), 0, -0.72, -H)); // (the tunnel's floor, at the track: fall off the train in here and that is the end of you)
+      add(inst(unit, mat('tunfloor', () => brk(0x24221f)), run(SEG / 5, (k) => [0, -0.72, -2.5 - k * 5, 2 * WALLX + 1.6, 0.5, 5]))); // (the tunnel's floor, at the track: fall off the train in here and that is the end of you)
       const lamps = []; for (let z = -4; z > -SEG; z -= 10) for (const sx of [-1, 1]) lamps.push([sx * (WALLX - 0.02), CEIL - 0.9, z - (sx > 0 ? 5 : 0), 0.15, 0.3, 0.8]);
       add(inst(new THREE.BoxGeometry(1, 1, 1), mat('lamp', () => bend(new THREE.MeshBasicMaterial({ color: 0xffd890, toneMapped: false }))), lamps));
       for (const z of [0, -SEG]) for (const [x, y, w, h] of [[-WALLX - 1.5, (CEIL + GD) / 2, 2.2, CEIL - GD + 2], [WALLX + 1.5, (CEIL + GD) / 2, 2.2, CEIL - GD + 2], [0, CEIL + 1.6, 2 * WALLX + 5, 2.2]]) add(mk(new THREE.BoxGeometry(w, h, 1.2), mat('portal', () => std(0x24221f)), x, y, z));
