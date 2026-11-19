@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261118211617';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261118211617';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261118211617';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261118211617';
-import * as net from './net.js?v=20261118211617';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261118211617';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261118211617';
-import { makeKillFx } from './killfx.js?v=20261118211617';
-import { makeGrapple } from './grapple.js?v=20261118211617';
-import { initShop } from './shop.js?v=20261118211617';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261118211617';
-import { portal } from './portal.js?v=20261118211617';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261118211617';
-import { makePost } from './post.js?v=20261118211617';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261118211617';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261118211617';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261118211617';
+import { Arena, MAPS } from './arena.js?v=20261118212339';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261118212339';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261118212339';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261118212339';
+import * as net from './net.js?v=20261118212339';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261118212339';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261118212339';
+import { makeKillFx } from './killfx.js?v=20261118212339';
+import { makeGrapple } from './grapple.js?v=20261118212339';
+import { initShop } from './shop.js?v=20261118212339';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261118212339';
+import { portal } from './portal.js?v=20261118212339';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261118212339';
+import { makePost } from './post.js?v=20261118212339';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261118212339';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261118212339';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261118212339';
 
 // ---------- settings ----------
 const store = {
@@ -591,6 +591,8 @@ function bladeSweep(f, dt) {
   const ps = f.prevS || f.s, swing = Math.hypot(f.s.x - ps.x, f.s.y - ps.y) / dt * 1.6 * (f.bladeLen + 0.1);
   f.prevS = { x: f.s.x, y: f.s.y };
   if (swing > 11 && f.swishCd <= 0) { sfx.swish(swing, f.tip); f.swishCd = 0.22; }
+  // Bullet Train, over a valley: a blade swung through a trestle leg or beam as it races past cuts it, and the bridge sags there
+  if (arena.trestleHit && isLocal(f) && !f.isBot && tipSpd > CUT_SPD) { const c = arena.trestleHit(f.hand, f.tip, dt); if (c) cutTrestle(c.s, c.x, c.y, true, f.tip); }
   // chains (Swinging Decks): a blade moving through one snaps it
   if (arena.lines && isLocal(f) && !f.isBot) for (const L of arena.lines) { // (players only: bots fighting near the corners would drop every deck)
     if (!L.alive) continue;
@@ -668,6 +670,13 @@ function bladeSweep(f, dt) {
       }
     }
   }
+}
+// Bullet Train: cut a trestle leg or beam (and tell everyone if we did it)
+function cutTrestle(s, x, y, mine, tip) {
+  const at = arena.cutTrestle && arena.cutTrestle(s, x, y); if (!at) return;
+  if (tip) at.copy(tip);
+  sfx.chop(at); for (let i = 0; i < 24; i++) debris.wood.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 7, Math.random() * 4 - 1, 8 + Math.random() * 14, 0.9);
+  if (mine) { shake = Math.max(shake, 0.25); const m = { t: 'trestle', s, x, y }; if (S.host) net.broadcast(m); else net.send(m); }
 }
 // snap chain id (and tell everyone if we did it)
 function cutChain(id, mine) {
@@ -1932,6 +1941,7 @@ function hostMsg(from, d) {
   else if (d.t === 'yank' && typeof d.v === 'string') yankStart(d.v, from); // (a player hooked an enemy)
   else if (d.t === 'bamboo' && Number.isInteger(d.s) && typeof d.y === 'number') { cutBamboo(d.s, d.y); net.broadcast({ t: 'bamboo', s: d.s, y: d.y }, from); }
   else if (d.t === 'chain' && Number.isInteger(d.id)) { cutChain(d.id); net.broadcast({ t: 'chain', id: d.id }, from); }
+  else if (d.t === 'trestle' && [d.s, d.x, d.y].every(Number.isFinite)) { cutTrestle(d.s, d.x, d.y); net.broadcast({ t: 'trestle', s: d.s, x: d.x, y: d.y }, from); }
   else if (d.t === 'cart' && S.mode === 'transport' && f.team === RAID && f.alive) cartHit(f); // (a raider hacked the wagon)
   else if (d.t === 'brk' && Number.isInteger(d.i)) { smashChunk(d.i, Array.isArray(d.n) ? d.n : null, +d.d || 0); net.broadcast({ t: 'brk', i: d.i, n: d.n, d: d.d }, from); }
   else if (d.t === 'cut') {
@@ -1964,6 +1974,7 @@ function clientMsg(d) {
   else if (d.t === 'yank' && d.v === S.myId && me) me.yankedBy = { id: d.by, until: now() + 1.4 }; // (we've been hooked)
   else if (d.t === 'bamboo') cutBamboo(d.s, d.y);
   else if (d.t === 'chain') cutChain(d.id);
+  else if (d.t === 'trestle') cutTrestle(d.s, d.x, d.y);
   else if (d.t === 'brk') smashChunk(d.i, d.n, d.d);
   else if (d.t === 'feed') feed(d.s);
 }

@@ -41,10 +41,11 @@ export function buildTrain(A, T) {
   let hemi = null, dome = null; S.traverse((o) => { if (o.isHemisphereLight) hemi = o; if (o.material && o.material.uniforms && o.material.uniforms.top) dome = o.material.uniforms; });
 
   // ---- bending: every piece of the world is drawn bent along the track (a shader offset by where it is along the run)
+  const uSag = { value: Array.from({ length: 8 }, () => new THREE.Vector3()) }, uCut = { value: Array.from({ length: 8 }, () => new THREE.Vector4()) }; // (a bridge's cut supports: where the track sags and how far; which piece was cut and how long ago)
   const uS = { value: 0 }, uCr = { value: 1e9 }; // (uCr: how far back along the train the track starts to crumble away)
-  const GLSL = `uniform float uS; uniform float uCr; float ez(float t) { t = clamp(t, 0.0, 1.0); return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
+  const GLSL = `uniform float uS; uniform float uCr; uniform vec3 uSag[8]; uniform vec4 uCut[8]; float ez(float t) { t = clamp(t, 0.0, 1.0); return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
     vec3 pathOff(float s) { s = mod(s, ${LOOP.toFixed(1)}); return vec3(${glsl(BENDS, BW)}, ${glsl(HILLS, HW_)}, 0.0); }\n`;
-  const bend = (m, crumble) => { m.onBeforeCompile = (sh) => { sh.uniforms.uS = uS; sh.uniforms.uCr = uCr; sh.vertexShader = (crumble ? '#define CRUMBLE\n' : '') + GLSL + sh.vertexShader.replace('#include <project_vertex>', `vec4 mvPosition = vec4(transformed, 1.0);
+  const bend = (m, crumble) => { m.onBeforeCompile = (sh) => { sh.uniforms.uS = uS; sh.uniforms.uCr = uCr; sh.uniforms.uSag = uSag; sh.uniforms.uCut = uCut; sh.vertexShader = (crumble ? '#define CRUMBLE\n' : '') + GLSL + sh.vertexShader.replace('#include <project_vertex>', `vec4 mvPosition = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
         mvPosition = instanceMatrix * mvPosition;
       #endif
@@ -60,10 +61,16 @@ export function buildTrain(A, T) {
         vec3 pn = vec3(floor((uS - pO.z) * 2.0 + 0.5), floor(pO.x * 4.0 + 0.5), floor(pO.y + 0.5));
         vec3 pr = fract(sin(vec3(dot(pn, vec3(0.137, 1.71, 0.93)), dot(pn, vec3(0.291, 0.57, 2.31)), dot(pn, vec3(0.413, 3.13, 1.27)))) * 43758.5453);
         float ct = max(0.0, pO.z - uCr - pr.x * 9.0) / 38.0;
+        float psr = mod(uS - pO.z, ${LOOP.toFixed(1)}); // (a support someone has sliced through falls away at once)
+        for (int i = 0; i < 8; i++) { vec4 c = uCut[i]; if (c.w > 0.0 && abs(psr - c.x) < 0.3 && abs(pO.x - c.y) < 0.3 && abs(pO.y - c.z) < 0.3) ct = max(ct, c.w); }
         if (ct > 0.0) {
           vec3 pd = wP.xyz - pO; float ca = cos(ct * (1.2 + 2.6 * pr.y)), sa = sin(ct * (1.2 + 2.6 * pr.y)), cb = cos(ct * (pr.z - 0.5) * 3.6), sb = sin(ct * (pr.z - 0.5) * 3.6);
           pd.yz = vec2(pd.y * ca - pd.z * sa, pd.y * sa + pd.z * ca); pd.xy = vec2(pd.x * cb - pd.y * sb, pd.x * sb + pd.y * cb);
           wP.xyz = pO + pd; wP.y -= 12.0 * ct * ct; wP.x += (pr.z - 0.5) * 5.0 * ct;
+        }
+        { float sv = mod(uS - wP.z, ${LOOP.toFixed(1)}), sg = 0.0; // and the track sags where its supports are gone
+          for (int i = 0; i < 8; i++) { float u = (sv - uSag[i].x) / 30.0; u = 1.0 - u * u; if (u > 0.0) sg += uSag[i].y * u * u; }
+          wP.y -= min(sg, 7.0);
         }
       #endif
       wP.xyz += pathOff(uS - wP.z); mvPosition = viewMatrix * wP; gl_Position = projectionMatrix * mvPosition;`); };
@@ -201,9 +208,37 @@ export function buildTrain(A, T) {
   let Sw = 0, dTun = 0, lastWrap = -1;
   const runS = () => ((Date.now() / 1000 * TRAIN.V) % LOOP + LOOP) % LOOP;
   const inTunnel = (s) => segType(Math.floor(s / TRAIN.SEG)) === 'T', onBridge = (s) => segType(Math.floor(s / TRAIN.SEG)) === 'B';
+  // ---- a valley's trestle can be cut: slice a leg or a cross beam as it races past (swinging under the train) and it
+  // falls away, and the track sags there. Every car dips as it crosses the sag, front end then tail, the couplings
+  // dropping into it. Cuts are {s: where along the run, x: which leg (0: a beam), y: its middle, d: how deep, at: when}.
+  const cuts = [], BEAMS = [-6, -15, -24, -33, -42], norm = (s) => ((s % LOOP) + LOOP) % LOOP;
+  const sagAt = (s) => { let g = 0; for (const c of cuts) { let d = s - c.s; d -= LOOP * Math.round(d / LOOP); const u = 1 - (d / 30) ** 2; if (u > 0) g += c.d * (c.e || 0) * u * u; } return Math.min(7, g); };
+  const bentAt = (s) => { const i = Math.floor(s / TRAIN.SEG), k = (s - i * TRAIN.SEG - 5) / 12; return segType(i) === 'B' && k > -0.01 && k < 12.01 && Math.abs(k - Math.round(k)) < 0.01; }; // (is there a pair of legs at s?)
+  /** A blade from hand to tip: the leg or beam it is cutting through this frame (the trestle sweeps through it), or null. */
+  A.trestleHit = (hand, tip, dt) => {
+    const sweep = TRAIN.V * Math.min(0.05, dt || 0.016) + 0.5;
+    for (let j = 0; j <= 5; j++) { const t = 0.15 + 0.85 * j / 5, qx = hand.x + (tip.x - hand.x) * t, qy = hand.y + (tip.y - hand.y) * t, sq = Sw - (hand.z + (tip.z - hand.z) * t);
+      for (let i = Math.floor((sq - sweep) / TRAIN.SEG); i <= Math.floor((sq + 0.5) / TRAIN.SEG); i++) { if (segType(i) !== 'B') continue;
+        for (let k = Math.max(0, Math.ceil((sq - sweep - i * TRAIN.SEG - 5) / 12)); k <= Math.min(12, Math.floor((sq + 0.5 - i * TRAIN.SEG - 5) / 12)); k++) {
+          const s = norm(i * TRAIN.SEG + 5 + 12 * k), px = qx - PX(s), py = qy - PY(s) + sagAt(s); let c = null;
+          if (py < -1.3 && py > -47 && Math.abs(Math.abs(px) - HW) < 0.7) c = { s, x: px < 0 ? -HW : HW, y: -24 };
+          else if (Math.abs(px) < HW + 0.4) for (const yb of BEAMS) if (Math.abs(py - yb) < 0.6) c = { s, x: 0, y: yb };
+          if (c && !cuts.some((q) => q.s === c.s && q.x === c.x && q.y === c.y)) return c; } } }
+    return null; };
+  /** Cut that leg or beam (ours, or one another player cut). Returns where it was, or null if there is no such thing to cut. */
+  A.cutTrestle = (s, x, y) => {
+    s = norm(+s); if (!bentAt(s) || !(x === 0 ? BEAMS.includes(y) : Math.abs(x) === HW && y === -24)) return null;
+    let back = Sw - s; back -= LOOP * Math.round(back / LOOP); if (Math.abs(back) > 650 || cuts.some((q) => q.s === s && q.x === x && q.y === y)) return null;
+    cuts.push({ s, x, y, d: x ? 2.6 : 0.9, at: Date.now(), e: 0 }); if (cuts.length > 8) cuts.shift();
+    return new THREE.Vector3(PX(s) + x, PY(s) + (x ? Math.max(-40, Math.min(-3, (A.camY ?? -8) - 1)) : y), back); };
+  const cutTick = () => { const t = Date.now();
+    for (let i = cuts.length - 1; i >= 0; i--) { let back = Sw - cuts[i].s; back -= LOOP * Math.round(back / LOOP); if (back > 700) cuts.splice(i, 1); } // (long gone behind us)
+    for (let i = 0; i < 8; i++) { const c = cuts[i]; if (!c) { uSag.value[i].set(0, 0, 0); uCut.value[i].set(0, 0, 0, 0); continue; }
+      const tt = Math.max(0, (t - c.at) / 1000); c.e = 1 - Math.exp(-4 * tt) * Math.cos(9 * tt); // (it drops, overshoots and settles)
+      uSag.value[i].set(c.s, c.d * c.e, 0); uCut.value[i].set(c.s, c.x, c.y, tt + 0.001); } };
   // a car sits on the rails at both its ends, like a link in a chain: it lies along the line between them (so it turns
   // into a bend and tips over a rise), and each end is where the next car's end is. {x, y: its middle; kx, ky: its lean per metre}
-  const pose = (p) => { const sF = Sw - (p.base.z - L / 2), sR = Sw - (p.base.z + L / 2), xF = PX(sF), xR = PX(sR), yF = PY(sF), yR = PY(sR); return { x: (xF + xR) / 2, kx: (xR - xF) / L, y: (yF + yR) / 2, ky: (yR - yF) / L }; };
+  const pose = (p) => { const sF = Sw - (p.base.z - L / 2), sR = Sw - (p.base.z + L / 2), xF = PX(sF), xR = PX(sR), yF = PY(sF) - sagAt(sF), yR = PY(sR) - sagAt(sR); return { x: (xF + xR) / 2, kx: (xR - xF) / L, y: (yF + yR) / 2, ky: (yR - yF) / L }; };
   const offX = (P, p, z) => P.x + P.kx * (z - p.base.z), offY = (P, p, z) => P.y + P.ky * (z - p.base.z); // (how far the car has carried a point at z along it)
   const place = () => {
     for (const p of cars) { p.prev = p.cur; const P = p.cur = pose(p); if (!p.prev) p.prev = P; p.x = P.x; p.y = p.base.y + P.y; p.ang = -Math.atan(P.kx);
@@ -213,7 +248,7 @@ export function buildTrain(A, T) {
     for (const q of slopes) { const P = q.car.cur, ox = offX(P, q.car, q.z), oy = offY(P, q.car, q.z), r = q.r; r.lx = q.b.lx + ox; r.x0 = q.b.x0 + ox; r.x1 = q.b.x1 + ox; r.hL = q.b.hL + oy; r.hH = q.b.hH + oy; r.base = q.b.base + oy; }
   };
   A.anim.push((t, dt) => {
-    Sw = runS(); uS.value = Sw;
+    Sw = runS(); uS.value = Sw; cutTick();
     const wrap = Math.floor(Date.now() / 1000 * TRAIN.V / LOOP); if (wrap !== lastWrap) { lastWrap = wrap; for (const g of live.values()) S.remove(g); live.clear(); for (const g of armVis.values()) S.remove(g); armVis.clear(); }
     // stretches in view: from just behind the last car to well ahead of the engine
     const i0 = Math.floor((Sw - 300) / TRAIN.SEG), i1 = Math.floor((Sw + 520) / TRAIN.SEG);
@@ -284,7 +319,7 @@ export function buildTrain(A, T) {
     return out; };
   A.flatbeds = cars.filter((p) => p.type === 'flat');
   A.spawnOk = (sp) => { const p = A.plats[sp.plat]; if (!p || !p.car) return true; const d = A.trainDanger(sp); return p.type === 'flat' ? d.tunnel > 0.4 || true : d.tunnel > 3 && d.high > 2.5; };
-  { const fo = A.follow.bind(A); A.follow = (p) => { A.camZ = p.z; fo(p); }; } // (where the camera is: for the landscape's light and the tunnel's dark)
+  { const fo = A.follow.bind(A); A.follow = (p) => { A.camZ = p.z; A.camY = p.y; fo(p); }; } // (where the camera is: for the landscape's light and the tunnel's dark)
   Sw = runS(); uS.value = Sw; place(); place();
   A.finishNav();
 }
