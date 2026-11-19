@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261118200143';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261118200143';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261118200143';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261118200143';
-import * as net from './net.js?v=20261118200143';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261118200143';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261118200143';
-import { makeKillFx } from './killfx.js?v=20261118200143';
-import { makeGrapple } from './grapple.js?v=20261118200143';
-import { initShop } from './shop.js?v=20261118200143';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261118200143';
-import { portal } from './portal.js?v=20261118200143';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261118200143';
-import { makePost } from './post.js?v=20261118200143';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261118200143';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261118200143';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261118200143';
+import { Arena, MAPS } from './arena.js?v=20261118200513';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261118200513';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261118200513';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261118200513';
+import * as net from './net.js?v=20261118200513';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261118200513';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261118200513';
+import { makeKillFx } from './killfx.js?v=20261118200513';
+import { makeGrapple } from './grapple.js?v=20261118200513';
+import { initShop } from './shop.js?v=20261118200513';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261118200513';
+import { portal } from './portal.js?v=20261118200513';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261118200513';
+import { makePost } from './post.js?v=20261118200513';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261118200513';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261118200513';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261118200513';
 
 // ---------- settings ----------
 const store = {
@@ -217,9 +217,9 @@ window.addEventListener('keydown', (e) => {
   if (['Space', 'Tab'].includes(e.code)) e.preventDefault();
   if (voteOn() && /^Digit[123]$/.test(e.code)) sendPick(+e.code[5] - 1); // (quick match: vote for the next map)
   if (S.phase !== 'game' || !me) return;
-  if ((code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) { // dash: where you're looking; holding A or D, a side dash to the left or right (still carrying you forward if you hold W too)
+  if ((code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && me.alive && locked) { // dash: where you're looking; holding A or D alone, a side dash to the left or right (with W held as well, forward wins: a full dash where you're looking)
     const st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), fw = keys.KeyW || keys.ArrowUp ? 1 : 0, v = viewDir(new THREE.Vector3());
-    if (st) { const l = Math.hypot(v.x, v.z) || 1, fx = v.x / l, fz = v.z / l; if (tryDash(me, new THREE.Vector3(-fz * st + fx * fw * 0.55, 0.06, fx * st + fz * fw * 0.55))) { me.dashT *= 0.32; me.sideDash = true; } } else tryDash(me, v); } // (side dash: a short side-step, about a third of a dash, ending at a walk)
+    if (st && !fw) { const l = Math.hypot(v.x, v.z) || 1, fx = v.x / l, fz = v.z / l; if (tryDash(me, new THREE.Vector3(-fz * st, 0.06, fx * st))) { me.dashT *= 0.32; me.sideDash = true; } } else tryDash(me, v); } // (side dash: a short side-step, about a third of a dash, ending at a walk)
 });
 window.addEventListener('keyup', (e) => { const code = actOf(e.code); if (code) keys[code] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.lmb = false; if (me && me.hook) releaseHook(me, false); });
