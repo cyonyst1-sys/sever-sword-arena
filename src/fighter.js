@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261118212339';
-import { buildBody, poseBody } from './body.js?v=20261118212339';
-import { item, cleanLook } from './cosmetics.js?v=20261118212339';
+import { rim } from './vfx.js?v=20261120185041';
+import { buildBody, poseBody } from './body.js?v=20261120185041';
+import { item, cleanLook } from './cosmetics.js?v=20261120185041';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -213,6 +213,7 @@ const GEO = {
   round: roundBox(), // hands, feet, shoulder pads, collar, nose...
   skirt: new THREE.CylinderGeometry(0.17, 0.25, 0.4, 16, 1),
   cone: new THREE.ConeGeometry(1, 1, 12, 1),
+  tnose: (() => { const g = new THREE.CylinderGeometry(0.4, 1, 1, 3, 1).toNonIndexed(); g.computeVertexNormals(); return g; })(), // a tengu mask's nose: a three-sided wedge (a ridge on top, flat underneath), broad at the face and tapering to a blunt end
 };
 
 // metal reflects a soft sky (set once from main via setMetalEnv); only metal gets it, so nothing else changes

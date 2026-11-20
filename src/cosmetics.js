@@ -57,11 +57,12 @@ export const CATALOG = {
       ...pair((s) => ['box', GOLD, [0.022 * s, -0.032, -0.128], [0.04, 0.009, 0.008], [0, 0, -0.3 * s]]),
     ] },
     { id: 'tengu', name: 'Tengu', price: 350, sw: 0xc0262c, hide: ['nose', 'eyeL', 'eyeR', 'browL', 'browR'], parts: [
-      // a carved wooden tengu: a rounded crimson face with a heavy brow, a long thick nose with a rounded tip, gold eyes in dark
+      // a carved wooden tengu: a rounded crimson face with a heavy brow, a long nose carved as a wedge (a ridge along the top,
+      // a flat underside with the nostrils, tapering to a blunt end that dips a little), high cheekbones, gold eyes in dark
       // sockets, curled charcoal eyebrows, a drooping moustache, a frown, and a pointed goatee
       ['sph', TENGU, [0, 0, -0.072], [0.088, 0.112, 0.066]], ['sph', TENGU, [0, -0.088, -0.082], [0.052, 0.042, 0.044]], ['sph', TENGU, [0, 0.046, -0.112], [0.078, 0.024, 0.032]],
-      ...pair((s) => ['sph', TENGU, [0.052 * s, -0.03, -0.1], [0.032, 0.03, 0.03]]),
-      ['sph', TENGU, [0, -0.006, -0.135], [0.031, 0.029, 0.034]], ['cyl', TENGU, [0, -0.012, -0.215], [0.0215, 0.17, 0.0215], [-PI / 2 + 0.06, 0, 0]], ['sph', TENGU, [0, -0.018, -0.303], [0.027, 0.026, 0.03]],
+      ...pair((s) => ['sph', TENGU, [0.06 * s, -0.02, -0.092], [0.034, 0.022, 0.026], [0, 0, 0.35 * s]]), // cheekbones, high and out to the sides
+      ['tnose', TENGU, [0, -0.02, -0.168], [0.034, 0.092, 0.036], [-PI / 2 - 0.16, 0, 0]], ...pair((s) => ['sph', CHAR, [0.012 * s, -0.043, -0.14], [0.007, 0.003, 0.009]]), // the nose: a carved wedge with a ridge along the top, jutting forward and down; the nostrils under it
       ...pair((s) => ['sph', CHAR, [0.037 * s, 0.017, -0.123], [0.025, 0.015, 0.012]]), ...pair((s) => ['sph', GOLD, [0.037 * s, 0.016, -0.13], [0.0135, 0.011, 0.008]]), ...pair((s) => ['sph', BLACK, [0.037 * s, 0.016, -0.1365], [0.0055, 0.0055, 0.003]]),
       ...pair((s) => ['box', CHAR, [0.041 * s, 0.054, -0.138], [0.05, 0.014, 0.012], [0, 0, 0.32 * s]]), ...pair((s) => ['sph', CHAR, [0.068 * s, 0.067, -0.134], [0.014, 0.014, 0.009]]), ...pair((s) => ['sph', CHAR, [0.016 * s, 0.045, -0.141], [0.012, 0.012, 0.009]]),
       ...pair((s) => ['box', CHAR, [0.03 * s, -0.05, -0.133], [0.046, 0.011, 0.01], [0, 0, -0.38 * s]]), ...pair((s) => ['sph', CHAR, [0.054 * s, -0.061, -0.128], [0.009, 0.009, 0.007]]),
@@ -355,13 +356,13 @@ const oHalf = (M, T, tusk) => [['round', M, [0, -0.062, -0.098], [0.158, 0.09, 0
       ...pair((s) => bigHorn(TENT, 0.07, 0.09, -0.03, s, 0.25, 0.8, -0.6, 0.028)).flat(), ...pair((s) => [0, 1, 2, 3, 4].map((i) => ['sph', SILV, [(0.076 + i * 0.02) * s, 0.094 + i * 0.02, -0.058], [0.0095 - i * 0.001, 0.0095 - i * 0.001, 0.005]])).flat()] }, // tentacle horns, a row of suckers down each
   ); }
 // a lacquered tengu: glossy red, a furrowed brow under sweeping black eyebrows, amber eyes, long ears with a gold cord,
-// a thick nose rising to a blunt end, and an open mouth showing gold teeth over a jutting chin
+// a long wedge of a nose with a ridge along the top, tapering to a blunt end, and an open mouth showing gold teeth over a jutting chin
 { const R = mat(0xc0181c, { r: 0.16, m: 0.2, e: 0x240204, ei: 1 }), DR = mat(0x7a0c10, { r: 0.2, m: 0.2 }), AMB = mat(0xc88a2a, { m: 0.6, r: 0.25, e: 0x3a2000, ei: 1 }), TG = mat(0xc89a3a, { m: 0.8, r: 0.35 });
   CATALOG.mask.push({ id: 'lacquertengu', name: 'Lacquer Tengu', price: 1200, sw: 0xc0181c, hide: FACE, parts: [...oFace(R),
     ...[0, 1, 2].map((i) => ['round', DR, [0, 0.075 + i * 0.017, -0.118 + i * 0.012], [0.11 - i * 0.012, 0.007, 0.012]]), // furrows across the brow
     ...pair((s) => ['round', BLACK, [0.044 * s, 0.058, -0.137], [0.066, 0.019, 0.014], [0, 0, 0.55 * s]]), ...pair((s) => ['sph', BLACK, [0.014 * s, 0.04, -0.141], [0.012, 0.012, 0.008]]), // black eyebrows sweeping up and out, curled at the bridge
     ...pair((s) => ['sph', BLACK, [0.038 * s, 0.015, -0.124], [0.029, 0.016, 0.012], [0, 0, -0.3 * s]]), ...pair((s) => ['sph', AMB, [0.038 * s, 0.014, -0.131], [0.016, 0.012, 0.008]]), ...pair((s) => ['sph', BLACK, [0.038 * s, 0.014, -0.138], [0.006, 0.006, 0.003]]),
-    ['sph', R, [0, -0.012, -0.136], [0.034, 0.032, 0.036]], ['cyl', R, [0, -0.003, -0.213], [0.024, 0.17, 0.024], [-PI / 2 + 0.2, 0, 0]], ['sph', R, [0, 0.014, -0.298], [0.031, 0.031, 0.03]], // the nose
+    ['tnose', R, [0, -0.016, -0.172], [0.036, 0.098, 0.038], [-PI / 2 - 0.1, 0, 0]], ...pair((s) => ['sph', BLACK, [0.013 * s, -0.04, -0.142], [0.0075, 0.003, 0.0095]]), // the nose: a carved wedge with a ridge along the top, jutting forward and down; the nostrils under it
     ['box', BLACK, [0, -0.07, -0.127], [0.078, 0.022, 0.01]], ...[-3, -2, -1, 0, 1, 2, 3].flatMap((k) => [['box', TG, [k * 0.0105, -0.064, -0.133], [0.009, 0.009, 0.005]], ['box', TG, [k * 0.0105, -0.077, -0.133], [0.009, 0.008, 0.005]]]), // gold teeth
     ['round', R, [0, -0.1, -0.105], [0.075, 0.03, 0.05]], ['round', R, [0, -0.055, -0.13], [0.09, 0.008, 0.012]], // the chin, the upper lip
     ...pair((s) => ['round', R, [0.106 * s, -0.005, -0.005], [0.018, 0.11, 0.045]]), ...pair((s) => ['cyl', TG, [0.122 * s, 0.03, -0.005], [0.005, 0.035, 0.005], [0, 0, PI / 2]]), // long ears, a gold cord through each
