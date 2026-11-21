@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261121114809';
-import { buildBody, poseBody } from './body.js?v=20261121114809';
-import { item, cleanLook } from './cosmetics.js?v=20261121114809';
+import { rim } from './vfx.js?v=20261121115243';
+import { buildBody, poseBody } from './body.js?v=20261121115243';
+import { item, cleanLook } from './cosmetics.js?v=20261121115243';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -566,7 +566,11 @@ export class Fighter {
       const sE = F - Hd + 0.03, cE = F - Hd - 0.02; // (the pole between the two heads, a collar at each end of it)
       seg(P.grip, _a.copy(hand).addScaledVector(d, -sE), _b.copy(hand).addScaledVector(d, sE), 0.019);
       boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, cE), 0.06, 0.06, 0.05); boxBasis(P.guard2, ne, nd, _a.copy(hand).addScaledVector(d, -cE), 0.06, 0.06, 0.05);
-      boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, F - Hd / 2), bw, Hd, bt); boxBasis(P.blade2, ne, nd, _a.copy(hand).addScaledVector(d, -(F - Hd / 2)), bw, Hd, bt);
+      if (spr.tilt) { // (a scythe: each blade leaves the end of the pole leaning out toward its own leading side, and is that much longer, so it still reaches as far along the pole's line)
+        const ct = Math.cos(spr.tilt), st = Math.sin(spr.tilt), e = this.edge, Hl = Hd / ct, d2 = V(d.x * ct + e.x * st, d.y * ct + e.y * st, d.z * ct + e.z * st), e2 = V(e.x * ct - d.x * st, e.y * ct - d.y * st, e.z * ct - d.z * st);
+        boxBasis(P.blade, e2, d2, _a.copy(hand).addScaledVector(d, F - Hd).addScaledVector(d2, Hl / 2), bw, Hl, bt);
+        boxBasis(P.blade2, e2.clone().negate(), d2.clone().negate(), _a.copy(hand).addScaledVector(d, -(F - Hd)).addScaledVector(d2, -Hl / 2), bw, Hl, bt);
+      } else { boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, F - Hd / 2), bw, Hd, bt); boxBasis(P.blade2, ne, nd, _a.copy(hand).addScaledVector(d, -(F - Hd / 2)), bw, Hd, bt); }
     } else {
     seg(P.grip, _a.copy(hand).addScaledVector(d, -0.12), _b.copy(hand).addScaledVector(d, 0.08), 0.022);
     boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, 0.09), 0.13, 0.025, 0.07);
