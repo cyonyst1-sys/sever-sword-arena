@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261120191721';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261120191721';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261120191721';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261120191721';
-import * as net from './net.js?v=20261120191721';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261120191721';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261120191721';
-import { makeKillFx } from './killfx.js?v=20261120191721';
-import { makeGrapple } from './grapple.js?v=20261120191721';
-import { initShop } from './shop.js?v=20261120191721';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261120191721';
-import { portal } from './portal.js?v=20261120191721';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261120191721';
-import { makePost } from './post.js?v=20261120191721';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261120191721';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261120191721';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261120191721';
+import { Arena, MAPS } from './arena.js?v=20261120192356';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261120192356';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261120192356';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261120192356';
+import * as net from './net.js?v=20261120192356';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261120192356';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261120192356';
+import { makeKillFx } from './killfx.js?v=20261120192356';
+import { makeGrapple } from './grapple.js?v=20261120192356';
+import { initShop } from './shop.js?v=20261120192356';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261120192356';
+import { portal } from './portal.js?v=20261120192356';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261120192356';
+import { makePost } from './post.js?v=20261120192356';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261120192356';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261120192356';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261120192356';
 
 // ---------- settings ----------
 const store = {
@@ -2241,6 +2241,37 @@ function enterGame() {
   if (!locked) $('clickPlay').classList.remove('hidden');
   lockPointer();
 }
+// ---------- live updates (the way Castle Rangers does them) ----------
+// The page asks version.json for the newest build when it loads (index.html), and here every 30 seconds after that
+// and whenever you come back to the tab. A newer build installs itself at once if you are in the menus: a short
+// "Updating" bar, then the page reloads onto the new files. In a match or an online room it waits (a reload would
+// throw you out): it tells you once, and installs when you are back at the main menu.
+const upd = { latest: '', busy: false, applying: false, told: false };
+const updSafe = () => S.phase === 'menu' && !S.online;
+function updApply(v) {
+  if (upd.applying) return; upd.applying = true;
+  let n = $('updNote'); if (!n) { n = document.createElement('div'); n.id = 'updNote'; document.body.appendChild(n); }
+  n.className = ''; n.setAttribute('role', 'status');
+  n.innerHTML = '<b>Updating Sever</b><div class="track"><i></i></div><span>Loading the latest game…</span>';
+  setTimeout(() => { const f = n.querySelector('i'); if (f) f.style.width = '100%'; }, 40);
+  setTimeout(() => { n.classList.add('done'); n.querySelector('span').textContent = '✓ Update complete'; }, 850);
+  setTimeout(() => { if (!window.severVersion.go(v)) { n.remove(); upd.applying = false; upd.latest = ''; } }, 1500); // (go() declines if this build has already been tried twice)
+}
+function updCheck() {
+  if (upd.busy || upd.applying || document.hidden || !window.severVersion) return;
+  if (upd.latest) { if (updSafe()) updApply(upd.latest); return; }
+  upd.busy = true;
+  window.severVersion.check().then((v) => {
+    upd.busy = false; if (!v) return;
+    upd.latest = v;
+    if (updSafe()) updApply(v);
+    else if (!upd.told) { upd.told = true; toast('A game update is ready. It installs when you are back at the main menu.'); }
+  });
+}
+setInterval(updCheck, 30000);
+document.addEventListener('visibilitychange', updCheck);
+{ const b = window.severVersion && window.severVersion.build, el = $('buildTag'); if (el && b && b.length >= 12) el.textContent = `v${b.slice(2, 4)}.${b.slice(4, 6)}.${b.slice(6, 8)}.${b.slice(8, 12)}`; } // (the build you are on, in the corner of the menu)
+
 function toMenu() {
   fx.clear(); S.obj = null; hideVote(); vote = null; tut = null; updateCoinBadge(); renderProgress();
   portal.gameplayStop(); S.phase = 'menu'; S.ended = false; clearWorld(); S.roster = [];
@@ -2248,6 +2279,7 @@ function toMenu() {
   if (document.pointerLockElement) document.exitPointerLock();
   show('home'); useMap($('map').value); renderMapPicker(); renderModePicker(); // (the menu background shows the chosen map again)
   if (!S.online && net.available()) net.dirStart(onRooms); // (keeps the live-games count on the menu fresh)
+  updCheck(); // (back at the menu: a waiting update installs now)
 }
 const ranked = (list, mode) => [...list].sort((a, b) => POINT_MODES.has(mode) ? (b.pts || 0) - (a.pts || 0) || b.k - a.k : b.k - a.k || a.d - b.d);
 function showEnd(res) {

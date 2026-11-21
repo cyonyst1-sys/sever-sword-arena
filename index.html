@@ -4,28 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261120191721">
+<meta name="build" content="20261120192356">
 <link rel="icon" href="data:,">
 <script>
-// Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
+// Live updates (as in Castle Rangers). version.json (never cached) names the newest build. A page older than that
+// reloads itself onto the new files: at once when it loads; after that the game asks again every 30 seconds and
+// whenever you come back to the tab, and installs the update as soon as you are in the menus (see main.js).
 window.severVersion = {
   build: document.querySelector('meta[name=build]').content,
+  // resolves to the newer build's number, or false if this page is up to date (or the check couldn't be made)
   check: function () {
     var build = this.build;
     return fetch('version.json?nc=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        if (!j || typeof j.v !== 'string' || j.v === build) return false;
-        var q = new URLSearchParams(location.search);
-        if (q.get('fresh') === j.v) return false;
-        q.set('fresh', j.v);
-        location.replace(location.pathname + '?' + q.toString() + location.hash);
-        return true;
-      })
+      .then(function (j) { return j && typeof j.v === 'string' && Number(j.v) > Number(build) ? j.v : false; })
       .catch(function () { return false; });
   },
+  // reload onto build v, on fresh addresses so nothing cached is reused (at most twice for the same build, in case a stale copy keeps coming back)
+  go: function (v) {
+    var n = 0; try { n = +sessionStorage.getItem('sever.upd.' + v) || 0; sessionStorage.setItem('sever.upd.' + v, n + 1); } catch (e) { /* no storage */ }
+    if (n >= 2) return false;
+    var q = new URLSearchParams(location.search);
+    q.set('fresh', v); q.set('update', String(Date.now()));
+    location.replace(location.pathname + '?' + q.toString() + location.hash);
+    return true;
+  },
 };
-window.severVersion.check();
+window.severVersion.check().then(function (v) { if (v) window.severVersion.go(v); });
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -192,6 +197,12 @@ window.severVersion.check();
   #board th, #endTable th, #lbTable th { color:var(--muted); font-weight:500; }
   #hint { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); font-size:12px; color:var(--muted); font-weight:500; white-space:nowrap; transition:opacity 1s; }
   #clickPlay { position:fixed; left:50%; top:45%; transform:translate(-50%,-50%); z-index:6; background:var(--glass); border:1px solid var(--gold); color:var(--gold); padding:12px 22px; border-radius:12px; font-size:18px; font-weight:800; cursor:pointer; }
+  #updNote { position:fixed; left:50%; top:18px; transform:translateX(-50%); z-index:60; width:min(300px, 86vw); background:#2a2524; border:1px solid var(--gold); border-radius:12px; padding:12px 16px; text-align:center; font-size:13px; box-shadow:0 8px 30px rgba(0,0,0,.5); }
+  #updNote b { display:block; font-family:'Russo One',system-ui; font-weight:400; font-size:16px; color:var(--gold); }
+  #updNote .track { height:6px; background:rgba(0,0,0,.5); border-radius:3px; overflow:hidden; margin:9px 0 7px; }
+  #updNote .track i { display:block; height:100%; width:0; background:var(--gold); transition:width .8s ease; }
+  #updNote.done span { color:#7fe08a; }
+  #buildTag { position:fixed; right:10px; bottom:8px; z-index:3; font-size:11px; color:var(--muted); opacity:.7; pointer-events:none; }
   #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:20; background:#2a2524; border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:14px; transition:opacity .4s; pointer-events:none; }
   #vignette { position:fixed; inset:0; pointer-events:none; z-index:4; box-shadow:inset 0 0 160px rgba(160,0,0,0); transition:box-shadow .3s; }
   #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#0b0a0a; font-family:'Russo One',system-ui; font-size:28px; color:var(--muted); z-index:30; }
@@ -203,12 +214,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261120191721",
-  "./src/arena.js": "./src/arena.js?v=20261120191721",
-  "./src/fighter.js": "./src/fighter.js?v=20261120191721",
-  "./src/slice.js": "./src/slice.js?v=20261120191721",
-  "./src/audio.js": "./src/audio.js?v=20261120191721",
-  "./src/net.js": "./src/net.js?v=20261120191721"
+  "./src/main.js": "./src/main.js?v=20261120192356",
+  "./src/arena.js": "./src/arena.js?v=20261120192356",
+  "./src/fighter.js": "./src/fighter.js?v=20261120192356",
+  "./src/slice.js": "./src/slice.js?v=20261120192356",
+  "./src/audio.js": "./src/audio.js?v=20261120192356",
+  "./src/net.js": "./src/net.js?v=20261120192356"
 } }
 </script>
 </head>
@@ -217,6 +228,7 @@ window.severVersion.check();
 <div id="vignette"></div>
 
 <div id="home" class="screen">
+  <div id="buildTag"></div>
   <div class="panel homeGrid">
     <div class="homeLeft">
     <label class="hidden">Mode <select id="mode"></select></label>
@@ -384,6 +396,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261120191721"></script>
+<script type="module" src="src/main.js?v=20261120192356"></script>
 </body>
 </html>
