@@ -15,7 +15,7 @@ export const MODES = {
   ships: { name: 'Sky Duel', blurb: 'Red against blue, each crew on its own airship plane. The two ships weave round each other above the clouds, swapping sides and passing one over the other. Jump or swing across when they close, hook anything underneath a ship to swing out from below it, and come back up over a wing. You respawn on your own ship. First crew to 30 kills wins. Always played on Sky Duel.' },
   tutorial: { name: 'Training', solo: true, blurb: 'Learn the moves one at a time: move, jump, cut, dash, hook, wall jump, then a sparring match.' },
   horde: { name: 'Horde', blurb: 'Co-op: everyone together against waves of oni.' },
-  boss: { name: 'ChopSocky', solo: true, blurb: 'Solo, 1v1: fight through one boss after another, each with its own tricks. Bosses take several cuts to bring down. You have 3 lives, and beating a boss gives one back. After the eighth they come round again, harder. How far can you get?' },
+  boss: { name: 'ChopSocky', solo: true, blurb: 'Solo, 1v1: fight through one boss after another, each with its own tricks, each in a different arena drawn at random: beat one and you are sent on to the next. Bosses take several cuts to bring down. You have 3 lives, and beating a boss gives one back. After the eighth they come round again, harder. How far can you get?' },
 };
 export const POINT_MODES = new Set(['koth', 'jugg', 'hunt']); // won on points rather than kills
 export const MODE_GOAL = { team: 30, ffa: 15, koth: 60, jugg: 60, hunt: 20 };

@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261121120852';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121120852';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121120852';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121120852';
-import * as net from './net.js?v=20261121120852';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121120852';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121120852';
-import { makeKillFx } from './killfx.js?v=20261121120852';
-import { makeGrapple } from './grapple.js?v=20261121120852';
-import { initShop } from './shop.js?v=20261121120852';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261121120852';
-import { portal } from './portal.js?v=20261121120852';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121120852';
-import { makePost } from './post.js?v=20261121120852';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261121120852';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121120852';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121120852';
+import { Arena, MAPS } from './arena.js?v=20261121123714';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121123714';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121123714';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121123714';
+import * as net from './net.js?v=20261121123714';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121123714';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121123714';
+import { makeKillFx } from './killfx.js?v=20261121123714';
+import { makeGrapple } from './grapple.js?v=20261121123714';
+import { initShop } from './shop.js?v=20261121123714';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261121123714';
+import { portal } from './portal.js?v=20261121123714';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121123714';
+import { makePost } from './post.js?v=20261121123714';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261121123714';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121123714';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121123714';
 
 // ---------- settings ----------
 const store = {
@@ -44,7 +44,17 @@ window.addEventListener('resize', resize); resize();
 
 let arena = new Arena(scene, settings.quality, 'spire');
 // switch maps (between matches): drop the old one and build the new
-function useMap(id) { if (!MAPS[id]) id = 'spire'; if (arena.mapId === id && !arena.dirty) return; // (also rebuild after platforms have crumbled)
+// ChopSocky is a special mode with no map of its own: every boss is fought in an arena drawn at random from the
+// ordinary maps (each one comes up once before any repeats, and never the same twice running). `bossMap` is the
+// arena in play; asking for the map 'boss' means "whichever that is".
+let bossMap = null, bossBag = [];
+function rollBossMap() {
+  if (!bossBag.length) { bossBag = Object.keys(MAPS).filter((k) => !['lava', 'run', 'transport', 'train', 'ships', 'boss', 'tutorial'].includes(k));
+    for (let i = bossBag.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [bossBag[i], bossBag[j]] = [bossBag[j], bossBag[i]]; }
+    if (bossBag.length > 1 && bossBag[bossBag.length - 1] === bossMap) bossBag.unshift(bossBag.pop()); }
+  return (bossMap = bossBag.pop());
+}
+function useMap(id) { if (id === 'boss') id = bossMap || rollBossMap(); if (!MAPS[id]) id = 'spire'; if (arena.mapId === id && !arena.dirty) return; // (also rebuild after platforms have crumbled)
   arena.dispose(); arena = new Arena(scene, settings.quality, id); }
 const ground = (x, z, y, m) => arena.groundHeight(x, z, y, m);
 const blood = new Particles(scene, ground, { color: 0x0d0c0e, size: 0.07, decals: true, max: 2400, decalColor: 0x060507 }); // black blood
@@ -1542,9 +1552,10 @@ function fillBots() {
 }
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave, q: !!S.quick, pub: !!S.pub, bots: S.bots, hid: S.myId }); renderLobby(); }
 function startMatch() {
-  const SP = ['lava', 'run', 'transport', 'train', 'ships'];
+  const SP = ['lava', 'run', 'transport', 'train', 'ships', 'boss'];
   for (const sp of SP) { if (S.mode === sp) S.map = sp; else if (S.map === sp) S.mode = sp; } // (special maps: the mode and its map go together)
   if (!SP.includes(S.mode) && SP.includes(S.map)) S.map = 'spire';
+  if (S.mode === 'boss') rollBossMap(); // (ChopSocky: the first boss's arena, at random)
   useMap(S.map);
   clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
   if (coop()) S.roster = S.roster.filter((r) => r.human);
@@ -1764,10 +1775,18 @@ function bossOnKill(v) {
     const idx = S.bossIdx + 1, run = S.matchStart;
     setTimeout(() => {
       if (S.mode !== 'boss' || S.phase !== 'game' || S.ended || S.matchStart !== run) return;
-      S.bossIdx = idx; fillBots(); syncFighters();
-      const nb = [...fighters.values()].find((f) => f.boss); if (nb) hostSpawn(nb);
-      const d = bossDef(idx); showBanner(`BOSS ${idx + 1}: ${d.name.toUpperCase()}`); sendRoster();
-    }, 3500);
+      S.bossIdx = idx;
+      // on to the next boss's arena, drawn at random: the screen goes dark, the world is swapped, and you both come in afresh
+      const fade = $('mapFade'); fade.style.opacity = 1;
+      setTimeout(() => {
+        if (S.mode !== 'boss' || S.phase !== 'game' || S.ended || S.matchStart !== run) { fade.style.opacity = 0; return; }
+        rollBossMap(); useMap('boss'); clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
+        fillBots(); syncFighters(); for (const f of fighters.values()) hostSpawn(f);
+        const d = bossDef(idx); showBanner(`BOSS ${idx + 1}: ${d.name.toUpperCase()}`); feed(`The next arena: ${esc((MAPS[bossMap] || MAPS.spire).name)}`); sendRoster();
+        setTimeout(() => { fade.style.opacity = 0; }, 150);
+      }, 450);
+      return;
+    }, 3000);
   } else if (!v.isBot) { S.lives--; if (S.lives > 0) showBanner(`${S.lives} ${S.lives > 1 ? 'LIVES' : 'LIFE'} LEFT`); }
 }
 
@@ -2889,7 +2908,7 @@ window.__sever = { get pm() { return pm; }, PM, ghosts, S, fighters, pieces, sce
 // ---------- map picker: a thumbnail card for each map (the hidden select still holds the choice) ----------
 function thumb(id) { return `thumbs/${id}.jpg?v=${document.querySelector('meta[name=build]').content}`; }
 // special maps come with their own mode (and that mode with its map)
-const SPECIAL = { lava: 'lava', run: 'run', transport: 'transport', train: 'train', ships: 'ships' };
+const SPECIAL = { lava: 'lava', run: 'run', transport: 'transport', train: 'train', ships: 'ships', boss: 'boss' };
 // a painted card for each mode: a colour wash and an emblem drawn on a canvas (made once)
 const modeArt = {};
 function modeThumb(id) {

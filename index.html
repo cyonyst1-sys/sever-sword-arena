@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261121120852">
+<meta name="build" content="20261121123714">
 <link rel="icon" href="data:,">
 <script>
 // Live updates (as in Castle Rangers). version.json (never cached) names the newest build. A page older than that
@@ -204,6 +204,7 @@ window.severVersion.check().then(function (v) { if (v) window.severVersion.go(v)
   #updNote.done span { color:#7fe08a; }
   #buildTag { position:fixed; right:10px; bottom:8px; z-index:3; font-size:11px; color:var(--muted); opacity:.7; pointer-events:none; }
   #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:20; background:#2a2524; border:1px solid var(--line); border-radius:10px; padding:10px 16px; font-size:14px; transition:opacity .4s; pointer-events:none; }
+  #mapFade { position:fixed; inset:0; pointer-events:none; z-index:4; background:#000; opacity:0; transition:opacity .4s; }
   #vignette { position:fixed; inset:0; pointer-events:none; z-index:4; box-shadow:inset 0 0 160px rgba(160,0,0,0); transition:box-shadow .3s; }
   #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#0b0a0a; font-family:'Russo One',system-ui; font-size:28px; color:var(--muted); z-index:30; }
   .rng { display:flex; align-items:center; gap:8px; }
@@ -214,18 +215,19 @@ window.severVersion.check().then(function (v) { if (v) window.severVersion.go(v)
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261121120852",
-  "./src/arena.js": "./src/arena.js?v=20261121120852",
-  "./src/fighter.js": "./src/fighter.js?v=20261121120852",
-  "./src/slice.js": "./src/slice.js?v=20261121120852",
-  "./src/audio.js": "./src/audio.js?v=20261121120852",
-  "./src/net.js": "./src/net.js?v=20261121120852"
+  "./src/main.js": "./src/main.js?v=20261121123714",
+  "./src/arena.js": "./src/arena.js?v=20261121123714",
+  "./src/fighter.js": "./src/fighter.js?v=20261121123714",
+  "./src/slice.js": "./src/slice.js?v=20261121123714",
+  "./src/audio.js": "./src/audio.js?v=20261121123714",
+  "./src/net.js": "./src/net.js?v=20261121123714"
 } }
 </script>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="vignette"></div>
+<div id="mapFade"></div>
 
 <div id="home" class="screen">
   <div id="buildTag"></div>
@@ -253,7 +255,7 @@ window.severVersion.check().then(function (v) { if (v) window.severVersion.go(v)
     <h1 class="logo"><span>SEVER</span><span class="lo" aria-hidden="true">SEVER</span></h1>
     <p class="tag">A third-person sword arena in the sky. Swing your blade with the mouse, and whatever it passes through is cut along that exact line.</p>
     <label>Your name <input id="name" maxlength="14" placeholder="Ronin"></label>
-      <label class="hidden">Map <select id="map"><option value="spire">Sky Spires: many small platforms</option><option value="plateaus">Sky Plateaus: a few huge platforms</option><option value="canopy">Great Canopy: tree branches and bamboo</option><option value="pagoda">Pagoda Falls: a sunset pagoda, stone islands and lacquer posts</option><option value="isles">Moonlit Isles: floating islands, a cherry tree and bamboo groves</option><option value="colosseum">Colosseum: a bowl of round platforms around a big arena floor</option><option value="dojo">Paper Dojo District: a town you can cut apart</option><option value="city">Glass Skyline: skyscrapers and steel frames to smash through</option><option value="bamboo">Bamboo Fort: everything is bamboo, even the floor</option><option value="foundry">Saw Foundry: blades, lifts and sliding platforms</option><option value="tilt">Swinging Decks: hanging decks that swing when you land</option><option value="grove">Topiary Grove: cloud-pruned trees in two facing rows</option><option value="comet">Comet Crash: asteroids riding a comet into a planet</option><option value="lava">Lava Climb</option><option value="run">Branch Run</option><option value="transport">Transport</option><option value="train">Bullet Train</option><option value="ships">Sky Duel</option></select></label>
+      <label class="hidden">Map <select id="map"><option value="spire">Sky Spires: many small platforms</option><option value="plateaus">Sky Plateaus: a few huge platforms</option><option value="canopy">Great Canopy: tree branches and bamboo</option><option value="pagoda">Pagoda Falls: a sunset pagoda, stone islands and lacquer posts</option><option value="isles">Moonlit Isles: floating islands, a cherry tree and bamboo groves</option><option value="colosseum">Colosseum: a bowl of round platforms around a big arena floor</option><option value="dojo">Paper Dojo District: a town you can cut apart</option><option value="city">Glass Skyline: skyscrapers and steel frames to smash through</option><option value="bamboo">Bamboo Fort: everything is bamboo, even the floor</option><option value="foundry">Saw Foundry: blades, lifts and sliding platforms</option><option value="tilt">Swinging Decks: hanging decks that swing when you land</option><option value="grove">Topiary Grove: cloud-pruned trees in two facing rows</option><option value="comet">Comet Crash: asteroids riding a comet into a planet</option><option value="lava">Lava Climb</option><option value="run">Branch Run</option><option value="transport">Transport</option><option value="train">Bullet Train</option><option value="ships">Sky Duel</option><option value="boss">ChopSocky: a new random arena for every boss</option></select></label>
     <div class="row"><button class="primary" id="quickBtn" title="Jump into an online match: random mode and map, bots fill the empty spots">Online Quick Match</button></div>
     <div class="muted" id="liveCount" style="margin:-4px 0 6px">Looking for live games…</div>
     <div class="row"><button id="toMp" class="wide">Create Online Match</button></div>
@@ -396,6 +398,6 @@ window.severVersion.check().then(function (v) { if (v) window.severVersion.go(v)
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261121120852"></script>
+<script type="module" src="src/main.js?v=20261121123714"></script>
 </body>
 </html>

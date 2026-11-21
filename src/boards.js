@@ -1,7 +1,7 @@
 // Leaderboards: your record on each board, for this week and for all time, ranked against the players you have met
 // online (their results in the matches you shared). It all lives in the saved profile. `remote` is where a worldwide
 // table plugs in: an object with top(board, week) -> [{ name, v }] and submit(entry); until one is set, ranks are local.
-import { profile, saveProfile } from './cosmetics.js?v=20261121120852';
+import { profile, saveProfile } from './cosmetics.js?v=20261121123714';
 
 export const BOARDS = [ // max: the best single value counts, not a running total
   { id: 'kills', name: 'Kills', unit: 'Kills' },

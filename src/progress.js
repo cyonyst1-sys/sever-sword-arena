@@ -1,7 +1,7 @@
 // Reasons to come back: experience and levels (a coin reward at each new level), and three daily challenges that change
 // at midnight (your own clock). All of it lives in the saved profile, next to the coins.
-import { profile, saveProfile } from './cosmetics.js?v=20261121120852';
-import { lbAdd } from './boards.js?v=20261121120852';
+import { profile, saveProfile } from './cosmetics.js?v=20261121123714';
+import { lbAdd } from './boards.js?v=20261121123714';
 
 profile.xp = Math.max(0, Math.floor(+profile.xp || 0));
 export const xpFor = (lv) => 100 + (lv - 1) * 60; // (what it takes to get from this level to the next)
