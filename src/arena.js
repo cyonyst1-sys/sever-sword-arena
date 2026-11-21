@@ -3,25 +3,25 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { barkMat, barkUV, barkMap } from './bark.js?v=20261121125305';
-import { buildTilt } from './tilt.js?v=20261121125305';
-import { buildFoundry } from './foundry.js?v=20261121125305';
-import { buildBamboo } from './bamboo.js?v=20261121125305';
-import { buildCity } from './city.js?v=20261121125305';
-import { buildDojo } from './dojo.js?v=20261121125305';
-import { buildComet } from './comet.js?v=20261121125305';
-import { buildLava } from './lava.js?v=20261121125305';
-import { buildRun } from './run.js?v=20261121125305';
-import { buildGrove } from './grove.js?v=20261121125305';
-import { buildTransport } from './transport.js?v=20261121125305';
-import { buildTutorial } from './tutorial.js?v=20261121125305';
-import { buildTrain } from './train.js?v=20261121125305';
-import { buildCompound, COMPOUNDS } from './compound.js?v=20261121125305';
-import { buildAirship } from './airship.js?v=20261121125305';
-import { applyLook } from './look.js?v=20261121125305';
-import { addScenery } from './scenery.js?v=20261121125305';
-import { addAtmosphere } from './atmos.js?v=20261121125305';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261121125305';
+import { barkMat, barkUV, barkMap } from './bark.js?v=20261121130943';
+import { buildTilt } from './tilt.js?v=20261121130943';
+import { buildFoundry } from './foundry.js?v=20261121130943';
+import { buildBamboo } from './bamboo.js?v=20261121130943';
+import { buildCity } from './city.js?v=20261121130943';
+import { buildDojo } from './dojo.js?v=20261121130943';
+import { buildComet } from './comet.js?v=20261121130943';
+import { buildLava } from './lava.js?v=20261121130943';
+import { buildRun } from './run.js?v=20261121130943';
+import { buildGrove } from './grove.js?v=20261121130943';
+import { buildTransport } from './transport.js?v=20261121130943';
+import { buildTutorial } from './tutorial.js?v=20261121130943';
+import { buildTrain } from './train.js?v=20261121130943';
+import { buildCompound, COMPOUNDS } from './compound.js?v=20261121130943';
+import { buildAirship } from './airship.js?v=20261121130943';
+import { applyLook } from './look.js?v=20261121130943';
+import { addScenery } from './scenery.js?v=20261121130943';
+import { addAtmosphere } from './atmos.js?v=20261121130943';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261121130943';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 

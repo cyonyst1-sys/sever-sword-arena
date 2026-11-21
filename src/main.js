@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261121125305';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121125305';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121125305';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121125305';
-import * as net from './net.js?v=20261121125305';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121125305';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121125305';
-import { makeKillFx } from './killfx.js?v=20261121125305';
-import { makeGrapple } from './grapple.js?v=20261121125305';
-import { initShop } from './shop.js?v=20261121125305';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261121125305';
-import { portal } from './portal.js?v=20261121125305';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121125305';
-import { makePost } from './post.js?v=20261121125305';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261121125305';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121125305';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121125305';
+import { Arena, MAPS } from './arena.js?v=20261121130943';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121130943';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121130943';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121130943';
+import * as net from './net.js?v=20261121130943';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121130943';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121130943';
+import { makeKillFx } from './killfx.js?v=20261121130943';
+import { makeGrapple } from './grapple.js?v=20261121130943';
+import { initShop } from './shop.js?v=20261121130943';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261121130943';
+import { portal } from './portal.js?v=20261121130943';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121130943';
+import { makePost } from './post.js?v=20261121130943';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261121130943';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121130943';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121130943';
 
 // ---------- settings ----------
 const store = {
@@ -1779,7 +1779,7 @@ function bossOnKill(v) {
       const fade = $('mapFade'); fade.style.opacity = 1;
       setTimeout(() => {
         if (S.mode !== 'boss' || S.phase !== 'game' || S.ended || S.matchStart !== run) { fade.style.opacity = 0; return; }
-        rollBossMap(); useMap('boss'); clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
+        rollBossMap(); useMap('boss'); clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = []; PM.best = null; PM.cur.clear(); // (the replay at the end is of this arena only: what happened in the last one happened somewhere else)
         fillBots(); syncFighters(); for (const f of fighters.values()) hostSpawn(f);
         const d = bossDef(idx); showBanner(`BOSS ${idx + 1}: ${d.name.toUpperCase()}`); feed(`The next arena: ${esc((MAPS[bossMap] || MAPS.spire).name)}`); sendRoster();
         setTimeout(() => { fade.style.opacity = 0; }, 150);
@@ -2076,7 +2076,7 @@ $('lbAll').onclick = () => { lbWk = false; renderRanks(); };
 $('lbDone').onclick = () => show('home');
 $('toShop').addEventListener('click', () => shop.open());
 updateCoinBadge();
-function show(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
+function show(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); if (id) $('mini').classList.add('hidden'); } // (the Horde's corner map goes when any screen comes up)
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = 0; }, 2600); }
 function feed(html) {
   const el = document.createElement('div'); el.innerHTML = html; $('feed').prepend(el);
@@ -2388,7 +2388,7 @@ const clock = (t) => { t = Math.max(0, t); return `${Math.floor(t / 60)}:${Strin
 // ---------- the Horde's map in the corner: the compound's floor plan, you (an arrow, the way you face), your friends (blue) and the oni (red) ----------
 let miniBase = null, miniFor = null;
 function drawMini() {
-  const cv = $('mini'), gd = arena.grid, on = !!gd && !!me && S.phase === 'game'; cv.classList.toggle('hidden', !on); if (!on) return;
+  const cv = $('mini'), gd = arena.grid, on = !!gd && !!me && S.phase === 'game' && !pm; cv.classList.toggle('hidden', !on); if (!on) return;
   const c = cv.getContext('2d'), s = cv.width, k = s / gd.G, px = (v) => (v - gd.O) / gd.CELL * k;
   if (miniFor !== arena) { miniFor = arena; miniBase = document.createElement('canvas'); miniBase.width = miniBase.height = s; const b = miniBase.getContext('2d'); // (the floor plan, drawn once for each map)
     b.fillStyle = 'rgba(222,212,196,0.82)'; for (let j = 0; j < gd.G; j++) for (let i = 0; i < gd.G; i++) if (gd.open(i, j)) b.fillRect(i * k, j * k, k + 0.4, k + 0.4); }
@@ -2746,7 +2746,8 @@ const PM = { at: -1, best: null, cur: new Map() }; let pm = null;
 function potmKill(kId, vId, n, pt, imp) {
   if (S.mode === 'tutorial') return; if (PM.at !== S.matchStart) { PM.at = S.matchStart; PM.best = null; PM.cur.clear(); }
   const t = now(), k = fighters.get(kId); if (!k) return;
-  let c = PM.cur.get(kId); if (!c || t - c.tLast > 4 || c.fr.length >= 330) { c = { kId, ev: [], score: 0, tLast: t, fr: rec.filter((r) => r.t > t - 2.2) }; PM.cur.set(kId, c); }
+  let c = PM.cur.get(kId); if (!c || t - c.tLast > 4 || c.fr.length >= 330) { c = { kId, ev: [], score: 0, tLast: t, fr: rec.filter((r) => r.t > t - 2.2), who: new Map() }; PM.cur.set(kId, c); }
+  for (const f of fighters.values()) if (!c.who.has(f.id)) c.who.set(f.id, { id: f.id, color: f.color, team: f.team, isBot: f.isBot, horde: f.horde, look: f.look }); // (what everyone there looked like: by the time it is replayed some may be gone for good, like the Horde's oni)
   c.ev.push({ t, vId, n: n.clone(), pt: pt.clone(), imp: imp ? imp.clone() : new THREE.Vector3() }); c.tLast = t;
   c.score += (c.ev.length > 1 ? 14 : 10) + (k.onGround ? 0 : 3) + Math.min(3, k.vel.length() / 6) + ((rosterGet(vId)?.streak || 0) >= 5 ? 3 : 0) + (k.isBot ? 0 : 1);
   if (!PM.best || c.score > PM.best.score) PM.best = c;
@@ -2758,13 +2759,13 @@ function potmStart(res) { // true if the replay has taken the stage (the results
   const t0 = c.ev[0].t - 1.6, t1 = c.tLast + 0.8, fr = c.fr.filter((r) => r.t >= t0 && r.t <= t1); if (fr.length < 12) return false;
   let ids = new Set(); for (const r of fr) for (const id of r.m.keys()) ids.add(id);
   if (ids.size > 10) ids = new Set([c.kId, ...c.ev.map((e) => e.vId)]); // (a crowd: only the killer and the fallen)
-  const g = new Map(); for (const id of ids) { const f = fighters.get(id); if (f) g.set(id, ghostOf(f)); }
+  const g = new Map(); for (const id of ids) { const f = fighters.get(id) || c.who.get(id); if (f) g.set(id, ghostOf(f)); } // (a fighter no longer in the game still has a stand-in, from how they looked then)
   killCamEnd(); kcOn = false; fin = null;
   for (const f of fighters.values()) { f.group.visible = f.trailMesh.visible = false; if (f.blob) f.blob.visible = false; f.grap.hide(); }
   pm = { c, fr, ev: c.ev, i: 0, fi: 0, t: fr[0].t, t1: Math.min(t1, fr[fr.length - 1].t), g, gone: {}, res, at: S.matchStart, shown: performance.now(), cam: false, look: new THREE.Vector3() };
   const r = rosterGet(c.kId), kn = c.ev.length;
   $('potmName').innerHTML = `<span style="color:${r ? colorOf(r) : '#fff'}">${esc(r ? r.name : '?')}</span>${kn > 1 ? ` &middot; ${kn} kills` : ''}`;
-  $('potm').classList.remove('hidden'); $('hud').classList.add('hidden'); sfx.gong();
+  $('potm').classList.remove('hidden'); $('hud').classList.add('hidden'); $('mini').classList.add('hidden'); sfx.gong();
   return true;
 }
 function potmStop() { arena.replayAt = null; // (clear the stage, without the results)
