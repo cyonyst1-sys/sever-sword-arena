@@ -389,7 +389,7 @@ CATALOG.outfit.push(
 // two-handed, so with a spear this does nothing.
 CATALOG.wield = [
   { id: 'single', name: 'One Sword', price: 0, sw: 0xdfe6ee },
-  { id: 'dual', name: 'Dual Swords', price: 1500, sw: 0xc23a32 },
+  { id: 'dual', name: 'Dual Swords', price: 8000, sw: 0xc23a32 },
 ];
 CATALOG.shape = [
   { id: 'straight', name: 'Straight', price: 0, sw: 0xdfe6ee },
@@ -442,20 +442,20 @@ for (const c of Object.keys(CATALOG)) CATALOG[c].sort((a, b) => (a.price === 0 ?
 // `w` and `t` how broad and thick it is; `guard` is the collar under each head, `grip` the shaft.
 { const sp = (id, name, price, sw, blade, guard, grip, head, hl = 0.36, w = 1.5, t = 1.3, tilt = 0) => ({ id, name, price, sw, blade, guard, grip, w, t, spear: { head, hl, tilt } }); // (tilt: how far a scythe's blades lean out from the pole's line, in radians)
   CATALOG.sword.push(
-    sp('ashspear', 'Ash Twin-Spear', 300, 0xcfd6de, mat(0xdfe6ee, { m: 0.9, r: 0.2 }), 0x6b6f76, 0x7a5a3a, 'jian'),
-    sp('bamboolance', 'Bamboo Lance', 400, 0x9ac46a, mat(0xe8eef2, { m: 0.9, r: 0.15 }), 0x3a5a2a, 0x8aa85a, 'straight', 0.44, 1.0),
-    sp('naginata', 'Twin Naginata', 500, 0xb9c0c8, mat(0xcfd6de, { m: 0.85, r: 0.25 }), 0xc9a24a, 0x2a1d14, 'tachi', 0.48, 1.9),
-    sp('harpoon', 'Bone Harpoon', 550, 0xe8dfc8, mat(0xe8dfc8, { r: 0.75 }), 0x6b4a2c, 0x4a3524, 'serrated', 0.36, 1.8, 1.8),
-    sp('jadefang', 'Jade Fang', 650, 0x3fbf7f, mat(0x3fbf7f, { m: 0.3, r: 0.2, e: 0x0a5a30, ei: 1 }), 0xd4af37, 0x123322, 'jian', 0.38, 1.8),
-    sp('partisan', 'Gilded Partisan', 800, 0xffd34d, mat(0xffd34d, { m: 1, r: 0.22 }), 0x1a1a1a, 0x5a0d12, 'wing', 0.42, 1.4),
-    sp('glaive', 'Obsidian Glaive', 950, 0x16161a, mat(0x111114, { m: 0.7, r: 0.12, e: 0x3a0000, ei: 1 }), 0x8a0d16, 0x111111, 'scimitar', 0.5, 2.0),
-    sp('frostpike', 'Frost Pike', 1100, 0xbfeaff, mat(0xbfeaff, { m: 0.4, r: 0.1, e: 0x3aa0ff, ei: 0.9 }), 0xe6f4ff, 0x1e3f8a, 'straight', 0.52, 0.9),
-    sp('bloodfork', 'Bloodmoon Fork', 1400, 0xd61a2a, mat(0x8a0d16, { m: 0.5, r: 0.2, e: 0xff1a2a, ei: 1.1 }), 0x111111, 0x3a0a0e, 'forked', 0.42, 2.1),
-    sp('monkspade', 'Crescent Spade', 1700, 0xdfe6ee, mat(0xdfe6ee, { m: 0.9, r: 0.18 }), 0xc9a24a, 0x5a1a1a, 'crescent', 0.4, 1.9),
+    sp('ashspear', 'Ash Twin-Spear', 1200, 0xcfd6de, mat(0xdfe6ee, { m: 0.9, r: 0.2 }), 0x6b6f76, 0x7a5a3a, 'jian'),
+    sp('bamboolance', 'Bamboo Lance', 1500, 0x9ac46a, mat(0xe8eef2, { m: 0.9, r: 0.15 }), 0x3a5a2a, 0x8aa85a, 'straight', 0.44, 1.0),
+    sp('naginata', 'Twin Naginata', 1800, 0xb9c0c8, mat(0xcfd6de, { m: 0.85, r: 0.25 }), 0xc9a24a, 0x2a1d14, 'tachi', 0.48, 1.9),
+    sp('harpoon', 'Bone Harpoon', 2100, 0xe8dfc8, mat(0xe8dfc8, { r: 0.75 }), 0x6b4a2c, 0x4a3524, 'serrated', 0.36, 1.8, 1.8),
+    sp('jadefang', 'Jade Fang', 2500, 0x3fbf7f, mat(0x3fbf7f, { m: 0.3, r: 0.2, e: 0x0a5a30, ei: 1 }), 0xd4af37, 0x123322, 'jian', 0.38, 1.8),
+    sp('partisan', 'Gilded Partisan', 3000, 0xffd34d, mat(0xffd34d, { m: 1, r: 0.22 }), 0x1a1a1a, 0x5a0d12, 'wing', 0.42, 1.4),
+    sp('glaive', 'Obsidian Glaive', 3500, 0x16161a, mat(0x111114, { m: 0.7, r: 0.12, e: 0x3a0000, ei: 1 }), 0x8a0d16, 0x111111, 'scimitar', 0.5, 2.0),
+    sp('frostpike', 'Frost Pike', 4000, 0xbfeaff, mat(0xbfeaff, { m: 0.4, r: 0.1, e: 0x3aa0ff, ei: 0.9 }), 0xe6f4ff, 0x1e3f8a, 'straight', 0.52, 0.9),
+    sp('bloodfork', 'Bloodmoon Fork', 5000, 0xd61a2a, mat(0x8a0d16, { m: 0.5, r: 0.2, e: 0xff1a2a, ei: 1.1 }), 0x111111, 0x3a0a0e, 'forked', 0.42, 2.1),
+    sp('monkspade', 'Crescent Spade', 6000, 0xdfe6ee, mat(0xdfe6ee, { m: 0.9, r: 0.18 }), 0xc9a24a, 0x5a1a1a, 'crescent', 0.4, 1.9),
     // the three finest are double scythes: a short pole with a long curved blade leaning out from each end (about 30 degrees off its line), opposite ways
-    sp('flamelance', 'Hellfire Scythe', 2100, 0xff6a10, mat(0x2a0a04, { m: 0.4, r: 0.3, e: 0xff5a00, ei: 2.2 }), 0x1a1a1a, 0x3a1a0a, 'scythe', 0.6, 2.9, 1.5, 0.5),
-    sp('stormlance', 'Storm Scythe', 2500, 0x9ff0ff, mat(0xcff8ff, { m: 0.1, r: 0.05, e: 0x5fe3ff, ei: 2 }), 0xeef6ff, 0x1e3f8a, 'scythe', 0.64, 2.7, 1.3, 0.5),
-    sp('voidreaper', 'Void Reaper', 3200, 0x9b51ff, mat(0x0b0614, { m: 0.6, r: 0.15, e: 0x9b51ff, ei: 1.8 }), 0x2a1a40, 0x0b0614, 'reaper', 0.68, 3.1, 1.6, 0.5),
+    sp('flamelance', 'Hellfire Scythe', 7500, 0xff6a10, mat(0x2a0a04, { m: 0.4, r: 0.3, e: 0xff5a00, ei: 2.2 }), 0x1a1a1a, 0x3a1a0a, 'scythe', 0.6, 2.9, 1.5, 0.5),
+    sp('stormlance', 'Storm Scythe', 9000, 0x9ff0ff, mat(0xcff8ff, { m: 0.1, r: 0.05, e: 0x5fe3ff, ei: 2 }), 0xeef6ff, 0x1e3f8a, 'scythe', 0.64, 2.7, 1.3, 0.5),
+    sp('voidreaper', 'Void Reaper', 12000, 0x9b51ff, mat(0x0b0614, { m: 0.6, r: 0.15, e: 0x9b51ff, ei: 1.8 }), 0x2a1a40, 0x0b0614, 'reaper', 0.68, 3.1, 1.6, 0.5),
   ); }
 /** Keep only real item ids (used on looks arriving over the network). */
 export function cleanLook(look) {
