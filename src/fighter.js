@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261120200039';
-import { buildBody, poseBody } from './body.js?v=20261120200039';
-import { item, cleanLook } from './cosmetics.js?v=20261120200039';
+import { rim } from './vfx.js?v=20261120211206';
+import { buildBody, poseBody } from './body.js?v=20261120211206';
+import { item, cleanLook } from './cosmetics.js?v=20261120211206';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -187,6 +187,14 @@ function bladeGeo(id) {
   else if (id === 'flame') edge((y) => 0.38 * Math.sin(P(y) * Math.PI * 9) * (1 - P(y) * 0.5), () => 0.42, 0.4);
   else if (id === 'crescent') { for (const y of ys) { const s = Math.sin(Math.PI * P(y)), k = y > 0.42 ? tipIn(y, 0.42) : 1; L.push([(-0.5 - 2.8 * s) * k, y]); Rr.push([(0.5 - 1.0 * s) * k, y]); } }
   else if (id === 'demon') { for (const y of ys) { const k = y > 0.4 ? tipIn(y, 0.4) : 1; L.push([(-0.7 - (y > -0.35 && y < 0.35 ? 1.0 * saw(P(y) * 6) : 0)) * k, y]); Rr.push([(0.7 + 0.12 * Math.sin(P(y) * 30)) * k, y]); } }
+  else if (id === 'scythe' || id === 'reaper') { // a scythe head (for the double scythes): the blade stands out sideways from the top of the shaft (x = 0) toward +x, the way it is swung,
+    // and hooks back down to a point; the cutting edge is the inner curve. A socket round the shaft, a spike at the heel. A reaper has barbs along its spine.
+    const rp = id === 'reaper';
+    Rr.push([0.10, 0.50], [0.35, 0.47]); if (rp) Rr.push([0.44, 0.56], [0.50, 0.43]);
+    Rr.push([0.60, 0.38]); if (rp) Rr.push([0.72, 0.44], [0.75, 0.30]);
+    Rr.push([0.82, 0.22], [0.96, 0.00], [1.02, -0.22], [1.00, -0.44], // the spine, round to the point
+      [0.93, -0.22], [0.84, -0.02], [0.70, 0.13], [0.52, 0.23], [0.32, 0.28], [0.10, 0.28], // back along the edge
+      [0.08, 0.14], [-0.08, 0.14], [-0.10, 0.30], [rp ? -0.42 : -0.28, rp ? 0.36 : 0.40], [-0.10, 0.50]); } // the socket, the heel spike
   else if (id === 'wing') { for (const y of ys) { const s = Math.sin(Math.PI * Math.min(1, P(y) * 1.05)), k = y > 0.45 ? tipIn(y, 0.45) : 1; L.push([-0.4 * k, y]); Rr.push([(0.4 + 2.4 * s ** 0.7 - 0.6 * Math.abs(Math.sin(P(y) * Math.PI * 5)) * s) * k, y]); } }
   else { for (const y of ys) { L.push([-0.5, y]); Rr.push([y > 0.3 ? 0.5 - (y - 0.3) / 0.2 * 1.0 : 0.5, y]); } } // straight, with an angled tip
   const pts = [...Rr.map(([x, y]) => new THREE.Vector2(x, y)), ...L.reverse().map(([x, y]) => new THREE.Vector2(x, y))];
@@ -558,8 +566,9 @@ export class Fighter {
     const bl = this.bladeLen, bw = (0.05 + (bl - BLADE_LEN) * 0.012) * this.bladeW, bt = (0.012 + (bl - BLADE_LEN) * 0.003) * this.bladeT;
     if (spr) { // a shaft through the hands, a collar and a head at each end; the far head faces the other way, its edge leading as that end comes round
       const F = 0.1 + bl, Hd = Math.min(F * 0.85, spr.hl * bl + 0.04), nd = V(-d.x, -d.y, -d.z), ne = V(-this.edge.x, -this.edge.y, -this.edge.z);
-      seg(P.grip, _a.copy(hand).addScaledVector(d, -(F - Hd + 0.03)), _b.copy(hand).addScaledVector(d, F - Hd + 0.03), 0.019);
-      boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, F - Hd - 0.02), 0.06, 0.06, 0.05); boxBasis(P.guard2, ne, nd, _a.copy(hand).addScaledVector(d, -(F - Hd - 0.02)), 0.06, 0.06, 0.05);
+      const sc = spr.head === 'scythe' || spr.head === 'reaper', sE = sc ? F - 0.03 : F - Hd + 0.03, cE = sc ? F - 0.29 * Hd : F - Hd - 0.02; // (a scythe's shaft runs right up to the top of its head, the collar at the blade's socket)
+      seg(P.grip, _a.copy(hand).addScaledVector(d, -sE), _b.copy(hand).addScaledVector(d, sE), 0.019);
+      boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, cE), 0.06, sc ? 0.1 : 0.06, 0.05); boxBasis(P.guard2, ne, nd, _a.copy(hand).addScaledVector(d, -cE), 0.06, sc ? 0.1 : 0.06, 0.05);
       boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, F - Hd / 2), bw, Hd, bt); boxBasis(P.blade2, ne, nd, _a.copy(hand).addScaledVector(d, -(F - Hd / 2)), bw, Hd, bt);
     } else {
     seg(P.grip, _a.copy(hand).addScaledVector(d, -0.12), _b.copy(hand).addScaledVector(d, 0.08), 0.022);
