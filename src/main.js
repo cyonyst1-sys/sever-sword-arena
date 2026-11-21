@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261121135652';
-import { Fighter, PALETTE, GUARD, DUAL_REST, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121135652';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121135652';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121135652';
-import * as net from './net.js?v=20261121135652';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121135652';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121135652';
-import { makeKillFx } from './killfx.js?v=20261121135652';
-import { makeGrapple } from './grapple.js?v=20261121135652';
-import { initShop } from './shop.js?v=20261121135652';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261121135652';
-import { portal } from './portal.js?v=20261121135652';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121135652';
-import { makePost } from './post.js?v=20261121135652';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261121135652';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121135652';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121135652';
+import { Arena, MAPS } from './arena.js?v=20261121141157';
+import { Fighter, PALETTE, GUARD, DUAL_REST, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121141157';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121141157';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121141157';
+import * as net from './net.js?v=20261121141157';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121141157';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121141157';
+import { makeKillFx } from './killfx.js?v=20261121141157';
+import { makeGrapple } from './grapple.js?v=20261121141157';
+import { initShop } from './shop.js?v=20261121141157';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261121141157';
+import { portal } from './portal.js?v=20261121141157';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121141157';
+import { makePost } from './post.js?v=20261121141157';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261121141157';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121141157';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121141157';
 
 // ---------- settings ----------
 const store = {
@@ -209,11 +209,12 @@ window.addEventListener('mousemove', (e) => {
     if (me.dual && me.anim2 && me.anim2.phase !== 'strike') me.anim2 = null;
     // swinging: the sword takes most of the motion, the body twists less, the camera turns least
     const ks = 0.0042 * settings.blade * upm(me, 'hands') * (me.spear ? 0.9 : 1); // (a spear is a little heavier to turn)
-    let wr = 1; // (dual swords: the swipe decides which sword leads. The leader takes the whole of the mouse's motion and cuts; the other a quarter of it, and blocks)
-    if (me.dual) { me.lead = Math.max(-1, Math.min(1, (me.lead || 0) + dx * 0.006)); if (me.lead > 0.15) me.killSide = 1; else if (me.lead < -0.15) me.killSide = -1;
-      wr = 0.25 + 0.75 * (me.lead + 1) / 2; const wl = 0.25 + 0.75 * (1 - me.lead) / 2; me.s2.x += dx * ks * wl; me.s2.y -= dy * ks * wl; const r2 = Math.hypot(me.s2.x, me.s2.y); if (r2 > 1.05) { me.s2.x *= 1.05 / r2; me.s2.y *= 1.05 / r2; } }
+    let wr = 1; // (dual swords: the sword that is cutting takes the whole of the mouse's motion; the other follows more loosely, more so as you swipe toward its side, and blocks. The cut passes to the other sword only once the cutting blade has swept across in front of you and out past the middle, so a swipe across is one whole killing cut)
+    if (me.dual) { me.lead = Math.max(-1, Math.min(1, (me.lead || 0) + dx * 0.006)); 
+      wr = me.killSide > 0 ? 1 : 0.25 + 0.75 * (me.lead + 1) / 2; const wl = me.killSide < 0 ? 1 : 0.25 + 0.75 * (1 - me.lead) / 2; me.s2.x += dx * ks * wl; me.s2.y -= dy * ks * wl; const r2 = Math.hypot(me.s2.x, me.s2.y); if (r2 > 1.05) { me.s2.x *= 1.05 / r2; me.s2.y *= 1.05 / r2; } }
     me.s.x += dx * ks * wr; me.s.y -= dy * ks * wr;
     const r = Math.hypot(me.s.x, me.s.y); if (r > 1.05) { me.s.x *= 1.05 / r; me.s.y *= 1.05 / r; }
+    if (me.dual) { if (me.killSide > 0 && dx < 0 && me.s.x < -DUAL_PASS) me.killSide = -1; else if (me.killSide < 0 && dx > 0 && me.s2.x > DUAL_PASS) me.killSide = 1; }
     mouse.drag += Math.hypot(dx, dy) * ks;
     twist.yaw = Math.max(-1.3, Math.min(1.3, twist.yaw - dx * k * 0.45));
     twist.pitch = Math.max(-0.6, Math.min(0.6, twist.pitch - dy * k * 0.35));
@@ -539,8 +540,8 @@ const isLocal = (f) => f === me || (S.host && f.isBot);
 // A sword in each hand. One of them cuts and the other only blocks, like a spear's two ends; which is which moves about:
 //   a tap is a quick slash, and the taps go round: the right sword, then the left, then both together (a cross-cut,
 //     the cutting sword changing each time round);
-//   holding the button gives you both swords by hand: swipe right and the right sword takes the lead (it follows the
-//     mouse fully, the left only loosely) and becomes the one that cuts; swipe left and it passes to the left.
+//   holding the button gives you both swords by hand: the cutting sword follows the mouse fully, the other loosely.
+//     Swipe it across in front of you and, once it is out past the middle, the cut passes to the other sword.
 // The trail follows whichever sword is cutting.
 const DUAL_KEYS = ['s', 'hand', 'tip', 'prevHand', 'prevTip', 'anim', 'armed', 'noCut', 'prevS', 'swishCd', 'guard'];
 function onLeft(f, fn) { // run fn with the left sword standing in for the right (everything that works on "the sword" then works on it)
@@ -549,7 +550,7 @@ function onLeft(f, fn) { // run fn with the left sword standing in for the right
 }
 // How the two are carried: the sword that cuts is held out in guard, the other rides low at its own side, point down and out.
 // They change places whenever the cutting sword changes. Holding the button takes both in hand: the low one comes up to its guard.
-const DUAL_GUARD_L = { x: -GUARD.x, y: GUARD.y }, DUAL_REST_L = { x: -DUAL_REST.x, y: DUAL_REST.y };
+const DUAL_GUARD_L = { x: -GUARD.x, y: GUARD.y }, DUAL_REST_L = { x: -DUAL_REST.x, y: DUAL_REST.y }, DUAL_PASS = 0.25; // (how far past the middle a cutting blade goes before the cut passes to the other)
 function stepSwords(f, dt) {
   if (!f.dual) { updateSword(f, dt); return; }
   const held = f === me && swingHeld();
