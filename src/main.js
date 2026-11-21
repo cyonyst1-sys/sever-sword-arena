@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261121115243';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121115243';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121115243';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121115243';
-import * as net from './net.js?v=20261121115243';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121115243';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121115243';
-import { makeKillFx } from './killfx.js?v=20261121115243';
-import { makeGrapple } from './grapple.js?v=20261121115243';
-import { initShop } from './shop.js?v=20261121115243';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261121115243';
-import { portal } from './portal.js?v=20261121115243';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121115243';
-import { makePost } from './post.js?v=20261121115243';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261121115243';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121115243';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121115243';
+import { Arena, MAPS } from './arena.js?v=20261121120852';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121120852';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121120852';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121120852';
+import * as net from './net.js?v=20261121120852';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121120852';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121120852';
+import { makeKillFx } from './killfx.js?v=20261121120852';
+import { makeGrapple } from './grapple.js?v=20261121120852';
+import { initShop } from './shop.js?v=20261121120852';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261121120852';
+import { portal } from './portal.js?v=20261121120852';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121120852';
+import { makePost } from './post.js?v=20261121120852';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261121120852';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121120852';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121120852';
 
 // ---------- settings ----------
 const store = {
@@ -523,8 +523,9 @@ const isLocal = (f) => f === me || (S.host && f.isBot);
 // ---------- swords ----------
 // ---------- spears: a blade at each end, and moves of their own ----------
 // Tap: a thrust (the spear is drawn back, then driven straight out where you look, with a short lunge).
-// Tap again straight after a thrust: a windmill (the staff spins a turn and a half in front of you, both blades cutting).
-// Tap while flicking the mouse sideways: a sweep (one blade across the front as the other comes round behind you).
+// Tap again straight after a thrust: a windmill (the staff spins a turn and a half in front of you, the front blade cutting, the other guarding).
+// Tap while flicking the mouse sideways: a sweep (the front blade across in front of you as the other comes round behind, covering your back).
+// Only the front blade does damage. The blade behind the hands only blocks: an enemy's blade that meets it is parried.
 // Tap while flicking it up or down: a rising cut, or an overhead chop.
 // Holding the button still gives you the weapon by hand, as with a sword; it is a little heavier to turn.
 function spearMove(f, gx, gy) {
@@ -563,7 +564,7 @@ function updateSword(f, dt) {
     } else if (a.phase === 'strike') {
       const k = ease(a.t / a.dur); f.s.x = a.from.x + (a.to.x - a.from.x) * k; f.s.y = a.from.y + (a.to.y - a.from.y) * k; f.armed = true;
       if (a.t >= a.dur) { a.phase = 'rec'; a.t = 0; }
-    } else if (a.phase === 'spin') { // (a spear's windmill: the staff turns in front of the body, both blades cutting)
+    } else if (a.phase === 'spin') { // (a spear's windmill: the staff turns in front of the body, its front blade cutting)
       const ang = a.a0 + a.dir * Math.min(1, a.t / a.dur) * a.turns * Math.PI * 2; f.s.x = Math.cos(ang) * a.r; f.s.y = Math.sin(ang) * a.r; f.armed = true;
       if (a.t >= a.dur) { a.phase = 'rec'; a.t = 0; }
     } else { f.armed = !f.isBot; if (a.t > 0.18) f.anim = null; }
@@ -665,11 +666,11 @@ function bladeSweep(f, dt) {
     _a0.copy(g.pos); _a0.y += 0.15; _a1.copy(g.pos); _a1.y += 1.8;
     let parry = null, hit = null;
     for (let k = 0, K = f.spear ? 8 : 6; k <= K; k++) {
-      const t = f.spear ? k / K : 0.12 + 0.88 * k / 6; // (a spear cuts from one point to the other: its far end is a blade too; a sword not near the hand)
+      const t = f.spear ? k / K : 0.12 + 0.88 * k / 6; // (a spear is tested from one point to the other, the hands at its middle; a sword not near the hand)
       _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
       if (relSpd(_A, _B) < CUT_SPD * 0.6) continue;
       if (!parry && segSeg(_A, _B, g.hand, g.tip, _c1, _c2) < 0.075 * 0.075) parry = _c1.clone();
-      if (!hit && segSeg(_A, _B, _a0, _a1, _c1, _c2) < 0.34 * 0.34) hit = _c1.clone();
+      if (!hit && !(f.spear && t < 0.56) && segSeg(_A, _B, _a0, _a1, _c1, _c2) < 0.34 * 0.34) hit = _c1.clone(); // (a spear: only the blade in front of the hands cuts; the one behind you blocks, and no more)
     }
     if (parry) { clash(f, g, parry); return; }
     if (hit) {

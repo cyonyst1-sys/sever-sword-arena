@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261121115243">
+<meta name="build" content="20261121120852">
 <link rel="icon" href="data:,">
 <script>
 // Live updates (as in Castle Rangers). version.json (never cached) names the newest build. A page older than that
@@ -214,12 +214,12 @@ window.severVersion.check().then(function (v) { if (v) window.severVersion.go(v)
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261121115243",
-  "./src/arena.js": "./src/arena.js?v=20261121115243",
-  "./src/fighter.js": "./src/fighter.js?v=20261121115243",
-  "./src/slice.js": "./src/slice.js?v=20261121115243",
-  "./src/audio.js": "./src/audio.js?v=20261121115243",
-  "./src/net.js": "./src/net.js?v=20261121115243"
+  "./src/main.js": "./src/main.js?v=20261121120852",
+  "./src/arena.js": "./src/arena.js?v=20261121120852",
+  "./src/fighter.js": "./src/fighter.js?v=20261121120852",
+  "./src/slice.js": "./src/slice.js?v=20261121120852",
+  "./src/audio.js": "./src/audio.js?v=20261121120852",
+  "./src/net.js": "./src/net.js?v=20261121120852"
 } }
 </script>
 </head>
@@ -357,7 +357,7 @@ window.severVersion.check().then(function (v) { if (v) window.severVersion.go(v)
 <div id="shop" class="screen hidden">
   <div class="panel shopPanel">
     <div class="shopHead"><h2>Shop</h2><div class="wallet"><span class="coin"></span><b id="shopCoins">0</b></div></div>
-    <p class="muted" style="margin:-6px 0 12px">Looks change nothing about how you fight, except your weapon: a spear has two blades and its own moves (same reach as a sword). Upgrades are small permanent boosts (the host can switch them off online). Earn coins by playing: 10 a match, 5 a kill, 30 for a win, plus points and waves.</p>
+    <p class="muted" style="margin:-6px 0 12px">Looks change nothing about how you fight, except your weapon: a spear has its own moves and the same reach as a sword; its front blade cuts and its rear blade only blocks. Upgrades are small permanent boosts (the host can switch them off online). Earn coins by playing: 10 a match, 5 a kill, 30 for a win, plus points and waves.</p>
     <div class="shopBody">
       <div class="shopPreview"><canvas id="shopCanvas" width="300" height="380"></canvas><div id="shopItemName"></div><button class="primary" id="shopAction">Equip</button></div>
       <div class="shopRight"><div class="tabs" id="shopTabs"></div><div class="grid" id="shopGrid"></div></div>
@@ -396,6 +396,6 @@ window.severVersion.check().then(function (v) { if (v) window.severVersion.go(v)
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261121115243"></script>
+<script type="module" src="src/main.js?v=20261121120852"></script>
 </body>
 </html>

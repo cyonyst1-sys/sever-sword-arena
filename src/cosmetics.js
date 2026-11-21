@@ -428,7 +428,7 @@ CATALOG.grapple.push(
 );
 for (const c of Object.keys(CATALOG)) CATALOG[c].sort((a, b) => (a.price === 0 ? -1 : b.price === 0 ? 1 : a.price - b.price)); // (cheapest first, the free one at the front)
 // ---------- spears ----------
-// A spear is two-handed, held at the middle, with a blade at each end; it reaches as far as a sword and has moves of
+// A spear is two-handed, held at the middle, with a blade at each end (the front one cuts, the rear one only blocks); it reaches as far as a sword and has moves of
 // its own (see spearMove in main.js). It goes in the sword's slot: you carry one or the other. `head` is the blade
 // outline each end carries (the same outlines as the sword shapes), `hl` how long a head is as a share of the reach,
 // `w` and `t` how broad and thick it is; `guard` is the collar under each head, `grip` the shaft.
