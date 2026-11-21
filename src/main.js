@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261121132640';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121132640';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121132640';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121132640';
-import * as net from './net.js?v=20261121132640';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121132640';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121132640';
-import { makeKillFx } from './killfx.js?v=20261121132640';
-import { makeGrapple } from './grapple.js?v=20261121132640';
-import { initShop } from './shop.js?v=20261121132640';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261121132640';
-import { portal } from './portal.js?v=20261121132640';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121132640';
-import { makePost } from './post.js?v=20261121132640';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261121132640';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121132640';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121132640';
+import { Arena, MAPS } from './arena.js?v=20261121133649';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121133649';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121133649';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121133649';
+import * as net from './net.js?v=20261121133649';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121133649';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121133649';
+import { makeKillFx } from './killfx.js?v=20261121133649';
+import { makeGrapple } from './grapple.js?v=20261121133649';
+import { initShop } from './shop.js?v=20261121133649';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261121133649';
+import { portal } from './portal.js?v=20261121133649';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121133649';
+import { makePost } from './post.js?v=20261121133649';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261121133649';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121133649';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121133649';
 
 // ---------- settings ----------
 const store = {
@@ -139,7 +139,7 @@ const smallerTeam = () => (S.roster.filter((r) => r.team === 'A').length <= S.ro
 const now = () => performance.now() / 1000;
 
 function makeFighter(info) {
-  const f = new Fighter({ id: info.id, name: info.id === S.myId ? null : info.name, color: teamMode() && TEAMS[info.team] ? TEAMS[info.team].col : PALETTE[info.col % PALETTE.length], team: info.team, isBot: !info.human, horde: !!info.horde, look: info.look });
+  const f = new Fighter({ id: info.id, name: info.id === S.myId ? null : info.name, color: teamMode() && TEAMS[info.team] ? TEAMS[info.team].col : PALETTE[info.col % PALETTE.length], team: info.team, isBot: !info.human, horde: !!info.horde, look: info.look, dual: DUAL_TEST && info.id === S.myId });
   f.addTo(scene); f.group.visible = false; f.trailMesh.visible = true;
   f.net = null; f.respawnAt = Infinity;
   f.grap = makeGrapple(scene, item('grapple', f.look.grapple), grapFx); // their grappling hook, in their style
@@ -206,9 +206,13 @@ window.addEventListener('mousemove', (e) => {
   if (mouse.lmb) { mouse.gx += dx; mouse.gy += dy; } // which way you were moving during a tap: the quick slash follows it
   if (swingHeld() && me.alive) {
     if (me.anim && me.anim.phase !== 'strike') me.anim = null; // taking manual control
+    if (me.dual && me.anim2 && me.anim2.phase !== 'strike') me.anim2 = null;
     // swinging: the sword takes most of the motion, the body twists less, the camera turns least
     const ks = 0.0042 * settings.blade * upm(me, 'hands') * (me.spear ? 0.9 : 1); // (a spear is a little heavier to turn)
-    me.s.x += dx * ks; me.s.y -= dy * ks;
+    let wr = 1; // (dual swords: the swipe decides which sword leads. The leader takes the whole of the mouse's motion and cuts; the other a quarter of it, and blocks)
+    if (me.dual) { me.lead = Math.max(-1, Math.min(1, (me.lead || 0) + dx * 0.006)); if (me.lead > 0.15) me.killSide = 1; else if (me.lead < -0.15) me.killSide = -1;
+      wr = 0.25 + 0.75 * (me.lead + 1) / 2; const wl = 0.25 + 0.75 * (1 - me.lead) / 2; me.s2.x += dx * ks * wl; me.s2.y -= dy * ks * wl; const r2 = Math.hypot(me.s2.x, me.s2.y); if (r2 > 1.05) { me.s2.x *= 1.05 / r2; me.s2.y *= 1.05 / r2; } }
+    me.s.x += dx * ks * wr; me.s.y -= dy * ks * wr;
     const r = Math.hypot(me.s.x, me.s.y); if (r > 1.05) { me.s.x *= 1.05 / r; me.s.y *= 1.05 / r; }
     mouse.drag += Math.hypot(dx, dy) * ks;
     twist.yaw = Math.max(-1.3, Math.min(1.3, twist.yaw - dx * k * 0.45));
@@ -531,6 +535,29 @@ function pushApart() {
 const isLocal = (f) => f === me || (S.host && f.isBot);
 
 // ---------- swords ----------
+// ---------- dual swords (on trial: only with ?dual in the address, and only for you) ----------
+// A sword in each hand. One of them cuts and the other only blocks, like a spear's two ends; which is which moves about:
+//   a tap is a quick slash, and the taps go round: the right sword, then the left, then both together (a cross-cut,
+//     the cutting sword changing each time round);
+//   holding the button gives you both swords by hand: swipe right and the right sword takes the lead (it follows the
+//     mouse fully, the left only loosely) and becomes the one that cuts; swipe left and it passes to the left.
+// The trail follows whichever sword is cutting.
+const DUAL_TEST = new URLSearchParams(location.search).has('dual');
+const DUAL_KEYS = ['s', 'hand', 'tip', 'prevHand', 'prevTip', 'anim', 'armed', 'noCut', 'prevS', 'swishCd', 'guard'];
+function onLeft(f, fn) { // run fn with the left sword standing in for the right (everything that works on "the sword" then works on it)
+  const sw = () => { for (const k of DUAL_KEYS) { const t = f[k]; f[k] = f[k + '2']; f[k + '2'] = t; } };
+  sw(); try { return fn(); } finally { sw(); }
+}
+function dualTap(f, gx, gy) {
+  const t = now(), hs = upm(f, 'hands'), gl = Math.hypot(gx, gy), ux = gl > 12 ? gx / gl : 0, uy = gl > 12 ? -gy / gl : 0;
+  const i = f.dualI = t - (f.dualT || 0) > 1.4 ? 0 : ((f.dualI ?? -1) + 1) % 3; f.dualT = t; // (a pause starts the round again, from the right)
+  const slash = (side) => (gl > 12 ? [{ x: -ux, y: -uy * 0.8 + 0.1 }, { x: ux, y: uy * 0.8 - 0.05 }] : [{ x: side, y: 0.25 }, { x: -side, y: -0.15 }]); // (the way the mouse was moving; else from its own side across)
+  const go = (pat, dur) => { f.s.x = pat[0].x; f.s.y = pat[0].y; f.noCut = true; f.anim = { phase: 'strike', t: 0, from: pat[0], to: pat[1], dur: dur / hs }; };
+  if (i === 0) { f.killSide = 1; go(slash(1), 0.14); }
+  else if (i === 1) { f.killSide = -1; onLeft(f, () => go(slash(-1), 0.14)); }
+  else { f.dualFlip = !f.dualFlip; f.killSide = f.dualFlip ? 1 : -1; // both at once, crossing: one cuts, the other covers
+    go([{ x: 1.0, y: 0.32 }, { x: -0.85, y: -0.28 }], 0.17); onLeft(f, () => go([{ x: -1.0, y: 0.32 }, { x: 0.85, y: -0.28 }], 0.17)); }
+}
 // ---------- spears: a blade at each end, and moves of their own ----------
 // Tap: a thrust (the spear is drawn back, then driven straight out where you look, with a short lunge).
 // Tap again straight after a thrust: a windmill (the staff spins a turn and a half in front of you, the front blade cutting, the other guarding).
@@ -555,6 +582,7 @@ function spearMove(f, gx, gy) {
 }
 function quickSwing(f, gx = 0, gy = 0) {
   if (f.spear) { spearMove(f, gx, gy); return; }
+  if (f.dual) { dualTap(f, gx, gy); return; }
   quickDir = -quickDir;
   let pat = [{ x: -1.0 * quickDir, y: 0.2 }, { x: 1.0 * quickDir, y: -0.15 }];
   const gl = Math.hypot(gx, gy);
@@ -679,8 +707,8 @@ function bladeSweep(f, dt) {
       const t = f.spear ? k / K : 0.12 + 0.88 * k / 6; // (a spear is tested from one point to the other, the hands at its middle; a sword not near the hand)
       _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
       if (relSpd(_A, _B) < CUT_SPD * 0.6) continue;
-      if (!parry && segSeg(_A, _B, g.hand, g.tip, _c1, _c2) < 0.075 * 0.075) parry = _c1.clone();
-      if (!hit && !(f.spear && t < 0.56) && segSeg(_A, _B, _a0, _a1, _c1, _c2) < 0.34 * 0.34) hit = _c1.clone(); // (a spear: only the blade in front of the hands cuts; the one behind you blocks, and no more)
+      if (!parry && (segSeg(_A, _B, g.hand, g.tip, _c1, _c2) < 0.075 * 0.075 || (g.dual && segSeg(_A, _B, g.hand2, g.tip2, _c1, _c2) < 0.075 * 0.075))) parry = _c1.clone(); // (either of a dual wielder's swords blocks)
+      if (!hit && !f.noKill && !(f.spear && t < 0.56) && segSeg(_A, _B, _a0, _a1, _c1, _c2) < 0.34 * 0.34) hit = _c1.clone(); // (a spear: only the blade in front of the hands cuts; the one behind you blocks, and no more)
     }
     if (parry) { clash(f, g, parry); return; }
     if (hit) {
@@ -1043,7 +1071,8 @@ function spawn(f, p, yaw) {
   f.stam = 100; f.s.x = (f.guard || GUARD).x; f.s.y = (f.guard || GUARD).y; f.noCut = true; f.anim = null; f.respawnAt = Infinity; f.onGround = true; f.stagger = 0;
   f.group.visible = true; f.trail.length = 0;
   if (f === me) { view.yaw = yaw; view.pitch = 0; twist.yaw = 0; twist.pitch = 0; }
-  f.pose(0); f.prevHand.copy(f.hand); f.prevTip.copy(f.tip); f.prevPos.copy(f.pos);
+  if (f.dual) { f.s2.x = f.guard2.x; f.s2.y = f.guard2.y; f.anim2 = null; f.noCut2 = true; f.lead = 0; f.killSide = 1; f.dualI = -1; }
+  f.pose(0); f.prevHand.copy(f.hand); f.prevTip.copy(f.tip); f.prevPos.copy(f.pos); if (f.dual) { f.prevHand2.copy(f.hand2); f.prevTip2.copy(f.tip2); }
   sfx.spawn(p);
 }
 function hostSpawn(f) {
@@ -2260,7 +2289,7 @@ function startSolo(mode) {
 }
 function enterGame() {
   portal.gameplayStart();
-  { const sp = item('sword', profile.equip.sword).spear; $('hint').textContent = (sp ? 'Spear: tap to thrust · tap again to spin · flick and tap to sweep or chop · hold and drag to wield it by hand' : 'Hold left mouse and drag to swing') + ' · Right mouse grapple · Shift dash (A/D + Shift: side dash) · Space jump (on a pad: launch; against a wall: kick off it) · Kills grow your ' + (sp ? 'spear' : 'sword'); }
+  { const sp = item('sword', profile.equip.sword).spear; $('hint').textContent = (sp ? 'Spear: tap to thrust · tap again to spin · flick and tap to sweep or chop · hold and drag to wield it by hand' : DUAL_TEST ? 'Dual swords (trial): tap, tap, tap for right, left, then both · hold and swipe: the sword on the side you swipe to leads and cuts, the other blocks' : 'Hold left mouse and drag to swing') + ' · Right mouse grapple · Shift dash (A/D + Shift: side dash) · Space jump (on a pad: launch; against a wall: kick off it) · Kills grow your ' + (sp ? 'spear' : 'sword'); }
   S.phase = 'game'; S.ended = false; S.paused = false; S.matchStart = now();
   show(null); $('hud').classList.remove('hidden');
   $('hint').style.opacity = 1; setTimeout(() => { $('hint').style.opacity = 0; }, 12000);
@@ -2842,7 +2871,7 @@ function tick(rdt, tt) {
         stepFighter(f, rdt, { x: wx, z: wz }, false, keys.Space && locked);
         if (f.dashT > 0) f.dashAt = now();
         if (f.hook && !mouse.rmb) releaseHook(f, true);
-        updateSword(f, rdt);
+        updateSword(f, rdt); if (f.dual) onLeft(f, () => updateSword(f, rdt)); // (and the left sword)
       } else if (S.host && f.isBot && tutHold(f)) { // (training: the dummy stands in its ring, facing you)
         f.pos.copy(arena.dummyAt); f.vel.set(0, 0, 0); f.onGround = true; f.prot = 0; if (me) f.yaw = Math.atan2(-(me.pos.x - f.pos.x), -(me.pos.z - f.pos.z));
       } else if (S.host && f.isBot) {
@@ -2861,13 +2890,14 @@ function tick(rdt, tt) {
       if (f.onGround) { const p = platUnder(f.pos); if (p) f.plat = p.i; } // which platform they're on
       f.pose(rdt);
       if (isLocal(f)) {
-        bladeSweep(f, rdt); dashSweep(f);
+        if (f.dual) { f.noKill = f.killSide < 0; bladeSweep(f, rdt); f.noKill = f.killSide > 0; if (f.alive) onLeft(f, () => bladeSweep(f, rdt)); f.noKill = false; } else bladeSweep(f, rdt); // (dual swords: each blade in turn; only the one that is cutting can kill)
+        dashSweep(f);
         if (f.pos.y < (arena.killAt ? arena.killAt(f.pos) : arena.killY)) selfFell(f);
         else if (arena.spikeAt && f.prot <= 0 && arena.spikeAt(f.pos)) selfFell(f); // (Colosseum: run through by a tendril's spiked limb) // (Colosseum: the maw's flesh kills on touch)
         else if (arena.lilyNear && f.alive && f.prot <= 0 && arena.lilyNear(f.pos)) selfFell(f); // (Moonlit Isles: over a lily pad, it strikes)
         else if (arena.hazardHit && f.alive && f.prot <= 0) { const h = arena.hazardHit(f.pos); if (h) sawKill(f, h.n, h.pt); } // Saw Foundry: walked into a blade
       }
-      f.prevHand.copy(f.hand); f.prevTip.copy(f.tip);
+      f.prevHand.copy(f.hand); f.prevTip.copy(f.tip); if (f.dual) { f.prevHand2.copy(f.hand2); f.prevTip2.copy(f.tip2); }
       f.updateTrail(tt);
       const tfx = trailFx[f.trailStyle.px || f.trailStyle.fx]; // ember, petal and zap trails shed particles off a fast blade
       if (tfx && f.tipSpeed > 9 && f.trail.length > 1) for (let k = 0; k < ((f.trailStyle.len || 0) > 0.2 ? 4 : 2); k++) { const u = Math.random(), p = _t.copy(f.hand).lerp(f.tip, 0.4 + u * 0.6), j = f.trailStyle.fx === 'zap' ? 5 : 1.5; tfx.emit(p.x, p.y, p.z, (Math.random() - 0.5) * j, (Math.random() - 0.3) * j, (Math.random() - 0.5) * j, f.trailStyle.fx === 'zap' ? 0.18 : 0.9); }

@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261121132640';
-import { buildBody, poseBody } from './body.js?v=20261121132640';
-import { item, cleanLook } from './cosmetics.js?v=20261121132640';
+import { rim } from './vfx.js?v=20261121133649';
+import { buildBody, poseBody } from './body.js?v=20261121133649';
+import { item, cleanLook } from './cosmetics.js?v=20261121133649';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -278,7 +278,7 @@ export const BLADE_LEN = 1.12;
 const THIGH = 0.46, SHIN = 0.46, UPPER = 0.3, FORE = 0.28;
 
 export class Fighter {
-  constructor({ id, name, color, team, isBot, horde, look }) {
+  constructor({ id, name, color, team, isBot, horde, look, dual }) {
     Object.assign(this, { id, name, color, team, isBot: !!isBot, horde: !!horde });
     this.look = horde ? cleanLook(null) : cleanLook(look);
     const L = { outfit: item('outfit', this.look.outfit), sword: item('sword', this.look.sword), mask: item('mask', this.look.mask), hat: item('hat', this.look.hat) };
@@ -292,6 +292,11 @@ export class Fighter {
     this.hand = new THREE.Vector3(); this.tip = new THREE.Vector3(); this.prevHand = new THREE.Vector3(); this.prevTip = new THREE.Vector3();
     this.prevPos = new THREE.Vector3(); this.noCut = true; this.swishCd = 0;
     this.handL = new THREE.Vector3(); this.hook = null; this.anim = null; this.armed = true;
+    // (dual swords, on trial: a second sword in the left hand, with a swing of its own. Everything of the right sword's
+    // has a twin ending in 2; `killSide` says which of the two is cutting just now, +1 the right, -1 the left: the other only blocks)
+    this.dual = !!dual && !this.spear && !horde; this.killSide = 1;
+    if (this.dual) { this.guard2 = { x: -GUARD.x, y: GUARD.y }; this.s2 = { x: this.guard2.x, y: this.guard2.y }; this.hand2 = new THREE.Vector3(); this.tip2 = new THREE.Vector3(); this.prevHand2 = new THREE.Vector3(); this.prevTip2 = new THREE.Vector3();
+      this.edge2 = new THREE.Vector3(-1, 0, 0); this.lastD2 = new THREE.Vector3(0, 0, -1); this.anim2 = null; this.armed2 = true; this.noCut2 = true; this.prevS2 = null; this.swishCd2 = 0; }
     this.bladeLen = BLADE_LEN; // grows with kills
     this.stride = 0; // eases in and out so starts and stops don't snap
     this.edge = new THREE.Vector3(1, 0, 0); this.lastD = new THREE.Vector3(0, 0, -1);
@@ -326,6 +331,7 @@ export class Fighter {
       saya: mk(GEO.cyl, M.saya, CAP.wood), kojiri: mk(GEO.cyl, M.gold, CAP.steel),
       grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(bladeGeo(this.spear ? this.spear.head : item('shape', this.look.shape).id), L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
     };
+    if (this.dual) { this.p.gripL = mk(GEO.cyl, this.p.grip.material, CAP.wood); this.p.guardL = mk(GEO.box, this.p.guard.material, CAP.steel); this.p.bladeL = mk(this.p.blade.geometry, this.p.blade.material, CAP.steel); } // (the left-hand sword, a twin of the right)
     if (this.spear) { // the second head and its collar; and no scabbard at the hip
       this.p.blade2 = mk(this.p.blade.geometry, this.p.blade.material, CAP.steel); this.p.guard2 = mk(GEO.box, this.p.guard.material, CAP.steel);
       for (const n of ['saya', 'kojiri']) { const m = this.p[n]; this.group.remove(m); this.meshes = this.meshes.filter((x) => x !== m); } }
@@ -376,8 +382,8 @@ export class Fighter {
   removeFrom(scene) { scene.remove(this.group); scene.remove(this.trailMesh); }
   forward(out) { return out.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)); }
   // local blade direction from the swing input and pitch
-  bladeDir(out) {
-    const sx = this.s.x, sy = this.s.y, r = Math.min(1.05, Math.hypot(sx, sy)), a = r * 1.6, ph = Math.atan2(sy, sx);
+  bladeDir(out, S = this.s) {
+    const sx = S.x, sy = S.y, r = Math.min(1.05, Math.hypot(sx, sy)), a = r * 1.6, ph = Math.atan2(sy, sx);
     out.set(Math.sin(a) * Math.cos(ph), Math.sin(a) * Math.sin(ph), -Math.cos(a));
     const p = Math.max(-0.7, Math.min(0.7, this.pitch)), c = Math.cos(p), s = Math.sin(p), y = out.y, z = out.z;
     out.y = y * c - z * s; out.z = y * s + z * c;
@@ -547,8 +553,10 @@ export class Fighter {
       const loc = g.worldToLocal(this.hook.p.clone()).sub(shL).normalize();
       handL.copy(shL).addScaledVector(loc, 0.56);
     }
+    const d2 = this.dual ? this.bladeDir(V(), this.s2) : null; // (dual swords: the left hand holds the second sword out, as the right holds the first; it lets go of nothing to grapple, the sword just rides along)
+    if (d2 && !this.hook && !WL) { handL.copy(V(-0.12, 1.3, -0.1).addScaledVector(d2, 0.44)); handL.z += -sl * 0.35; handL.y += (hipY - 0.99) * 0.6; }
     const elL = V();
-    ik(shL, handL, UPPER, FORE, WL && wallSide < 0 && !this.hook ? V(WL.x, -0.15, WL.z) : V(-0.3, -0.4, 0.6), elL);
+    ik(shL, handL, UPPER, FORE, WL && wallSide < 0 && !this.hook ? V(WL.x, -0.15, WL.z) : d2 && !this.hook ? V(-0.6, -0.7, 0.3) : V(-0.3, -0.4, 0.6), elL);
     Object.assign(this.J, { shL: shL.clone(), elL: elL.clone(), handL: handL.clone() });
     seg(P.uaL, shL, elL, 0.064); P.elL.position.copy(elL); P.elL.scale.setScalar(0.046); seg(P.faL, elL, handL, 0.052);
     seg(P.wrL, _a.lerpVectors(elL, handL, 0.62), _b.lerpVectors(elL, handL, 0.97), 0.05);
@@ -576,6 +584,12 @@ export class Fighter {
     boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, 0.09), 0.13, 0.025, 0.07);
 
     boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, 0.1 + bl / 2), bw, bl, bt); }
+    if (d2) { // the left sword: its own edge leads the way it is moving
+      _c.subVectors(d2, this.lastD2); _c.addScaledVector(d2, -_c.dot(d2)); if (_c.lengthSq() > 1e-5) this.edge2.lerp(_c.normalize(), 0.5);
+      this.edge2.addScaledVector(d2, -this.edge2.dot(d2)).normalize(); if (!isFinite(this.edge2.x) || this.edge2.lengthSq() < 0.5) this.edge2.set(-1, 0, 0).addScaledVector(d2, d2.x).normalize(); this.lastD2.copy(d2);
+      seg(P.gripL, _a.copy(handL).addScaledVector(d2, -0.12), _b.copy(handL).addScaledVector(d2, 0.08), 0.022);
+      boxBasis(P.guardL, this.edge2, d2, _a.copy(handL).addScaledVector(d2, 0.09), 0.13, 0.025, 0.07);
+      boxBasis(P.bladeL, this.edge2, d2, _a.copy(handL).addScaledVector(d2, 0.1 + bl / 2), bw, bl, bt); }
     if (this.body) poseBody(this);
     // world hand/tip for hit tests
     g.updateMatrixWorld(true);
@@ -583,12 +597,15 @@ export class Fighter {
     if (spr) this.hand.copy(hand).addScaledVector(d, -(0.1 + bl)).applyMatrix4(g.matrixWorld); else this.hand.copy(this.gripW); // (hand to tip is what cuts: for a spear, the whole weapon from one point to the other)
     this.tip.copy(hand).addScaledVector(d, 0.1 + bl).applyMatrix4(g.matrixWorld);
     this.handL.copy(handL).applyMatrix4(g.matrixWorld);
+    if (d2) { this.hand2.copy(this.handL); this.tip2.copy(handL).addScaledVector(d2, 0.1 + bl).applyMatrix4(g.matrixWorld); }
     if (this.label) this.label.visible = this.alive;
   }
 
   updateTrail(now) {
+    if (this.dual) { const k = this.killSide < 0 ? -1 : 1; if (k !== this.trailSide) { this.trailSide = k; this.trail.length = 0; } } // (dual swords: the trail follows whichever sword is cutting)
+    const hand = this.dual && this.killSide < 0 ? this.hand2 : this.hand, tip = this.dual && this.killSide < 0 ? this.tip2 : this.tip;
     const T = this.trail;
-    if (this.alive) T.push({ h: this.spear ? this.gripW.clone().lerp(this.tip, 0.6) : this.hand.clone().lerp(this.tip, 0.3), t: this.tip.clone(), time: now });
+    if (this.alive) T.push({ h: this.spear ? this.gripW.clone().lerp(tip, 0.6) : hand.clone().lerp(tip, 0.3), t: tip.clone(), time: now });
     while (T.length && (now - T[0].time > (this.trailStyle.len || 0.12) || T.length > 18)) T.shift();
     const pos = this.trailMesh.geometry.attributes.position, col = this.trailMesh.geometry.attributes.color;
     const st = this.trailStyle, A = _tcA.set(st.a), B = _tcB.set(st.b), n = T.length;
