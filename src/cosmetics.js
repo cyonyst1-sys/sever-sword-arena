@@ -21,6 +21,7 @@ export const CATEGORIES = [
   { id: 'kill', name: 'Kill Effects' },
   { id: 'grapple', name: 'Grapples' },
   { id: 'shape', name: 'Sword Shapes' },
+  { id: 'wield', name: 'Wield' },
   { id: 'upgrade', name: 'Upgrades' },
 ];
 
@@ -193,7 +194,7 @@ export const CATALOG = {
   ],
 };
 
-export const DEFAULT_LOOK = { mask: 'none', hat: 'none', outfit: 'default', sword: 'katana', shape: 'straight', trail: 'classic', kill: 'blood', grapple: 'rope' };
+export const DEFAULT_LOOK = { mask: 'none', hat: 'none', outfit: 'default', sword: 'katana', shape: 'straight', wield: 'single', trail: 'classic', kill: 'blood', grapple: 'rope' };
 export const item = (cat, id) => CATALOG[cat].find((x) => x.id === id) || CATALOG[cat][0];
 
 // ---------- the expansion: more of everything, and a new top tier (Legendary) in every tab ----------
@@ -383,6 +384,13 @@ CATALOG.outfit.push(
 );
 
 // ---- sword shapes (a tab of their own under Swords): the outline of the blade; the finish comes from the sword
+// how a sword is carried: one, or one in each hand. Dual swords are the same sword twice (your finish and shape), with
+// moves of their own (see dualTap in main.js); one of the two cuts at a time and the other only blocks. A spear is
+// two-handed, so with a spear this does nothing.
+CATALOG.wield = [
+  { id: 'single', name: 'One Sword', price: 0, sw: 0xdfe6ee },
+  { id: 'dual', name: 'Dual Swords', price: 1500, sw: 0xc23a32 },
+];
 CATALOG.shape = [
   { id: 'straight', name: 'Straight', price: 0, sw: 0xdfe6ee },
   { id: 'tachi', name: 'Curved Tachi', price: 250, sw: 0xdfe6ee },
@@ -458,7 +466,7 @@ export function cleanLook(look) {
 /** A random look for a bot: most wear a few things, some go plain. */
 export function randomLook() {
   const pick = (c, p) => (Math.random() < p ? CATALOG[c][1 + Math.floor(Math.random() * (CATALOG[c].length - 1))].id : CATALOG[c][0].id);
-  return { mask: pick('mask', 0.5), hat: pick('hat', 0.5), outfit: pick('outfit', 0.35), sword: pick('sword', 0.45), shape: pick('shape', 0.35), trail: pick('trail', 0.5), kill: pick('kill', 0.35), grapple: pick('grapple', 0.4) };
+  return { mask: pick('mask', 0.5), hat: pick('hat', 0.5), outfit: pick('outfit', 0.35), sword: pick('sword', 0.45), shape: pick('shape', 0.35), wield: pick('wield', 0.12), trail: pick('trail', 0.5), kill: pick('kill', 0.35), grapple: pick('grapple', 0.4) };
 }
 
 // ---------- your profile: coins, what you own, what you wear (kept in this browser) ----------

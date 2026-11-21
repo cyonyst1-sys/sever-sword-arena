@@ -1,10 +1,10 @@
 // The shop screen: browse by category, try things on a turning, swinging preview fighter, buy and equip.
 import * as THREE from 'three';
-import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121133649';
-import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261121133649';
-import { makeKillFx } from './killfx.js?v=20261121133649';
-import { makeGrapple } from './grapple.js?v=20261121133649';
-import { CATEGORIES, CATALOG, item, profile, owns, buy, equip, UPGRADES, UP_MAX, UP_PRICES, buyUpgrade, upText, tierOf } from './cosmetics.js?v=20261121133649';
+import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121133956';
+import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261121133956';
+import { makeKillFx } from './killfx.js?v=20261121133956';
+import { makeGrapple } from './grapple.js?v=20261121133956';
+import { CATEGORIES, CATALOG, item, profile, owns, buy, equip, UPGRADES, UP_MAX, UP_PRICES, buyUpgrade, upText, tierOf } from './cosmetics.js?v=20261121133956';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
@@ -53,7 +53,7 @@ export function initShop({ show, onClose }) {
   // ---- UI
   function renderTabs() {
     const tab = (c) => `<button data-c="${c.id}" class="${c.id === cat || c.on ? 'on' : ''}">${c.name}</button>`; // upgrades first, on their own; then the looks
-    $('shopTabs').innerHTML = `<div class="tabGroup up"><span>Upgrades</span>${tab({ id: 'upgrade', name: 'Upgrades' })}</div><div class="tabGroup"><span>Looks</span>${CATEGORIES.filter((c) => c.id !== 'upgrade' && c.id !== 'shape').map((c) => tab(c.id === 'sword' && (cat === 'shape' || cat === 'spear') ? { ...c, on: true } : c)).join('')}</div>${cat === 'sword' || cat === 'shape' || cat === 'spear' ? `<div class="tabGroup sub">${tab({ id: 'sword', name: 'Swords' })}${tab({ id: 'shape', name: 'Sword shape' })}${tab({ id: 'spear', name: 'Spears' })}</div>` : ''}`;
+    $('shopTabs').innerHTML = `<div class="tabGroup up"><span>Upgrades</span>${tab({ id: 'upgrade', name: 'Upgrades' })}</div><div class="tabGroup"><span>Looks</span>${CATEGORIES.filter((c) => c.id !== 'upgrade' && c.id !== 'shape' && c.id !== 'wield').map((c) => tab(c.id === 'sword' && (cat === 'shape' || cat === 'spear' || cat === 'wield') ? { ...c, on: true } : c)).join('')}</div>${cat === 'sword' || cat === 'shape' || cat === 'spear' || cat === 'wield' ? `<div class="tabGroup sub">${tab({ id: 'sword', name: 'Swords' })}${tab({ id: 'shape', name: 'Sword shape' })}${tab({ id: 'wield', name: 'One or two' })}${tab({ id: 'spear', name: 'Spears' })}</div>` : ''}`;
   }
   function renderGrid() {
     if (cat === 'upgrade') { // permanent stat boosts: five pips each, the bonus you have now, the price of the next level
@@ -98,7 +98,8 @@ export function initShop({ show, onClose }) {
   $('shopAction').addEventListener('click', () => {
     if (cat === 'upgrade') { if (buyUpgrade(sel)) refresh(); return; }
     if (!owns(C(), sel) && !buy(C(), sel)) return;
-    equip(C(), sel); refresh();
+    equip(C(), sel); if (cat === 'wield' && sel === 'dual' && item('sword', profile.equip.sword).spear) equip('sword', 'katana'); // (dual swords need a sword: a spear is put away)
+    refresh();
   });
   $('shopClose').addEventListener('click', () => { open = false; cancelAnimationFrame(raf); onClose(); });
 

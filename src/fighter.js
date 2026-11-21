@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261121133649';
-import { buildBody, poseBody } from './body.js?v=20261121133649';
-import { item, cleanLook } from './cosmetics.js?v=20261121133649';
+import { rim } from './vfx.js?v=20261121133956';
+import { buildBody, poseBody } from './body.js?v=20261121133956';
+import { item, cleanLook } from './cosmetics.js?v=20261121133956';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -292,9 +292,9 @@ export class Fighter {
     this.hand = new THREE.Vector3(); this.tip = new THREE.Vector3(); this.prevHand = new THREE.Vector3(); this.prevTip = new THREE.Vector3();
     this.prevPos = new THREE.Vector3(); this.noCut = true; this.swishCd = 0;
     this.handL = new THREE.Vector3(); this.hook = null; this.anim = null; this.armed = true;
-    // (dual swords, on trial: a second sword in the left hand, with a swing of its own. Everything of the right sword's
+    // (dual swords: a second sword in the left hand, with a swing of its own. Everything of the right sword's
     // has a twin ending in 2; `killSide` says which of the two is cutting just now, +1 the right, -1 the left: the other only blocks)
-    this.dual = !!dual && !this.spear && !horde; this.killSide = 1;
+    this.dual = (!!dual || this.look.wield === 'dual') && !this.spear && !horde; this.killSide = 1;
     if (this.dual) { this.guard2 = { x: -GUARD.x, y: GUARD.y }; this.s2 = { x: this.guard2.x, y: this.guard2.y }; this.hand2 = new THREE.Vector3(); this.tip2 = new THREE.Vector3(); this.prevHand2 = new THREE.Vector3(); this.prevTip2 = new THREE.Vector3();
       this.edge2 = new THREE.Vector3(-1, 0, 0); this.lastD2 = new THREE.Vector3(0, 0, -1); this.anim2 = null; this.armed2 = true; this.noCut2 = true; this.prevS2 = null; this.swishCd2 = 0; }
     this.bladeLen = BLADE_LEN; // grows with kills
