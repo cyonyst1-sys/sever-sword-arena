@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261120190522';
-import { buildBody, poseBody } from './body.js?v=20261120190522';
-import { item, cleanLook } from './cosmetics.js?v=20261120190522';
+import { rim } from './vfx.js?v=20261120191721';
+import { buildBody, poseBody } from './body.js?v=20261120191721';
+import { item, cleanLook } from './cosmetics.js?v=20261120191721';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -268,6 +268,7 @@ const _ka = new THREE.Vector3(), _kb = new THREE.Vector3(), _kc = new THREE.Vect
 const _tcA = new THREE.Color(), _tcB = new THREE.Color();
 
 export const GUARD = { x: 0.42, y: 0.38 };
+export const SPEAR_GUARD = { x: -0.1, y: 0.22 }; // (a spear at rest: couched at the right side, its point forward and a little up and in, so the shaft runs back past the hip and not through the body)
 export const BLADE_LEN = 1.12;
 const THIGH = 0.46, SHIN = 0.46, UPPER = 0.3, FORE = 0.28;
 
@@ -280,7 +281,7 @@ export class Fighter {
     this.bladeW = L.sword.w || 1; this.bladeT = L.sword.t || 1;
     this.spear = (!horde && L.sword.spear) || null; this.gripW = new THREE.Vector3(); // (a spear: two-handed, a blade at each end; gripW: where the leading hand really is, since `hand` is then the far end of the weapon)
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3();
-    this.yaw = 0; this.pitch = 0; this.s = { x: GUARD.x, y: GUARD.y };
+    this.guard = this.spear ? SPEAR_GUARD : GUARD; this.yaw = 0; this.pitch = 0; this.s = { x: this.guard.x, y: this.guard.y };
     this.onGround = false; this.alive = false; this.dashT = 0; this.dashCd = 0; this.dashDir = new THREE.Vector3();
     this.stam = 100; this.stamDelay = 0; this.padCd = 0; this.prot = 0; this.walk = 0; this.stagger = 0;
     this.hand = new THREE.Vector3(); this.tip = new THREE.Vector3(); this.prevHand = new THREE.Vector3(); this.prevTip = new THREE.Vector3();
@@ -511,7 +512,16 @@ export class Fighter {
     const shR = sh(1), shL = sh(-1);
     // (a spear is held close at the guard and driven out as it comes on line with where you look: that is its thrust. Fully out, it reaches exactly as far as a sword)
     const spr = this.spear, thr = spr ? Math.max(0, 1 - Math.hypot(this.s.x, this.s.y) / 0.5) : 1;
-    const hand = V(0.12, 1.3, -0.1).addScaledVector(d, spr ? 0.14 + 0.3 * thr : 0.44);
+    // A spear is carried well forward, clear of the body, and low enough to pass under the arm. Its other half runs back
+    // past you, so the hands shift across to whichever side sends it by the hip and not through the trunk: out to the
+    // right when it points ahead or to the left, across to the left when it points well to the right.
+    let hx = 0.12;
+    if (spr) { const fz = Math.max(0, -d.z), w = Math.min(1, Math.max(0, (fz - 0.1) / 0.3));
+      if (d.x > 0.3) this.spSide = -1; else if (d.x < 0.1 || !this.spSide) this.spSide = 1;
+      this.spK = this.spK === undefined || !(dt > 0) ? this.spSide : this.spK + (this.spSide - this.spK) * Math.min(1, dt * 16);
+      const xt = Math.max(-0.36, Math.min(0.36, (0.32 * d.x + this.spK * 0.3 * Math.hypot(d.x, d.z)) / Math.max(0.3, fz))); hx = 0.12 + (xt - 0.12) * w; // (seen from above, the shaft then passes 0.3 m from the middle of the body)
+      d.x -= hx / (0.36 + this.bladeLen); d.normalize(); } // (and it is angled back in by as much, so its point still lands where a sword held in front of you would: on what you are aiming at)
+    const hand = spr ? V(hx, 1.24, -0.3).addScaledVector(d, 0.02 + 0.26 * thr) : V(0.12, 1.3, -0.1).addScaledVector(d, 0.44);
     hand.z += -sl * 0.35; hand.y += (hipY - 0.99) * 0.6;
     const el = V();
     ik(shR, hand, UPPER, FORE, V(0.6, -0.7, 0.3), el);
@@ -526,7 +536,7 @@ export class Fighter {
     if (air && !this.hook) handL.set(-0.38, 1.35, -0.1);
     if (WL && !this.hook && wallSide < 0) handL.copy(shL).add(V(WL.x * 0.14, 0.2, WL.z * 0.14)); // (the wall on your left: that arm folds up, its elbow out against the wall)
     else if (WL && !this.hook) handL.copy(shL).add(V(-0.1, -0.2, -0.3)); // (the wall on your right: the left arm hangs free, out for balance)
-    if (spr && !this.hook && !WL) { handL.copy(hand).addScaledVector(d, -0.4); _c.subVectors(handL, shL); const l = _c.length(); if (l > 0.55) handL.copy(shL).addScaledVector(_c, 0.55 / l); } // (both hands on the shaft, the left one behind)
+    if (spr && !this.hook && !WL) { let t = Math.max(-0.45, Math.min(0.45, _c.subVectors(shL, hand).dot(d))); if (Math.abs(t) < 0.16) t = t < 0 ? -0.16 : 0.16; handL.copy(hand).addScaledVector(d, t); } // (the other hand takes the shaft where it comes nearest that shoulder, clear of the leading hand; the arm reaches as far as it can)
     if (this.hook) { // reach for the grapple anchor
       g.updateMatrixWorld(true);
       const loc = g.worldToLocal(this.hook.p.clone()).sub(shL).normalize();

@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261120190522';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261120190522';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261120190522';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261120190522';
-import * as net from './net.js?v=20261120190522';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261120190522';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261120190522';
-import { makeKillFx } from './killfx.js?v=20261120190522';
-import { makeGrapple } from './grapple.js?v=20261120190522';
-import { initShop } from './shop.js?v=20261120190522';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261120190522';
-import { portal } from './portal.js?v=20261120190522';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261120190522';
-import { makePost } from './post.js?v=20261120190522';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261120190522';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261120190522';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261120190522';
+import { Arena, MAPS } from './arena.js?v=20261120191721';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261120191721';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261120191721';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261120191721';
+import * as net from './net.js?v=20261120191721';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261120191721';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261120191721';
+import { makeKillFx } from './killfx.js?v=20261120191721';
+import { makeGrapple } from './grapple.js?v=20261120191721';
+import { initShop } from './shop.js?v=20261120191721';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261120191721';
+import { portal } from './portal.js?v=20261120191721';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261120191721';
+import { makePost } from './post.js?v=20261120191721';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261120191721';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261120191721';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261120191721';
 
 // ---------- settings ----------
 const store = {
@@ -532,12 +532,12 @@ function spearMove(f, gx, gy) {
   let from, to, dur, kind;
   if (gl > 12) { const ux = gx / gl, uy = -gy / gl;
     if (Math.abs(ux) >= Math.abs(uy)) { const sd = ux > 0 ? 1 : -1; quickDir = sd; kind = 'sweep'; from = { x: -1.0 * sd, y: 0.14 }; to = { x: 1.0 * sd, y: -0.12 }; dur = 0.19; }
-    else if (uy > 0) { kind = 'rise'; from = { x: 0.14, y: -0.98 }; to = { x: 0.04, y: 0.98 }; dur = 0.17; }
-    else { kind = 'chop'; from = { x: 0.12, y: 1.0 }; to = { x: 0.05, y: -0.95 }; dur = 0.17; }
+    else if (uy > 0) { kind = 'rise'; from = { x: 0.04, y: -0.98 }; to = { x: 0.02, y: 0.98 }; dur = 0.17; } // (straight up the line you are aiming along)
+    else { kind = 'chop'; from = { x: 0.04, y: 1.0 }; to = { x: 0.02, y: -0.95 }; dur = 0.17; }
   } else if (last === 'thrust') { // the windmill
     quickDir = -quickDir; f.noCut = true; f.spearLast = 'spin'; f.spearT = t;
     f.anim = { phase: 'spin', t: 0, a0: Math.PI / 2, dir: quickDir, turns: 1.5, r: 0.6, dur: 0.5 / hs }; f.s.x = 0; f.s.y = 0.6; return; // (tilted well forward: the front blade sweeps a ring ahead of you, the other one the same behind)
-  } else { quickDir = -quickDir; kind = 'thrust'; from = { x: 0.2 * quickDir, y: -0.3 }; to = { x: 0, y: 0.02 }; dur = 0.1;
+  } else { kind = 'thrust'; from = { x: -0.08, y: -0.34 }; to = { x: 0, y: 0.02 }; dur = 0.1; // (drawn back low at the right hip, then straight out)
     if (isLocal(f) && f.onGround && f.dashT <= 0 && f.stagger <= 0) { lookDir(f, _t); const l = Math.hypot(_t.x, _t.z) || 1; f.vel.x += _t.x / l * 3.4; f.vel.z += _t.z / l * 3.4; } } // (a short lunge behind it)
   f.s.x = from.x; f.s.y = from.y; f.noCut = true; f.spearLast = kind; f.spearT = t;
   f.anim = { phase: 'strike', t: 0, from, to, dur: dur / hs };
@@ -573,8 +573,8 @@ function updateSword(f, dt) {
   }
 }
 function towardGuard(f, dt, rate) {
-  const dx = GUARD.x - f.s.x, dy = GUARD.y - f.s.y, d = Math.hypot(dx, dy), st = rate * dt;
-  if (d <= st) { f.s.x = GUARD.x; f.s.y = GUARD.y; } else { f.s.x += dx / d * st; f.s.y += dy / d * st; }
+  const G = f.guard || GUARD, dx = G.x - f.s.x, dy = G.y - f.s.y, d = Math.hypot(dx, dy), st = rate * dt; // (a spear has its own guard)
+  if (d <= st) { f.s.x = G.x; f.s.y = G.y; } else { f.s.x += dx / d * st; f.s.y += dy / d * st; }
 }
 
 // segment-segment closest points (Ericson), returns squared distance; c1/c2 receive the points
@@ -1022,7 +1022,7 @@ function spawn(f, p, yaw) {
   f.touched = new Set(); // (Lava Climb: the course rocks they've stood on)
   f.pos.copy(p); f.vel.set(0, 0, 0); f.yaw = yaw; f.pitch = 0; f.alive = true; f.prot = 1.5; f.hook = null; f.dashT = 0;
   f.bladeLen = bladeFor(rosterGet(f.id)?.streak) * upm(f, 'blade'); // come back with the blade your streak earns (the starting one after a death)
-  f.stam = 100; f.s.x = GUARD.x; f.s.y = GUARD.y; f.noCut = true; f.anim = null; f.respawnAt = Infinity; f.onGround = true; f.stagger = 0;
+  f.stam = 100; f.s.x = (f.guard || GUARD).x; f.s.y = (f.guard || GUARD).y; f.noCut = true; f.anim = null; f.respawnAt = Infinity; f.onGround = true; f.stagger = 0;
   f.group.visible = true; f.trail.length = 0;
   if (f === me) { view.yaw = yaw; view.pitch = 0; twist.yaw = 0; twist.pitch = 0; }
   f.pose(0); f.prevHand.copy(f.hand); f.prevTip.copy(f.tip); f.prevPos.copy(f.pos);
