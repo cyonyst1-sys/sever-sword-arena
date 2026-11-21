@@ -3,25 +3,25 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { barkMat, barkUV, barkMap } from './bark.js?v=20261121130943';
-import { buildTilt } from './tilt.js?v=20261121130943';
-import { buildFoundry } from './foundry.js?v=20261121130943';
-import { buildBamboo } from './bamboo.js?v=20261121130943';
-import { buildCity } from './city.js?v=20261121130943';
-import { buildDojo } from './dojo.js?v=20261121130943';
-import { buildComet } from './comet.js?v=20261121130943';
-import { buildLava } from './lava.js?v=20261121130943';
-import { buildRun } from './run.js?v=20261121130943';
-import { buildGrove } from './grove.js?v=20261121130943';
-import { buildTransport } from './transport.js?v=20261121130943';
-import { buildTutorial } from './tutorial.js?v=20261121130943';
-import { buildTrain } from './train.js?v=20261121130943';
-import { buildCompound, COMPOUNDS } from './compound.js?v=20261121130943';
-import { buildAirship } from './airship.js?v=20261121130943';
-import { applyLook } from './look.js?v=20261121130943';
-import { addScenery } from './scenery.js?v=20261121130943';
-import { addAtmosphere } from './atmos.js?v=20261121130943';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261121130943';
+import { barkMat, barkUV, barkMap } from './bark.js?v=20261121131930';
+import { buildTilt } from './tilt.js?v=20261121131930';
+import { buildFoundry } from './foundry.js?v=20261121131930';
+import { buildBamboo } from './bamboo.js?v=20261121131930';
+import { buildCity } from './city.js?v=20261121131930';
+import { buildDojo } from './dojo.js?v=20261121131930';
+import { buildComet } from './comet.js?v=20261121131930';
+import { buildLava } from './lava.js?v=20261121131930';
+import { buildRun } from './run.js?v=20261121131930';
+import { buildGrove } from './grove.js?v=20261121131930';
+import { buildTransport } from './transport.js?v=20261121131930';
+import { buildTutorial } from './tutorial.js?v=20261121131930';
+import { buildTrain } from './train.js?v=20261121131930';
+import { buildCompound, COMPOUNDS } from './compound.js?v=20261121131930';
+import { buildAirship } from './airship.js?v=20261121131930';
+import { applyLook } from './look.js?v=20261121131930';
+import { addScenery } from './scenery.js?v=20261121131930';
+import { addAtmosphere } from './atmos.js?v=20261121131930';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261121131930';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -169,9 +169,9 @@ export const MAPS = {
   ships: { name: 'Sky Duel', blurb: 'two great airship planes racing side by side above the clouds, weaving round each other: decks and wings to fight on; hook anything underneath and the rope swings you out and up over the edge; keep clear of the propellers' },
   boss: { name: 'ChopSocky', blurb: 'a different arena for every boss, drawn at random from all the ordinary maps: beat one and you are sent on to the next' }, // (never built itself: see rollBossMap in main.js)
   // the Horde's compounds: rooms and corridors cut into a solid mass of buildings (see compound.js)
-  warrens: { name: 'Stone Warrens', blurb: 'a castle of nine rooms joined by passages, a court in the middle: nowhere to hide, a loop round every corner' },
-  alleys: { name: 'Lantern Alleys', blurb: 'a town at night: a ring of alleys round a well, yards and nooks off it, lanterns on every wall' },
-  garrison: { name: 'Frost Garrison', blurb: 'a fort in the snow: a great drill yard, a hall on each side, a walk right round inside the walls and a tower at each corner' },
+  warrens: { name: 'Stone Warrens', blurb: 'a castle warren: sixteen small rooms joined by passages that dogleg and zigzag, towering walls, and no straight way to anywhere' },
+  alleys: { name: 'Lantern Alleys', blurb: 'a town at night: one broad street winding from gate to gate, yards opening off it, and narrow back alleys twisting between them' },
+  garrison: { name: 'Frost Garrison', blurb: 'a fort in the snow: a hub and eight great halls, joined by two long tunnels that snake across it and crooked passages down each side' },
   tutorial: { name: 'Training Ground', blurb: 'four platforms in a line: a short course that teaches every move' },
 };
 

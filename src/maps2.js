@@ -3,8 +3,8 @@
 //   Pagoda Falls: a three-tier pagoda at sunset, stone islands, rock spires and terraces, red lacquer posts.
 //   Moonlit Isles: floating grass islands at night, a great cherry tree, rope bridges, bamboo groves.
 import * as THREE from 'three';
-import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261121130943';
-import { glow, aurora } from './look.js?v=20261121130943';
+import { buildMaw, mawY, buildTendrils } from './maw.js?v=20261121131930';
+import { glow, aurora } from './look.js?v=20261121131930';
 
 const TAU = Math.PI * 2;
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...o });
