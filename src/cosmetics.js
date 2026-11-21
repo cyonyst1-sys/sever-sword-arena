@@ -444,10 +444,10 @@ for (const c of Object.keys(CATALOG)) CATALOG[c].sort((a, b) => (a.price === 0 ?
     sp('frostpike', 'Frost Pike', 1100, 0xbfeaff, mat(0xbfeaff, { m: 0.4, r: 0.1, e: 0x3aa0ff, ei: 0.9 }), 0xe6f4ff, 0x1e3f8a, 'straight', 0.52, 0.9),
     sp('bloodfork', 'Bloodmoon Fork', 1400, 0xd61a2a, mat(0x8a0d16, { m: 0.5, r: 0.2, e: 0xff1a2a, ei: 1.1 }), 0x111111, 0x3a0a0e, 'forked', 0.42, 2.1),
     sp('monkspade', 'Crescent Spade', 1700, 0xdfe6ee, mat(0xdfe6ee, { m: 0.9, r: 0.18 }), 0xc9a24a, 0x5a1a1a, 'crescent', 0.4, 1.9),
-    // the three finest are double scythes: a great hooked blade at each end, facing opposite ways
-    sp('flamelance', 'Hellfire Scythe', 2100, 0xff6a10, mat(0x2a0a04, { m: 0.4, r: 0.3, e: 0xff5a00, ei: 2.2 }), 0x1a1a1a, 0x3a1a0a, 'scythe', 0.46, 8.5, 1.5),
-    sp('stormlance', 'Storm Scythe', 2500, 0x9ff0ff, mat(0xcff8ff, { m: 0.1, r: 0.05, e: 0x5fe3ff, ei: 2 }), 0xeef6ff, 0x1e3f8a, 'scythe', 0.5, 9.5, 1.3),
-    sp('voidreaper', 'Void Reaper', 3200, 0x9b51ff, mat(0x0b0614, { m: 0.6, r: 0.15, e: 0x9b51ff, ei: 1.8 }), 0x2a1a40, 0x0b0614, 'reaper', 0.54, 10.5, 1.6),
+    // the three finest are double scythes: a short pole with a long curved blade running straight out of each end, bowed opposite ways
+    sp('flamelance', 'Hellfire Scythe', 2100, 0xff6a10, mat(0x2a0a04, { m: 0.4, r: 0.3, e: 0xff5a00, ei: 2.2 }), 0x1a1a1a, 0x3a1a0a, 'scythe', 0.6, 2.9, 1.5),
+    sp('stormlance', 'Storm Scythe', 2500, 0x9ff0ff, mat(0xcff8ff, { m: 0.1, r: 0.05, e: 0x5fe3ff, ei: 2 }), 0xeef6ff, 0x1e3f8a, 'scythe', 0.64, 2.7, 1.3),
+    sp('voidreaper', 'Void Reaper', 3200, 0x9b51ff, mat(0x0b0614, { m: 0.6, r: 0.15, e: 0x9b51ff, ei: 1.8 }), 0x2a1a40, 0x0b0614, 'reaper', 0.68, 3.1, 1.6),
   ); }
 /** Keep only real item ids (used on looks arriving over the network). */
 export function cleanLook(look) {
