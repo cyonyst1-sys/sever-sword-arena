@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261121133956';
-import { buildBody, poseBody } from './body.js?v=20261121133956';
-import { item, cleanLook } from './cosmetics.js?v=20261121133956';
+import { rim } from './vfx.js?v=20261121135652';
+import { buildBody, poseBody } from './body.js?v=20261121135652';
+import { item, cleanLook } from './cosmetics.js?v=20261121135652';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -273,6 +273,7 @@ const _ka = new THREE.Vector3(), _kb = new THREE.Vector3(), _kc = new THREE.Vect
 const _tcA = new THREE.Color(), _tcB = new THREE.Color();
 
 export const GUARD = { x: 0.42, y: 0.38 };
+export const DUAL_REST = { x: 0.6, y: -0.62 }; // (dual swords: where the sword that is not cutting is carried, low at its side, point down and out; the left one mirrors it)
 export const SPEAR_GUARD = { x: -0.1, y: 0.22 }; // (a spear at rest: couched at the right side, its point forward and a little up and in, so the shaft runs back past the hip and not through the body)
 export const BLADE_LEN = 1.12;
 const THIGH = 0.46, SHIN = 0.46, UPPER = 0.3, FORE = 0.28;
@@ -295,7 +296,7 @@ export class Fighter {
     // (dual swords: a second sword in the left hand, with a swing of its own. Everything of the right sword's
     // has a twin ending in 2; `killSide` says which of the two is cutting just now, +1 the right, -1 the left: the other only blocks)
     this.dual = (!!dual || this.look.wield === 'dual') && !this.spear && !horde; this.killSide = 1;
-    if (this.dual) { this.guard2 = { x: -GUARD.x, y: GUARD.y }; this.s2 = { x: this.guard2.x, y: this.guard2.y }; this.hand2 = new THREE.Vector3(); this.tip2 = new THREE.Vector3(); this.prevHand2 = new THREE.Vector3(); this.prevTip2 = new THREE.Vector3();
+    if (this.dual) { this.guard2 = { x: -DUAL_REST.x, y: DUAL_REST.y }; this.s2 = { x: this.guard2.x, y: this.guard2.y }; this.hand2 = new THREE.Vector3(); this.tip2 = new THREE.Vector3(); this.prevHand2 = new THREE.Vector3(); this.prevTip2 = new THREE.Vector3();
       this.edge2 = new THREE.Vector3(-1, 0, 0); this.lastD2 = new THREE.Vector3(0, 0, -1); this.anim2 = null; this.armed2 = true; this.noCut2 = true; this.prevS2 = null; this.swishCd2 = 0; }
     this.bladeLen = BLADE_LEN; // grows with kills
     this.stride = 0; // eases in and out so starts and stops don't snap

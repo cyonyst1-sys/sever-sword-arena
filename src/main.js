@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261121133956';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121133956';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121133956';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121133956';
-import * as net from './net.js?v=20261121133956';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121133956';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121133956';
-import { makeKillFx } from './killfx.js?v=20261121133956';
-import { makeGrapple } from './grapple.js?v=20261121133956';
-import { initShop } from './shop.js?v=20261121133956';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261121133956';
-import { portal } from './portal.js?v=20261121133956';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121133956';
-import { makePost } from './post.js?v=20261121133956';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261121133956';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121133956';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121133956';
+import { Arena, MAPS } from './arena.js?v=20261121135652';
+import { Fighter, PALETTE, GUARD, DUAL_REST, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121135652';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121135652';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121135652';
+import * as net from './net.js?v=20261121135652';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121135652';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121135652';
+import { makeKillFx } from './killfx.js?v=20261121135652';
+import { makeGrapple } from './grapple.js?v=20261121135652';
+import { initShop } from './shop.js?v=20261121135652';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261121135652';
+import { portal } from './portal.js?v=20261121135652';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121135652';
+import { makePost } from './post.js?v=20261121135652';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261121135652';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121135652';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121135652';
 
 // ---------- settings ----------
 const store = {
@@ -547,6 +547,18 @@ function onLeft(f, fn) { // run fn with the left sword standing in for the right
   const sw = () => { for (const k of DUAL_KEYS) { const t = f[k]; f[k] = f[k + '2']; f[k + '2'] = t; } };
   sw(); try { return fn(); } finally { sw(); }
 }
+// How the two are carried: the sword that cuts is held out in guard, the other rides low at its own side, point down and out.
+// They change places whenever the cutting sword changes. Holding the button takes both in hand: the low one comes up to its guard.
+const DUAL_GUARD_L = { x: -GUARD.x, y: GUARD.y }, DUAL_REST_L = { x: -DUAL_REST.x, y: DUAL_REST.y };
+function stepSwords(f, dt) {
+  if (!f.dual) { updateSword(f, dt); return; }
+  const held = f === me && swingHeld();
+  f.guard = f.killSide > 0 || held ? GUARD : DUAL_REST; f.guard2 = f.killSide < 0 || held ? DUAL_GUARD_L : DUAL_REST_L;
+  if (held && !f.dualHeld) f.dualRaise = 0.25;
+  f.dualHeld = held;
+  if (held && f.dualRaise > 0) { f.dualRaise -= dt; if (f.killSide > 0) onLeft(f, () => towardGuard(f, dt, 5)); else towardGuard(f, dt, 5); }
+  updateSword(f, dt); onLeft(f, () => updateSword(f, dt));
+}
 function dualTap(f, gx, gy) {
   const t = now(), hs = upm(f, 'hands'), gl = Math.hypot(gx, gy), ux = gl > 12 ? gx / gl : 0, uy = gl > 12 ? -gy / gl : 0;
   const i = f.dualI = t - (f.dualT || 0) > 1.4 ? 0 : ((f.dualI ?? -1) + 1) % 3; f.dualT = t; // (a pause starts the round again, from the right)
@@ -607,7 +619,7 @@ function updateSword(f, dt) {
     } else { f.armed = !f.isBot; if (a.t > 0.18) f.anim = null; }
   } else {
     f.armed = !f.isBot;
-    if (!(f === me && swingHeld())) towardGuard(f, dt, 1.4);
+    if (!(f === me && swingHeld())) towardGuard(f, dt, f.dual ? 3.2 : 1.4);
   }
 }
 function towardGuard(f, dt, rate) {
@@ -1070,7 +1082,7 @@ function spawn(f, p, yaw) {
   f.stam = 100; f.s.x = (f.guard || GUARD).x; f.s.y = (f.guard || GUARD).y; f.noCut = true; f.anim = null; f.respawnAt = Infinity; f.onGround = true; f.stagger = 0;
   f.group.visible = true; f.trail.length = 0;
   if (f === me) { view.yaw = yaw; view.pitch = 0; twist.yaw = 0; twist.pitch = 0; }
-  if (f.dual) { f.s2.x = f.guard2.x; f.s2.y = f.guard2.y; f.anim2 = null; f.noCut2 = true; f.lead = 0; f.killSide = 1; f.dualI = -1; }
+  if (f.dual) { f.guard = GUARD; f.guard2 = DUAL_REST_L; f.dualHeld = false; f.dualRaise = 0; f.s2.x = f.guard2.x; f.s2.y = f.guard2.y; f.anim2 = null; f.noCut2 = true; f.lead = 0; f.killSide = 1; f.dualI = -1; }
   f.pose(0); f.prevHand.copy(f.hand); f.prevTip.copy(f.tip); f.prevPos.copy(f.pos); if (f.dual) { f.prevHand2.copy(f.hand2); f.prevTip2.copy(f.tip2); }
   sfx.spawn(p);
 }
@@ -2872,13 +2884,13 @@ function tick(rdt, tt) {
         stepFighter(f, rdt, { x: wx, z: wz }, false, keys.Space && locked);
         if (f.dashT > 0) f.dashAt = now();
         if (f.hook && !mouse.rmb) releaseHook(f, true);
-        updateSword(f, rdt); if (f.dual) onLeft(f, () => updateSword(f, rdt)); // (and the left sword)
+        stepSwords(f, rdt); // (and the left sword)
       } else if (S.host && f.isBot && tutHold(f)) { // (training: the dummy stands in its ring, facing you)
         f.pos.copy(arena.dummyAt); f.vel.set(0, 0, 0); f.onGround = true; f.prot = 0; if (me) f.yaw = Math.atan2(-(me.pos.x - f.pos.x), -(me.pos.z - f.pos.z));
       } else if (S.host && f.isBot) {
         const b = botUnstick(f, botThink(f, rdt), rdt);
         stepFighter(f, rdt, f.padFlight ? { x: 0, z: 0 } : b.wish, b.sprint, b.jump || botAirJump(f));
-        updateSword(f, rdt); if (f.dual) onLeft(f, () => updateSword(f, rdt));
+        stepSwords(f, rdt);
       } else remoteUpdate(f, rdt);
     }
     pushApart();
