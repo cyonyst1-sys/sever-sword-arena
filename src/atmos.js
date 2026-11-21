@@ -17,6 +17,9 @@ const AIR = {
   transport: { c: 0xf2d9a4, n: 480, size: 0.1, vel: [2.0, 0.08, 0.6], sway: 0.8, a: 0.5 }, // (blown sand)
   train: { c: 0xffffff, n: 260, size: 0.05, vel: [0, 0, 38], sway: 0.1, a: 0.45 }, // (wind streaming past)
   ships: { c: 0xffffff, n: 300, size: 0.05, vel: [0, 0, 38], sway: 0.1, a: 0.5 }, // (wind and wisps of cloud streaming past)
+  warrens: { c: 0xf2d9a4, n: 320, size: 0.07, vel: [0.5, 0.06, 0.2], sway: 0.7, a: 0.4 }, // (dust in the passages)
+  alleys: { c: 0xffc874, n: 260, size: 0.08, vel: [0.1, 0.15, 0.05], sway: 1.1, glow: true, a: 0.7 }, // (fireflies)
+  garrison: { c: 0xffffff, n: 620, size: 0.1, vel: [0.7, -1.6, 0.3], sway: 0.9, a: 0.9 }, // (falling snow)
   run: { c: 0x9ad06a, n: 420, size: 0.16, vel: [0.3, -0.9, 3], sway: 1.4, a: 0.9 }, // (leaves whipping past)
   lava: { c: 0xff7a26, n: 700, size: 0.11, vel: [0.2, 2.2, 0.15], sway: 1.0, glow: true, a: 0.95 }, // embers rising off the lava
   foundry: { c: 0xff8a2e, n: 460, size: 0.1, vel: [0.2, 1.5, 0.1], sway: 0.9, glow: true, a: 0.9 }, // embers

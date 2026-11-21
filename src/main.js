@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261121123714';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121123714';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121123714';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121123714';
-import * as net from './net.js?v=20261121123714';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121123714';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121123714';
-import { makeKillFx } from './killfx.js?v=20261121123714';
-import { makeGrapple } from './grapple.js?v=20261121123714';
-import { initShop } from './shop.js?v=20261121123714';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261121123714';
-import { portal } from './portal.js?v=20261121123714';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121123714';
-import { makePost } from './post.js?v=20261121123714';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261121123714';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121123714';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121123714';
+import { Arena, MAPS } from './arena.js?v=20261121125305';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121125305';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121125305';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121125305';
+import * as net from './net.js?v=20261121125305';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121125305';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121125305';
+import { makeKillFx } from './killfx.js?v=20261121125305';
+import { makeGrapple } from './grapple.js?v=20261121125305';
+import { initShop } from './shop.js?v=20261121125305';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261121125305';
+import { portal } from './portal.js?v=20261121125305';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121125305';
+import { makePost } from './post.js?v=20261121125305';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261121125305';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121125305';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121125305';
 
 // ---------- settings ----------
 const store = {
@@ -49,7 +49,7 @@ let arena = new Arena(scene, settings.quality, 'spire');
 // arena in play; asking for the map 'boss' means "whichever that is".
 let bossMap = null, bossBag = [];
 function rollBossMap() {
-  if (!bossBag.length) { bossBag = Object.keys(MAPS).filter((k) => !['lava', 'run', 'transport', 'train', 'ships', 'boss', 'tutorial'].includes(k));
+  if (!bossBag.length) { bossBag = Object.keys(MAPS).filter((k) => !['lava', 'run', 'transport', 'train', 'ships', 'boss', 'tutorial', 'warrens', 'alleys', 'garrison'].includes(k));
     for (let i = bossBag.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [bossBag[i], bossBag[j]] = [bossBag[j], bossBag[i]]; }
     if (bossBag.length > 1 && bossBag[bossBag.length - 1] === bossMap) bossBag.unshift(bossBag.pop()); }
   return (bossMap = bossBag.pop());
@@ -1353,7 +1353,7 @@ function botSwingTo(b, tp, why) {
   for (const c of cands.slice(0, 10)) {
     const dir = c.p.clone().sub(o).normalize();
     arena.rayThin = true; const hit = arena.raycast(o, dir, HOOK_MAX); arena.rayThin = false;
-    if (!hit || (hit.point.distanceTo(c.p) > 1.4 && (c.s < 0 || !carries(hit.point)))) continue; // something in the way that won't do
+    if (!hit || hit.box.wall || (hit.point.distanceTo(c.p) > 1.4 && (c.s < 0 || !carries(hit.point)))) continue; // something in the way that won't do
     if (!fireHook(b, o, dir)) return false;
     b.hookT = 0; b.hookMax = 5; b.hookWhy = why; b.dest = tp;
     if (b.vel.y < 9) b.vel.y = 9; // hop as the hook fires, so the swing starts high
@@ -1552,9 +1552,8 @@ function fillBots() {
 }
 function sendRoster() { net.broadcast({ t: 'roster', list: S.roster, mode: S.mode, map: S.map, diff: S.diff, noUp: !!S.noUp, tl: Math.round(S.timeLeft), wv: S.wave, q: !!S.quick, pub: !!S.pub, bots: S.bots, hid: S.myId }); renderLobby(); }
 function startMatch() {
-  const SP = ['lava', 'run', 'transport', 'train', 'ships', 'boss'];
-  for (const sp of SP) { if (S.mode === sp) S.map = sp; else if (S.map === sp) S.mode = sp; } // (special maps: the mode and its map go together)
-  if (!SP.includes(S.mode) && SP.includes(S.map)) S.map = 'spire';
+  { const own = Object.keys(SPECIAL).filter((m) => SPECIAL[m] === S.mode); // (special modes: the mode and its map go together; a mode with several maps takes one of its own at random unless one is chosen)
+    if (own.length) { if (!own.includes(S.map)) S.map = own[(Math.random() * own.length) | 0]; } else if (SPECIAL[S.map]) S.mode = SPECIAL[S.map]; }
   if (S.mode === 'boss') rollBossMap(); // (ChopSocky: the first boss's arena, at random)
   useMap(S.map);
   clearWorld(); fx.clear(); S.bambooCuts = []; S.brkCuts = [];
@@ -2386,8 +2385,20 @@ portal.onJoinRoom((code) => { const room = net.cleanCode(code); if (room.length 
 // ---------- HUD ----------
 let hudT = 0;
 const clock = (t) => { t = Math.max(0, t); return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`; };
+// ---------- the Horde's map in the corner: the compound's floor plan, you (an arrow, the way you face), your friends (blue) and the oni (red) ----------
+let miniBase = null, miniFor = null;
+function drawMini() {
+  const cv = $('mini'), gd = arena.grid, on = !!gd && !!me && S.phase === 'game'; cv.classList.toggle('hidden', !on); if (!on) return;
+  const c = cv.getContext('2d'), s = cv.width, k = s / gd.G, px = (v) => (v - gd.O) / gd.CELL * k;
+  if (miniFor !== arena) { miniFor = arena; miniBase = document.createElement('canvas'); miniBase.width = miniBase.height = s; const b = miniBase.getContext('2d'); // (the floor plan, drawn once for each map)
+    b.fillStyle = 'rgba(222,212,196,0.82)'; for (let j = 0; j < gd.G; j++) for (let i = 0; i < gd.G; i++) if (gd.open(i, j)) b.fillRect(i * k, j * k, k + 0.4, k + 0.4); }
+  c.clearRect(0, 0, s, s); c.drawImage(miniBase, 0, 0);
+  for (const f of fighters.values()) { if (!f.alive || f === me) continue; c.fillStyle = f.isBot ? '#e23a2e' : '#4aa8ff'; c.beginPath(); c.arc(px(f.pos.x), px(f.pos.z), f.isBot ? 2.7 : 3.3, 0, 7); c.fill(); }
+  c.save(); c.translate(px(me.pos.x), px(me.pos.z)); c.rotate(-view.yaw); c.fillStyle = me.alive ? '#ffd24a' : '#8a8580'; c.strokeStyle = '#1a1614'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(0, -6.5); c.lineTo(4.6, 5); c.lineTo(0, 2.6); c.lineTo(-4.6, 5); c.closePath(); c.fill(); c.stroke(); c.restore();
+}
 function updateHud(dt) {
-  hudT -= dt; if (hudT > 0) return; hudT = 0.1;
+  hudT -= dt; if (hudT > 0) return; hudT = 0.1; drawMini();
   if (S.phase !== 'game') return;
   const mr = rosterGet(S.myId), o = S.obj || {}, pts = POINT_MODES.has(S.mode);
   const top = ranked(S.roster, S.mode)[0];
@@ -2675,7 +2686,7 @@ function voteTick() {
   if (!(S.host && S.online && !!S.quick === !v.room && net.net.code === v.code && S.phase === 'end')) { hideVote(); return; }
   const c = [0, 0, 0]; for (const x of v.picks.values()) c[x]++; const top = Math.max(...c);
   if (v.room && v.hp && MAPS[v.hp]) S.map = v.hp; // (the host's pick overrules the vote)
-  else if (!v.opts.length) { /* a mode with its own map: the same again */ }
+  else if (!v.opts.length) { const own = Object.keys(SPECIAL).filter((m) => SPECIAL[m] === S.mode && m !== S.map); if (own.length) S.map = own[(Math.random() * own.length) | 0]; } // (a mode with its own map: the same again, or another of its own)
   else if (top > 0) { const best = [0, 1, 2].filter((i) => c[i] === top); S.map = v.opts[best[(Math.random() * best.length) | 0]]; S.mode = v.mode; }
   else if (v.room) S.map = v.opts[(Math.random() * v.opts.length) | 0];
   else quickRoll();
@@ -2908,7 +2919,7 @@ window.__sever = { get pm() { return pm; }, PM, ghosts, S, fighters, pieces, sce
 // ---------- map picker: a thumbnail card for each map (the hidden select still holds the choice) ----------
 function thumb(id) { return `thumbs/${id}.jpg?v=${document.querySelector('meta[name=build]').content}`; }
 // special maps come with their own mode (and that mode with its map)
-const SPECIAL = { lava: 'lava', run: 'run', transport: 'transport', train: 'train', ships: 'ships', boss: 'boss' };
+const SPECIAL = { lava: 'lava', run: 'run', transport: 'transport', train: 'train', ships: 'ships', boss: 'boss', warrens: 'horde', alleys: 'horde', garrison: 'horde' }; // (map: its mode. Horde has three)
 // a painted card for each mode: a colour wash and an emblem drawn on a canvas (made once)
 const modeArt = {};
 function modeThumb(id) {
@@ -2958,7 +2969,7 @@ const pickMap = (id) => { $('map').value = id; if (!SPECIAL[id]) lastRegularMap 
 const pickMode = (id) => { $('mode').value = id; $('mode').dispatchEvent(new Event('change')); };
 for (const el of ['mapPicker', 'specialPicker']) $(el).addEventListener('click', (e) => { const b = e.target.closest('.mapCard'); if (!b) return; const id = b.dataset.map; pickMap(id); if (SPECIAL[id] && $('mode').value !== SPECIAL[id]) pickMode(SPECIAL[id]); else if (!SPECIAL[id] && Object.values(SPECIAL).includes($('mode').value)) pickMode('ffa'); });
 $('modePicker').addEventListener('click', (e) => { const b = e.target.closest('.mapCard'); if (!b) return; const id = b.dataset.mode; pickMode(id);
-  const sp = Object.keys(SPECIAL).find((m) => SPECIAL[m] === id); if (sp) pickMap(sp); else if (SPECIAL[$('map').value]) pickMap(lastRegularMap); });
+  const sp = Object.keys(SPECIAL).find((m) => SPECIAL[m] === id); if (sp) { if (SPECIAL[$('map').value] !== id) pickMap(sp); } else if (SPECIAL[$('map').value]) pickMap(lastRegularMap); });
 $('mode').addEventListener('change', renderModePicker);
 // the menu background shows the chosen map
 const previewMap = () => { renderMapPicker(); if (S.phase === 'menu') useMap($('map').value); };

@@ -3,24 +3,25 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { barkMat, barkUV, barkMap } from './bark.js?v=20261121123714';
-import { buildTilt } from './tilt.js?v=20261121123714';
-import { buildFoundry } from './foundry.js?v=20261121123714';
-import { buildBamboo } from './bamboo.js?v=20261121123714';
-import { buildCity } from './city.js?v=20261121123714';
-import { buildDojo } from './dojo.js?v=20261121123714';
-import { buildComet } from './comet.js?v=20261121123714';
-import { buildLava } from './lava.js?v=20261121123714';
-import { buildRun } from './run.js?v=20261121123714';
-import { buildGrove } from './grove.js?v=20261121123714';
-import { buildTransport } from './transport.js?v=20261121123714';
-import { buildTutorial } from './tutorial.js?v=20261121123714';
-import { buildTrain } from './train.js?v=20261121123714';
-import { buildAirship } from './airship.js?v=20261121123714';
-import { applyLook } from './look.js?v=20261121123714';
-import { addScenery } from './scenery.js?v=20261121123714';
-import { addAtmosphere } from './atmos.js?v=20261121123714';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261121123714';
+import { barkMat, barkUV, barkMap } from './bark.js?v=20261121125305';
+import { buildTilt } from './tilt.js?v=20261121125305';
+import { buildFoundry } from './foundry.js?v=20261121125305';
+import { buildBamboo } from './bamboo.js?v=20261121125305';
+import { buildCity } from './city.js?v=20261121125305';
+import { buildDojo } from './dojo.js?v=20261121125305';
+import { buildComet } from './comet.js?v=20261121125305';
+import { buildLava } from './lava.js?v=20261121125305';
+import { buildRun } from './run.js?v=20261121125305';
+import { buildGrove } from './grove.js?v=20261121125305';
+import { buildTransport } from './transport.js?v=20261121125305';
+import { buildTutorial } from './tutorial.js?v=20261121125305';
+import { buildTrain } from './train.js?v=20261121125305';
+import { buildCompound, COMPOUNDS } from './compound.js?v=20261121125305';
+import { buildAirship } from './airship.js?v=20261121125305';
+import { applyLook } from './look.js?v=20261121125305';
+import { addScenery } from './scenery.js?v=20261121125305';
+import { addAtmosphere } from './atmos.js?v=20261121125305';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261121125305';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -167,6 +168,10 @@ export const MAPS = {
   train: { name: 'Bullet Train', blurb: 'the roofs of a very long train racing through forest, snowy mountains, desert canyon, sea coast and a city at night: bridges, tunnels and signal arms' },
   ships: { name: 'Sky Duel', blurb: 'two great airship planes racing side by side above the clouds, weaving round each other: decks and wings to fight on; hook anything underneath and the rope swings you out and up over the edge; keep clear of the propellers' },
   boss: { name: 'ChopSocky', blurb: 'a different arena for every boss, drawn at random from all the ordinary maps: beat one and you are sent on to the next' }, // (never built itself: see rollBossMap in main.js)
+  // the Horde's compounds: rooms and corridors cut into a solid mass of buildings (see compound.js)
+  warrens: { name: 'Stone Warrens', blurb: 'a castle of nine rooms joined by passages, a court in the middle: nowhere to hide, a loop round every corner' },
+  alleys: { name: 'Lantern Alleys', blurb: 'a town at night: a ring of alleys round a well, yards and nooks off it, lanterns on every wall' },
+  garrison: { name: 'Frost Garrison', blurb: 'a fort in the snow: a great drill yard, a hall on each side, a walk right round inside the walls and a tower at each corner' },
   tutorial: { name: 'Training Ground', blurb: 'four platforms in a line: a short course that teaches every move' },
 };
 
@@ -614,6 +619,7 @@ export class Arena {
     if (this.mapId === 'transport') return buildTransport(this, TEX);
     if (this.mapId === 'tutorial') return buildTutorial(this, TEX);
     if (this.mapId === 'train') return buildTrain(this, TEX);
+    if (COMPOUNDS.includes(this.mapId)) return buildCompound(this, TEX);
     if (this.mapId === 'ships') return buildAirship(this, TEX);
     const S = this.scene, M = this.mats;
     // sky & light (the sun's shadow box follows the player around the big map)
@@ -1048,7 +1054,7 @@ export class Arena {
       if (this.rayThin) brk = brk.filter((b) => !b.soft && !b.hard);
     }
     for (const list of [this.boxes, this.rayBoxes, brk]) for (const b of list) {
-      if (b.noHook) continue; // (walls you can't hook, like the crater's)
+      if (b.noHook && !b.wall) continue; // (walls you can't hook, like the crater's; a `wall` can't be hooked either but still stops the hook: nothing behind it can be reached)
       if (this.rayOnlyTend && b.tend === undefined) continue; // (Colosseum, aiming up: only the tendrils)
       if (this.rayThin && b.danger) continue; // (bots won't hook the saw columns and gantries)
       let t0 = 0, t1 = best;
@@ -1064,6 +1070,7 @@ export class Arena {
   /** Grapple target: straight ahead if that hits; otherwise the best surface in a cone in front. */
   grappleTarget(o, d, max = 55) {
     const direct = this.raycast(o, d, max);
+    if (direct && direct.box.wall) { /* aimed at a wall: nothing straight ahead, but something near the aim may do */ } else
     if (direct) return direct;
     let best = null, bs = -Infinity; const v = new THREE.Vector3(), dir = new THREE.Vector3();
     for (let i = 0; i < 40; i++) { // probe a cone around the aim, favouring the centre and upward
@@ -1072,7 +1079,7 @@ export class Arena {
       const up = new THREE.Vector3().crossVectors(v, d).normalize();
       dir.addScaledVector(v, Math.cos(a) * r).addScaledVector(up, Math.sin(a) * r).normalize();
       const h = this.raycast(o, dir, max);
-      if (!h) continue;
+      if (!h || h.box.wall) continue;
       const sc = dir.dot(d) * 3 + dir.y * 0.6 - h.dist * 0.01;
       if (sc > bs) { bs = sc; best = h; }
     }

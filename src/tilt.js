@@ -5,8 +5,8 @@
 // whoever is on it; a new one is hung back on 10 s later.
 import * as THREE from 'three';
 import { drift } from './maps2.js';
-import { glow, aurora } from './look.js?v=20261121123714';
-import { cloudHeaps } from './scenery.js?v=20261121123714';
+import { glow, aurora } from './look.js?v=20261121125305';
+import { cloudHeaps } from './scenery.js?v=20261121125305';
 
 const TAU = Math.PI * 2, N = 6, R = 14, DISH = 1.9, ARM = 25, L = 22, HUB = 40, MAXOFF = 2; // platforms, radius, dish depth, crown arm, chain, crown height, extra swing
 const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
