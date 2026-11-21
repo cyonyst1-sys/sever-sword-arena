@@ -1,10 +1,10 @@
 // The shop screen: browse by category, try things on a turning, swinging preview fighter, buy and equip.
 import * as THREE from 'three';
-import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261120185041';
-import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261120185041';
-import { makeKillFx } from './killfx.js?v=20261120185041';
-import { makeGrapple } from './grapple.js?v=20261120185041';
-import { CATEGORIES, CATALOG, item, profile, owns, buy, equip, UPGRADES, UP_MAX, UP_PRICES, buyUpgrade, upText, tierOf } from './cosmetics.js?v=20261120185041';
+import { Fighter, PALETTE, setMetalEnv, metalEnvFor } from './fighter.js?v=20261120190522';
+import { Particles, Pieces, bakeMeshes } from './slice.js?v=20261120190522';
+import { makeKillFx } from './killfx.js?v=20261120190522';
+import { makeGrapple } from './grapple.js?v=20261120190522';
+import { CATEGORIES, CATALOG, item, profile, owns, buy, equip, UPGRADES, UP_MAX, UP_PRICES, buyUpgrade, upText, tierOf } from './cosmetics.js?v=20261120190522';
 
 const $ = (id) => document.getElementById(id);
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
@@ -37,7 +37,8 @@ export function initShop({ show, onClose }) {
   const camAt = { pos: new THREE.Vector3(0.9, 1.25, -3.9), look: new THREE.Vector3(0, 1.0, 0) };
 
   // the look being shown: what you wear, with the selected item tried on
-  const tryLook = () => (cat === 'upgrade' ? { ...profile.equip } : { ...profile.equip, [cat]: sel });
+  const C = () => (cat === 'spear' ? 'sword' : cat); // (spears share the sword's slot: the Spears tab is a view of the same list)
+  const tryLook = () => (cat === 'upgrade' ? { ...profile.equip } : { ...profile.equip, [C()]: sel });
   function rebuild() {
     const look = tryLook(), k = JSON.stringify(look);
     if (k === lookKey && f) return;
@@ -52,7 +53,7 @@ export function initShop({ show, onClose }) {
   // ---- UI
   function renderTabs() {
     const tab = (c) => `<button data-c="${c.id}" class="${c.id === cat || c.on ? 'on' : ''}">${c.name}</button>`; // upgrades first, on their own; then the looks
-    $('shopTabs').innerHTML = `<div class="tabGroup up"><span>Upgrades</span>${tab({ id: 'upgrade', name: 'Upgrades' })}</div><div class="tabGroup"><span>Looks</span>${CATEGORIES.filter((c) => c.id !== 'upgrade' && c.id !== 'shape').map((c) => tab(c.id === 'sword' && cat === 'shape' ? { ...c, on: true } : c)).join('')}</div>${cat === 'sword' || cat === 'shape' ? `<div class="tabGroup sub">${tab({ id: 'sword', name: 'Finish' })}${tab({ id: 'shape', name: 'Shape' })}</div>` : ''}`;
+    $('shopTabs').innerHTML = `<div class="tabGroup up"><span>Upgrades</span>${tab({ id: 'upgrade', name: 'Upgrades' })}</div><div class="tabGroup"><span>Looks</span>${CATEGORIES.filter((c) => c.id !== 'upgrade' && c.id !== 'shape').map((c) => tab(c.id === 'sword' && (cat === 'shape' || cat === 'spear') ? { ...c, on: true } : c)).join('')}</div>${cat === 'sword' || cat === 'shape' || cat === 'spear' ? `<div class="tabGroup sub">${tab({ id: 'sword', name: 'Swords' })}${tab({ id: 'shape', name: 'Sword shape' })}${tab({ id: 'spear', name: 'Spears' })}</div>` : ''}`;
   }
   function renderGrid() {
     if (cat === 'upgrade') { // permanent stat boosts: five pips each, the bonus you have now, the price of the next level
@@ -64,8 +65,8 @@ export function initShop({ show, onClose }) {
       }).join('');
       return;
     }
-    $('shopGrid').innerHTML = CATALOG[cat].map((it) => {
-      const own = owns(cat, it.id), eq = profile.equip[cat] === it.id;
+    $('shopGrid').innerHTML = CATALOG[C()].filter((it) => C() !== 'sword' || !!it.spear === (cat === 'spear')).map((it) => {
+      const own = owns(C(), it.id), eq = profile.equip[C()] === it.id;
       const st = eq ? '<span class="pr eq">Equipped</span>' : own ? '<span class="pr">Owned</span>' : `<span class="pr ${profile.coins < it.price ? 'no' : ''}"><span class="coin"></span>${it.price}</span>`;
       const sw = it.id === 'rainbow' ? 'linear-gradient(90deg,#ff4a4a,#ffd24a,#4aff7a,#4ab0ff,#c04aff)' : `linear-gradient(135deg, ${hex(it.sw)}, ${hex(it.sw)}aa)`;
       const tr = tierOf(it.price), badge = it.price ? `<span class="tier ${tr}">${tr}</span>` : '';
@@ -82,7 +83,7 @@ export function initShop({ show, onClose }) {
       else { b.textContent = `Need ${next - profile.coins} more coins`; b.disabled = true; }
       return;
     }
-    const it = item(cat, sel), own = owns(cat, sel), eq = profile.equip[cat] === sel, b = $('shopAction');
+    const it = item(C(), sel), own = owns(C(), sel), eq = profile.equip[C()] === sel, b = $('shopAction');
     $('shopItemName').textContent = it.name;
     $('shopCoins').textContent = profile.coins;
     if (eq) { b.textContent = 'Equipped'; b.disabled = true; }
@@ -92,12 +93,12 @@ export function initShop({ show, onClose }) {
   }
   const refresh = () => { renderTabs(); renderGrid(); renderAction(); rebuild(); };
 
-  $('shopTabs').addEventListener('click', (e) => { const c = e.target.closest('button')?.dataset.c; if (c) { cat = c; sel = c === 'upgrade' ? UPGRADES[0].id : profile.equip[c]; refresh(); } });
+  $('shopTabs').addEventListener('click', (e) => { const c = e.target.closest('button')?.dataset.c; if (c) { cat = c; sel = c === 'upgrade' ? UPGRADES[0].id : profile.equip[C()]; if (c === 'spear' && !item('sword', sel).spear) sel = CATALOG.sword.find((x) => x.spear).id; if (c === 'sword' && item('sword', sel).spear) sel = 'katana'; refresh(); } });
   $('shopGrid').addEventListener('click', (e) => { const id = e.target.closest('.card')?.dataset.id; if (id) { sel = id; refresh(); } });
   $('shopAction').addEventListener('click', () => {
     if (cat === 'upgrade') { if (buyUpgrade(sel)) refresh(); return; }
-    if (!owns(cat, sel) && !buy(cat, sel)) return;
-    equip(cat, sel); refresh();
+    if (!owns(C(), sel) && !buy(C(), sel)) return;
+    equip(C(), sel); refresh();
   });
   $('shopClose').addEventListener('click', () => { open = false; cancelAnimationFrame(raf); onClose(); });
 
@@ -146,7 +147,7 @@ export function initShop({ show, onClose }) {
     open() {
       if (!renderer) { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); renderer.setPixelRatio(devicePixelRatio); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; shopEnv = metalEnvFor(renderer); }
       setMetalEnv(shopEnv); // the preview has its own renderer, so its own reflection map (the game's goes back on close)
-      show('shop'); open = true; sel = profile.equip[cat]; lookKey = ''; refresh();
+      show('shop'); open = true; if (cat === 'spear' || cat === 'sword') cat = item('sword', profile.equip.sword).spear ? 'spear' : 'sword'; sel = cat === 'upgrade' ? UPGRADES[0].id : profile.equip[C()]; lookKey = ''; refresh();
       last = 0; t0 = performance.now() / 1000; cancelAnimationFrame(raf); raf = requestAnimationFrame(frame);
     },
   };

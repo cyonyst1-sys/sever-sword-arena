@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261120185041';
-import { buildBody, poseBody } from './body.js?v=20261120185041';
-import { item, cleanLook } from './cosmetics.js?v=20261120185041';
+import { rim } from './vfx.js?v=20261120190522';
+import { buildBody, poseBody } from './body.js?v=20261120190522';
+import { item, cleanLook } from './cosmetics.js?v=20261120190522';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.
@@ -278,6 +278,7 @@ export class Fighter {
     const L = { outfit: item('outfit', this.look.outfit), sword: item('sword', this.look.sword), mask: item('mask', this.look.mask), hat: item('hat', this.look.hat) };
     this.trailStyle = item('trail', this.look.trail); this.tipSpeed = 0;
     this.bladeW = L.sword.w || 1; this.bladeT = L.sword.t || 1;
+    this.spear = (!horde && L.sword.spear) || null; this.gripW = new THREE.Vector3(); // (a spear: two-handed, a blade at each end; gripW: where the leading hand really is, since `hand` is then the far end of the weapon)
     this.pos = new THREE.Vector3(); this.vel = new THREE.Vector3();
     this.yaw = 0; this.pitch = 0; this.s = { x: GUARD.x, y: GUARD.y };
     this.onGround = false; this.alive = false; this.dashT = 0; this.dashCd = 0; this.dashDir = new THREE.Vector3();
@@ -317,8 +318,11 @@ export class Fighter {
       lapL: mk(GEO.round, trim), lapR: mk(GEO.round, trim), obiK: mk(GEO.round, trim), tailL: mk(GEO.round, trim), tailR: mk(GEO.round, trim), hbL: mk(GEO.round, horde ? M.oni : gi), hbR: mk(GEO.round, horde ? M.oni : gi),
       wrL: mk(GEO.cyl, splint, CAP.steel), wrR: mk(GEO.cyl, splint, CAP.steel), kyL: mk(GEO.taper, splint, CAP.steel), kyR: mk(GEO.taper, splint, CAP.steel),
       saya: mk(GEO.cyl, M.saya, CAP.wood), kojiri: mk(GEO.cyl, M.gold, CAP.steel),
-      grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(bladeGeo(item('shape', this.look.shape).id), L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
+      grip: mk(GEO.cyl, L.sword.id === 'katana' ? M.grip : cosMat({ c: L.sword.grip, r: 0.9 }), CAP.wood), guard: mk(GEO.box, L.sword.id === 'katana' ? M.gold : cosMat({ c: L.sword.guard, m: 0.8, r: 0.35 }), CAP.steel), blade: mk(bladeGeo(this.spear ? this.spear.head : item('shape', this.look.shape).id), L.sword.id === 'katana' ? M.blade : cosMat(L.sword.blade), CAP.steel),
     };
+    if (this.spear) { // the second head and its collar; and no scabbard at the hip
+      this.p.blade2 = mk(this.p.blade.geometry, this.p.blade.material, CAP.steel); this.p.guard2 = mk(GEO.box, this.p.guard.material, CAP.steel);
+      for (const n of ['saya', 'kojiri']) { const m = this.p[n]; this.group.remove(m); this.meshes = this.meshes.filter((x) => x !== m); } }
     // mask and headwear: extra parts worn on the head; some hide what they cover
     this.acc = [];
     for (const it of [L.mask, L.hat]) {
@@ -505,7 +509,9 @@ export class Fighter {
     // ---- sword arm
     const d = this.bladeDir(_d.clone());
     const shR = sh(1), shL = sh(-1);
-    const hand = V(0.12, 1.3, -0.1).add(R(0, 0, 0).sub(V(0, 0, 0))).addScaledVector(d, 0.44);
+    // (a spear is held close at the guard and driven out as it comes on line with where you look: that is its thrust. Fully out, it reaches exactly as far as a sword)
+    const spr = this.spear, thr = spr ? Math.max(0, 1 - Math.hypot(this.s.x, this.s.y) / 0.5) : 1;
+    const hand = V(0.12, 1.3, -0.1).addScaledVector(d, spr ? 0.14 + 0.3 * thr : 0.44);
     hand.z += -sl * 0.35; hand.y += (hipY - 0.99) * 0.6;
     const el = V();
     ik(shR, hand, UPPER, FORE, V(0.6, -0.7, 0.3), el);
@@ -520,6 +526,7 @@ export class Fighter {
     if (air && !this.hook) handL.set(-0.38, 1.35, -0.1);
     if (WL && !this.hook && wallSide < 0) handL.copy(shL).add(V(WL.x * 0.14, 0.2, WL.z * 0.14)); // (the wall on your left: that arm folds up, its elbow out against the wall)
     else if (WL && !this.hook) handL.copy(shL).add(V(-0.1, -0.2, -0.3)); // (the wall on your right: the left arm hangs free, out for balance)
+    if (spr && !this.hook && !WL) { handL.copy(hand).addScaledVector(d, -0.4); _c.subVectors(handL, shL); const l = _c.length(); if (l > 0.55) handL.copy(shL).addScaledVector(_c, 0.55 / l); } // (both hands on the shaft, the left one behind)
     if (this.hook) { // reach for the grapple anchor
       g.updateMatrixWorld(true);
       const loc = g.worldToLocal(this.hook.p.clone()).sub(shL).normalize();
@@ -538,14 +545,22 @@ export class Fighter {
     this.edge.addScaledVector(d, -this.edge.dot(d)).normalize();
     if (!isFinite(this.edge.x) || this.edge.lengthSq() < 0.5) this.edge.set(1, 0, 0).addScaledVector(d, -d.x).normalize();
     this.lastD.copy(d);
+    const bl = this.bladeLen, bw = (0.05 + (bl - BLADE_LEN) * 0.012) * this.bladeW, bt = (0.012 + (bl - BLADE_LEN) * 0.003) * this.bladeT;
+    if (spr) { // a shaft through the hands, a collar and a head at each end; the far head faces the other way, its edge leading as that end comes round
+      const F = 0.1 + bl, Hd = Math.min(F * 0.85, spr.hl * bl + 0.04), nd = V(-d.x, -d.y, -d.z), ne = V(-this.edge.x, -this.edge.y, -this.edge.z);
+      seg(P.grip, _a.copy(hand).addScaledVector(d, -(F - Hd + 0.03)), _b.copy(hand).addScaledVector(d, F - Hd + 0.03), 0.019);
+      boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, F - Hd - 0.02), 0.06, 0.06, 0.05); boxBasis(P.guard2, ne, nd, _a.copy(hand).addScaledVector(d, -(F - Hd - 0.02)), 0.06, 0.06, 0.05);
+      boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, F - Hd / 2), bw, Hd, bt); boxBasis(P.blade2, ne, nd, _a.copy(hand).addScaledVector(d, -(F - Hd / 2)), bw, Hd, bt);
+    } else {
     seg(P.grip, _a.copy(hand).addScaledVector(d, -0.12), _b.copy(hand).addScaledVector(d, 0.08), 0.022);
     boxBasis(P.guard, this.edge, d, _a.copy(hand).addScaledVector(d, 0.09), 0.13, 0.025, 0.07);
-    const bl = this.bladeLen, bw = (0.05 + (bl - BLADE_LEN) * 0.012) * this.bladeW;
-    boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, 0.1 + bl / 2), bw, bl, (0.012 + (bl - BLADE_LEN) * 0.003) * this.bladeT);
+
+    boxBasis(P.blade, this.edge, d, _a.copy(hand).addScaledVector(d, 0.1 + bl / 2), bw, bl, bt); }
     if (this.body) poseBody(this);
     // world hand/tip for hit tests
     g.updateMatrixWorld(true);
-    this.hand.copy(hand).applyMatrix4(g.matrixWorld);
+    this.gripW.copy(hand).applyMatrix4(g.matrixWorld);
+    if (spr) this.hand.copy(hand).addScaledVector(d, -(0.1 + bl)).applyMatrix4(g.matrixWorld); else this.hand.copy(this.gripW); // (hand to tip is what cuts: for a spear, the whole weapon from one point to the other)
     this.tip.copy(hand).addScaledVector(d, 0.1 + bl).applyMatrix4(g.matrixWorld);
     this.handL.copy(handL).applyMatrix4(g.matrixWorld);
     if (this.label) this.label.visible = this.alive;
@@ -553,7 +568,7 @@ export class Fighter {
 
   updateTrail(now) {
     const T = this.trail;
-    if (this.alive) T.push({ h: this.hand.clone().lerp(this.tip, 0.3), t: this.tip.clone(), time: now });
+    if (this.alive) T.push({ h: this.spear ? this.gripW.clone().lerp(this.tip, 0.6) : this.hand.clone().lerp(this.tip, 0.3), t: this.tip.clone(), time: now });
     while (T.length && (now - T[0].time > (this.trailStyle.len || 0.12) || T.length > 18)) T.shift();
     const pos = this.trailMesh.geometry.attributes.position, col = this.trailMesh.geometry.attributes.color;
     const st = this.trailStyle, A = _tcA.set(st.a), B = _tcB.set(st.b), n = T.length;

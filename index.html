@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sever</title>
-<meta name="build" content="20261120185041">
+<meta name="build" content="20261120190522">
 <link rel="icon" href="data:,">
 <script>
 // Stale-page guard (as in Splatline): if version.json names a newer build than this page, reload once.
@@ -203,12 +203,12 @@ window.severVersion.check();
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three.module.min.js",
-  "./src/main.js": "./src/main.js?v=20261120185041",
-  "./src/arena.js": "./src/arena.js?v=20261120185041",
-  "./src/fighter.js": "./src/fighter.js?v=20261120185041",
-  "./src/slice.js": "./src/slice.js?v=20261120185041",
-  "./src/audio.js": "./src/audio.js?v=20261120185041",
-  "./src/net.js": "./src/net.js?v=20261120185041"
+  "./src/main.js": "./src/main.js?v=20261120190522",
+  "./src/arena.js": "./src/arena.js?v=20261120190522",
+  "./src/fighter.js": "./src/fighter.js?v=20261120190522",
+  "./src/slice.js": "./src/slice.js?v=20261120190522",
+  "./src/audio.js": "./src/audio.js?v=20261120190522",
+  "./src/net.js": "./src/net.js?v=20261120190522"
 } }
 </script>
 </head>
@@ -345,7 +345,7 @@ window.severVersion.check();
 <div id="shop" class="screen hidden">
   <div class="panel shopPanel">
     <div class="shopHead"><h2>Shop</h2><div class="wallet"><span class="coin"></span><b id="shopCoins">0</b></div></div>
-    <p class="muted" style="margin:-6px 0 12px">Looks change nothing about how you fight; Upgrades are small permanent boosts (the host can switch them off online). Earn coins by playing: 10 a match, 5 a kill, 30 for a win, plus points and waves.</p>
+    <p class="muted" style="margin:-6px 0 12px">Looks change nothing about how you fight, except your weapon: a spear has two blades and its own moves (same reach as a sword). Upgrades are small permanent boosts (the host can switch them off online). Earn coins by playing: 10 a match, 5 a kill, 30 for a win, plus points and waves.</p>
     <div class="shopBody">
       <div class="shopPreview"><canvas id="shopCanvas" width="300" height="380"></canvas><div id="shopItemName"></div><button class="primary" id="shopAction">Equip</button></div>
       <div class="shopRight"><div class="tabs" id="shopTabs"></div><div class="grid" id="shopGrid"></div></div>
@@ -384,6 +384,6 @@ window.severVersion.check();
 <div id="toast" style="opacity:0"></div>
 <div id="loading">Loading…</div>
 <noscript><p style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center">Sever needs JavaScript and WebGL.</p></noscript>
-<script type="module" src="src/main.js?v=20261120185041"></script>
+<script type="module" src="src/main.js?v=20261120190522"></script>
 </body>
 </html>
