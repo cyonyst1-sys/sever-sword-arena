@@ -319,7 +319,7 @@ export function buildTrain(A, T) {
     return out; };
   A.flatbeds = cars.filter((p) => p.type === 'flat');
   A.spawnOk = (sp) => { const p = A.plats[sp.plat]; if (!p || !p.car) return true; const d = A.trainDanger(sp); return p.type === 'flat' ? d.tunnel > 0.4 || true : d.tunnel > 3 && d.high > 2.5; };
-  { const fo = A.follow.bind(A); A.follow = (p) => { A.camZ = p.z; A.camY = p.y; fo(p); }; } // (where the camera is: for the landscape's light and the tunnel's dark)
+  { const fo = A.follow.bind(A); A.follow = (p, cam) => { A.camZ = p.z; A.camY = p.y; fo(p, cam); }; } // (where the camera is: for the landscape's light and the tunnel's dark)
   Sw = runS(); uS.value = Sw; place(); place();
   A.finishNav();
 }

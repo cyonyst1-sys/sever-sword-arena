@@ -3,24 +3,24 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { barkMat, barkUV, barkMap } from './bark.js?v=20261120192356';
-import { buildTilt } from './tilt.js?v=20261120192356';
-import { buildFoundry } from './foundry.js?v=20261120192356';
-import { buildBamboo } from './bamboo.js?v=20261120192356';
-import { buildCity } from './city.js?v=20261120192356';
-import { buildDojo } from './dojo.js?v=20261120192356';
-import { buildComet } from './comet.js?v=20261120192356';
-import { buildLava } from './lava.js?v=20261120192356';
-import { buildRun } from './run.js?v=20261120192356';
-import { buildGrove } from './grove.js?v=20261120192356';
-import { buildTransport } from './transport.js?v=20261120192356';
-import { buildTutorial } from './tutorial.js?v=20261120192356';
-import { buildTrain } from './train.js?v=20261120192356';
-import { buildAirship } from './airship.js?v=20261120192356';
-import { applyLook } from './look.js?v=20261120192356';
-import { addScenery } from './scenery.js?v=20261120192356';
-import { addAtmosphere } from './atmos.js?v=20261120192356';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261120192356';
+import { barkMat, barkUV, barkMap } from './bark.js?v=20261120200039';
+import { buildTilt } from './tilt.js?v=20261120200039';
+import { buildFoundry } from './foundry.js?v=20261120200039';
+import { buildBamboo } from './bamboo.js?v=20261120200039';
+import { buildCity } from './city.js?v=20261120200039';
+import { buildDojo } from './dojo.js?v=20261120200039';
+import { buildComet } from './comet.js?v=20261120200039';
+import { buildLava } from './lava.js?v=20261120200039';
+import { buildRun } from './run.js?v=20261120200039';
+import { buildGrove } from './grove.js?v=20261120200039';
+import { buildTransport } from './transport.js?v=20261120200039';
+import { buildTutorial } from './tutorial.js?v=20261120200039';
+import { buildTrain } from './train.js?v=20261120200039';
+import { buildAirship } from './airship.js?v=20261120200039';
+import { applyLook } from './look.js?v=20261120200039';
+import { addScenery } from './scenery.js?v=20261120200039';
+import { addAtmosphere } from './atmos.js?v=20261120200039';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261120200039';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -169,6 +169,7 @@ export const MAPS = {
   tutorial: { name: 'Training Ground', blurb: 'four platforms in a line: a short course that teaches every move' },
 };
 
+const _fd = new THREE.Vector3(), _fr = new THREE.Vector3(), _fu = new THREE.Vector3(); // (for follow)
 export class Arena {
   constructor(scene, quality, mapId = 'spire') {
     // everything the map adds lives under one group, so switching maps can remove it all
@@ -314,7 +315,7 @@ export class Arena {
     this.sun = sun; this.sunOff = new THREE.Vector3(48, 105, 23); sun.position.copy(this.sunOff); // (from above the leafy roof, so the roof's shadow falls on the fight: dappled light)
     if (this.quality !== 'low') {
       sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-      const c = sun.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 300;
+      const c = sun.shadow.camera; c.left = c.bottom = -34; c.right = c.top = 34; c.near = 1; c.far = 300;
       sun.shadow.bias = -0.00025; sun.shadow.normalBias = 0.09;
     }
     S.add(sun); S.add(sun.target);
@@ -585,7 +586,7 @@ export class Arena {
     this.realScene.background = new THREE.Color(o.mid); this.realScene.fog = new THREE.Fog(o.fog, o.near, o.far);
     S.add(new THREE.HemisphereLight(o.hemiSky, o.hemiGround, o.hemi));
     const L = new THREE.DirectionalLight(o.sunColor, o.sun); this.sun = L; this.sunOff = o.sunOff; L.position.copy(o.sunOff);
-    if (this.quality !== 'low') { L.castShadow = true; L.shadow.mapSize.set(2048, 2048); const c = L.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 220; L.shadow.bias = -0.0004; L.shadow.normalBias = 0.09; }
+    if (this.quality !== 'low') { L.castShadow = true; L.shadow.mapSize.set(2048, 2048); const c = L.shadow.camera; c.left = c.bottom = -34; c.right = c.top = 34; c.near = 1; c.far = 220; L.shadow.bias = -0.0004; L.shadow.normalBias = 0.09; }
     S.add(L); S.add(L.target);
     S.add(new THREE.Mesh(new THREE.SphereGeometry(520, 32, 16), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
@@ -626,7 +627,7 @@ export class Arena {
     sun.position.copy(this.sunOff);
     if (this.quality !== 'low') {
       sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-      const c = sun.shadow.camera; c.left = c.bottom = -42; c.right = c.top = 42; c.near = 1; c.far = 170;
+      const c = sun.shadow.camera; c.left = c.bottom = -34; c.right = c.top = 34; c.near = 1; c.far = 170;
       sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.09;
     }
     S.add(sun); S.add(sun.target);
@@ -869,9 +870,19 @@ export class Arena {
     }
     return pts;
   }
-  follow(p) {
+  // The shadow map covers a square around the fight. It is pushed forward to where the camera is looking (what is behind
+  // you needs none), which lets it be smaller, so each texel covers less ground and the shadows are sharper; and it moves
+  // in whole texels across the light, so shadow edges hold still as you run instead of crawling.
+  follow(p, cam) {
     if (!this.sun) return;
-    const x = Math.round(p.x / 4) * 4, y = Math.round(p.y / 4) * 4, z = Math.round(p.z / 4) * 4;
+    let x = p.x, y = p.y, z = p.z; const h = this.sun.castShadow ? this.sun.shadow.camera.right : 0;
+    if (!h) { x = Math.round(x / 4) * 4; y = Math.round(y / 4) * 4; z = Math.round(z / 4) * 4; }
+    else {
+      if (cam) { cam.getWorldDirection(_fd); const l = Math.hypot(_fd.x, _fd.z); if (l > 0.2) { x += _fd.x / l * h * 0.4; z += _fd.z / l * h * 0.4; } }
+      const d = _fd.copy(this.sunOff).normalize(), r = _fr.set(d.z, 0, -d.x).normalize(), u = _fu.crossVectors(d, r), t = 2 * h / this.sun.shadow.mapSize.x; // (the light's own right and up; one texel)
+      const a = x * r.x + z * r.z, b = x * u.x + y * u.y + z * u.z, da = Math.round(a / t) * t - a, db = Math.round(b / t) * t - b;
+      x += r.x * da + u.x * db; y += u.y * db; z += r.z * da + u.z * db;
+    }
     this.sun.target.position.set(x, y, z); this.sun.position.set(x, y, z).add(this.sunOff);
   }
 

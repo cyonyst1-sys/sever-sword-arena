@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261120192356';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261120192356';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261120192356';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261120192356';
-import * as net from './net.js?v=20261120192356';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261120192356';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261120192356';
-import { makeKillFx } from './killfx.js?v=20261120192356';
-import { makeGrapple } from './grapple.js?v=20261120192356';
-import { initShop } from './shop.js?v=20261120192356';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261120192356';
-import { portal } from './portal.js?v=20261120192356';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261120192356';
-import { makePost } from './post.js?v=20261120192356';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261120192356';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261120192356';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261120192356';
+import { Arena, MAPS } from './arena.js?v=20261120200039';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261120200039';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261120200039';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261120200039';
+import * as net from './net.js?v=20261120200039';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261120200039';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261120200039';
+import { makeKillFx } from './killfx.js?v=20261120200039';
+import { makeGrapple } from './grapple.js?v=20261120200039';
+import { initShop } from './shop.js?v=20261120200039';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261120200039';
+import { portal } from './portal.js?v=20261120200039';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261120200039';
+import { makePost } from './post.js?v=20261120200039';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261120200039';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261120200039';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261120200039';
 
 // ---------- settings ----------
 const store = {
@@ -654,7 +654,7 @@ function bladeSweep(f, dt) {
     for (let k = 0; k <= 6; k++) {
       const t = 0.12 + 0.88 * k / 6; _A.lerpVectors(f.prevHand, f.prevTip, t); _B.lerpVectors(f.hand, f.tip, t);
       const at = arena.caravan.hitSeg(_A, _B); if (!at) continue;
-      f.cartFx = now() + 0.35; sfx.chop(at); for (let i = 0; i < 14; i++) sparks.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5, 0.6);
+      f.cartFx = now() + 0.35; sfx.chop(at); sparkSpray(at, swingDir(f, _sd), 14, 6, 0.6);
       if (S.host) cartHit(f); else net.send({ t: 'cart' });
       break;
     }
@@ -835,9 +835,16 @@ function dashSweep(f) {
     }
   }
 }
+// sparks thrown the way a blade was travelling: three quarters of them in a cone round `dir`, the rest any way
+const _sd = new THREE.Vector3();
+function sparkSpray(at, dir, n, sp, life) {
+  for (let i = 0; i < n; i++) { const k = i * 4 < n ? 0 : 1, s = sp * (0.4 + Math.random() * 0.8), w = sp * (k ? 0.5 : 1);
+    sparks.emit(at.x, at.y, at.z, dir.x * s * k + (Math.random() - 0.5) * w, dir.y * s * k + Math.random() * sp * 0.35 + (k ? 0 : 1), dir.z * s * k + (Math.random() - 0.5) * w, life); }
+}
+const swingDir = (f, out) => { out.subVectors(f.tip, f.prevTip).sub(f.pos).add(f.prevPos); const l = out.length(); return l > 1e-4 ? out.divideScalar(l) : out.set(0, 1, 0); }; // (which way f's blade is moving, the run taken out)
 function clash(f, g, at) { if (f === me || g === me) MD.parry = now();
   sfx.clang(at);
-  for (let i = 0; i < 26; i++) sparks.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 9, Math.random() * 6, (Math.random() - 0.5) * 9, 0.4);
+  sparkSpray(at, swingDir(f, _sd), 30, 11, 0.4); // (the sparks fly on the way the attacking blade was going)
   const d = _t.subVectors(f.pos, g.pos); d.y = 0; d.normalize();
   if (isLocal(f)) { f.vel.addScaledVector(d, 4); f.vel.y += 1.5; f.stagger = 0.35 * upm(f, 'steady'); f.noCut = true; f.anim = null; if (f.isBot) f.atkCd = 0.5; }
   if (isLocal(g)) { g.vel.addScaledVector(d, -3); g.stagger = 0.2 * upm(g, 'steady'); g.noCut = true; }
@@ -1722,7 +1729,7 @@ function bossEntry(i) { const b = bossDef(i), e = newRosterEntry('boss' + i, b.n
 function bossHurt(v, pt, imp, fell, kId) {
   v.bossHp--; v.lastHurt = now(); v.hitGrace = now() + 0.25; v.anim = null; v.noCut = true; // (no invincible spell: it can be cut again as soon as this swing is through)
   const at = pt || _t.copy(v.pos).setY(v.pos.y + 1.2);
-  for (let i = 0; i < 30; i++) sparks.emit(at.x, at.y, at.z, (Math.random() - 0.5) * 8, Math.random() * 5, (Math.random() - 0.5) * 8, 0.5);
+  if (imp && imp.lengthSq() > 1) sparkSpray(at, _sd.copy(imp).normalize(), 30, 10, 0.5); else sparkSpray(at, _sd.set(0, 1, 0), 30, 8, 0.5); // (along the blow)
   sfx.slice(at); shake = Math.max(shake, 0.3); hitstop = 0.06;
   if (fell) hostSpawn(v); else { // hurt, it dashes clear of whoever cut it, backs off for a moment, then comes back in and fights on
     const k = kId && fighters.get(kId), from = k ? k.pos : me ? me.pos : v.pos; let ax = v.pos.x - from.x, az = v.pos.z - from.z; const al = Math.hypot(ax, az) || 1; ax /= al; az /= al;
@@ -2458,7 +2465,7 @@ function updateCamera(dt) {
     arena.follow(new THREE.Vector3(0, 0, 0));
     return;
   }
-  arena.follow(me.alive ? me.pos : deathAt);
+  arena.follow(me.alive ? me.pos : deathAt, camera);
   if (fin) { if (now() > fin.until || S.phase !== 'game') fin = null; else { const a = fin.a + (now() - fin.t0) * 0.6; // the finishing cut: swing round it
     camPos.set(fin.at.x + Math.cos(a) * 6.5, fin.at.y + 2.4, fin.at.z + Math.sin(a) * 6.5); camera.position.lerp(camPos, 0.07); camera.lookAt(fin.at.x, fin.at.y + 0.8, fin.at.z); return; } }
   if (!me.alive) {
@@ -2751,7 +2758,7 @@ function potmTick(dt) { // true while the replay is on screen
   const kg = pm.g.get(pm.c.kId), k = kg ? kg.pos : ev[0].pt, e = ev[Math.min(pm.i, ev.length - 1)], vg = pm.i < ev.length ? pm.g.get(e.vId) : null, live = vg && vg.group.visible, v = live ? vg.pos : e.pt;
   pm.look.lerp(_t.set(v.x, v.y + (live ? 1.1 : 0), v.z), pm.cam ? 0.1 : 1); // the camera: at the killer's shoulder, turning to each victim in turn
   _t.set(k.x - pm.look.x, 0, k.z - pm.look.z); const l = _t.length() || 1; _t.multiplyScalar(1 / l);
-  camPos.set(k.x + _t.x * 4.2 - _t.z * 1.4, k.y + 2.4, k.z + _t.z * 4.2 + _t.x * 1.4); camera.position.lerp(camPos, pm.cam ? 0.1 : 1); pm.cam = true; camera.lookAt(pm.look); arena.follow(k);
+  camPos.set(k.x + _t.x * 4.2 - _t.z * 1.4, k.y + 2.4, k.z + _t.z * 4.2 + _t.x * 1.4); camera.position.lerp(camPos, pm.cam ? 0.1 : 1); pm.cam = true; camera.lookAt(pm.look); arena.follow(k, camera);
   if (pm.t >= pm.t1) potmEnd();
   return true;
 }
@@ -2860,6 +2867,7 @@ function tick(rdt, tt) {
   updateHud(rdt);
   $('vignette').style.boxShadow = me && !me.alive ? 'inset 0 0 200px rgba(140,0,0,.55)' : 'inset 0 0 160px rgba(160,0,0,0)';
   if (AQ.lite && arena.sun && arena.sun.castShadow) arena.sun.castShadow = false;
+  if (post) post.ao = AQ.scale >= 1; // (ambient occlusion is the first thing to go when the frame rate has needed help)
   if (!bgTick) { if (post && !AQ.lite) post.render(scene, camera, arena.atmo); else renderer.render(scene, camera); } // (a hidden host still runs the match, it just doesn't draw)
 }
 show('home'); renderProgress();

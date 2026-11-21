@@ -2,7 +2,7 @@
 // and turn each side into a tumbling rigid piece. Every original part is convex, so the cut face of a part
 // is the convex hull of the points where the plane crossed it.
 import * as THREE from 'three';
-import { MATS } from './fighter.js?v=20261120192356';
+import { MATS } from './fighter.js?v=20261120200039';
 
 let partSeq = 1;
 const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _nm = new THREE.Matrix3();
@@ -217,9 +217,18 @@ export class Pieces {
     this.last = out;
     if (c && burst) {
       const fl = out.some((p) => p.flesh);
+      // A slash throws blood off along its own path: two thirds of the spray fans out in the plane of the cut, led by
+      // the way the blade was travelling (the harder the swing, the further); the rest wells out either side of the wound.
+      const il = Math.hypot(impulse.x, impulse.y, impulse.z), lead = Math.min(1, il / 14), nd = il > 0.5 ? (impulse.x * n.x + impulse.y * n.y + impulse.z * n.z) / il : 0;
+      let tx = il > 0.5 ? impulse.x / il - n.x * nd : 0, ty = il > 0.5 ? impulse.y / il - n.y * nd : 0, tz = il > 0.5 ? impulse.z / il - n.z * nd : 0; const tl = Math.hypot(tx, ty, tz);
+      const along = tl > 0.2 && lead > 0.15; if (along) { tx /= tl; ty /= tl; tz /= tl; }
+      const bx = n.y * tz - n.z * ty, by = n.z * tx - n.x * tz, bz = n.x * ty - n.y * tx; // (the other direction lying in the cut)
       if (fl) for (let i = 0; i < 70; i++) {
+        const ox = c.x + (Math.random() - 0.5) * 0.3, oy = c.y + (Math.random() - 0.5) * 0.3, oz = c.z + (Math.random() - 0.5) * 0.3;
+        if (along && i >= 24) { const a = (Math.random() - 0.5) * 1.15, ca = Math.cos(a), sa = Math.sin(a), sp = (2.5 + Math.random() * 8.5) * (0.45 + 0.55 * lead), j = (Math.random() - 0.5) * 1.4;
+          burst.emit(ox, oy, oz, (tx * ca + bx * sa) * sp + n.x * j, (ty * ca + by * sa) * sp + n.y * j + 0.6 + Math.random() * 1.6, (tz * ca + bz * sa) * sp + n.z * j, 3); continue; }
         const sg = Math.random() < 0.5 ? 1 : -1, sp = 1 + Math.random() * 4.5;
-        burst.emit(c.x + (Math.random() - 0.5) * 0.3, c.y + (Math.random() - 0.5) * 0.3, c.z + (Math.random() - 0.5) * 0.3,
+        burst.emit(ox, oy, oz,
           n.x * sg * sp + impulse.x * 0.15 + (Math.random() - 0.5) * 2, n.y * sg * sp + 1.5 + Math.random() * 2, n.z * sg * sp + impulse.z * 0.15 + (Math.random() - 0.5) * 2, 3);
       }
     }
