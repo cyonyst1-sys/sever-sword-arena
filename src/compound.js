@@ -123,7 +123,7 @@ export function buildCompound(A, T) {
   { const beams = []; let nb = 0;
     for (const [i, j, len, alongZ, w] of legs) for (let k = 1; k < len; k += 4) { const bi = alongZ ? i : i + k, bj = alongZ ? j + k : j, span = Array.from({ length: w }, (_, q) => (alongZ ? open(bi + q, bj) : open(bi, bj + q))).every(Boolean);
       if (!span || (alongZ ? open(bi - 1, bj) || open(bi + w, bj) : open(bi, bj - 1) || open(bi, bj + w))) continue; // (only where there is a wall at each end to carry it)
-      const y = nb++ % 2 ? 9.2 : 5; // (a low one, then a high one)
+      const y = nb++ % 2 ? 11.6 : 8.6; // (one high, the next higher still: well overhead, under the 14 m wall tops)
       const b = alongZ ? { x0: X0(bi), x1: X0(bi + w), y0: y, y1: y + 0.5, z0: cx(bj) - 0.24, z1: cx(bj) + 0.24 } : { x0: cx(bi) - 0.24, x1: cx(bi) + 0.24, y0: y, y1: y + 0.5, z0: X0(bj), z1: X0(bj + w) };
       A.rayBoxes.push(b); beams.push(b); }
     const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), beamM, beams.length), mt = new THREE.Matrix4();
