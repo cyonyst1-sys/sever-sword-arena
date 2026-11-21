@@ -2,9 +2,9 @@
 // cleanly), posed each frame with a long-striding run cycle, two-bone IK for arms and legs, and a sword
 // driven by the swing input (s.x, s.y).
 import * as THREE from 'three';
-import { rim } from './vfx.js?v=20261121132128';
-import { buildBody, poseBody } from './body.js?v=20261121132128';
-import { item, cleanLook } from './cosmetics.js?v=20261121132128';
+import { rim } from './vfx.js?v=20261121132640';
+import { buildBody, poseBody } from './body.js?v=20261121132640';
+import { item, cleanLook } from './cosmetics.js?v=20261121132640';
 
 // Every material that can end up on a sliced piece is registered here, so a piece's single mesh can use
 // one shared material array and keep each triangle's look.

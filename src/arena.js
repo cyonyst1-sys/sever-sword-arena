@@ -3,25 +3,25 @@
 // so collision and "what am I standing on" stay simple and identical in every browser.
 import * as THREE from 'three';
 import { buildPagoda, buildIsles, buildBowl } from './maps2.js';
-import { barkMat, barkUV, barkMap } from './bark.js?v=20261121132128';
-import { buildTilt } from './tilt.js?v=20261121132128';
-import { buildFoundry } from './foundry.js?v=20261121132128';
-import { buildBamboo } from './bamboo.js?v=20261121132128';
-import { buildCity } from './city.js?v=20261121132128';
-import { buildDojo } from './dojo.js?v=20261121132128';
-import { buildComet } from './comet.js?v=20261121132128';
-import { buildLava } from './lava.js?v=20261121132128';
-import { buildRun } from './run.js?v=20261121132128';
-import { buildGrove } from './grove.js?v=20261121132128';
-import { buildTransport } from './transport.js?v=20261121132128';
-import { buildTutorial } from './tutorial.js?v=20261121132128';
-import { buildTrain } from './train.js?v=20261121132128';
-import { buildCompound, COMPOUNDS } from './compound.js?v=20261121132128';
-import { buildAirship } from './airship.js?v=20261121132128';
-import { applyLook } from './look.js?v=20261121132128';
-import { addScenery } from './scenery.js?v=20261121132128';
-import { addAtmosphere } from './atmos.js?v=20261121132128';
-import { makeMesa, mesaMesh } from './mesa.js?v=20261121132128';
+import { barkMat, barkUV, barkMap } from './bark.js?v=20261121132640';
+import { buildTilt } from './tilt.js?v=20261121132640';
+import { buildFoundry } from './foundry.js?v=20261121132640';
+import { buildBamboo } from './bamboo.js?v=20261121132640';
+import { buildCity } from './city.js?v=20261121132640';
+import { buildDojo } from './dojo.js?v=20261121132640';
+import { buildComet } from './comet.js?v=20261121132640';
+import { buildLava } from './lava.js?v=20261121132640';
+import { buildRun } from './run.js?v=20261121132640';
+import { buildGrove } from './grove.js?v=20261121132640';
+import { buildTransport } from './transport.js?v=20261121132640';
+import { buildTutorial } from './tutorial.js?v=20261121132640';
+import { buildTrain } from './train.js?v=20261121132640';
+import { buildCompound, COMPOUNDS } from './compound.js?v=20261121132640';
+import { buildAirship } from './airship.js?v=20261121132640';
+import { applyLook } from './look.js?v=20261121132640';
+import { addScenery } from './scenery.js?v=20261121132640';
+import { addAtmosphere } from './atmos.js?v=20261121132640';
+import { makeMesa, mesaMesh } from './mesa.js?v=20261121132640';
 const NONE = [];
 const _bm = new THREE.Matrix4(), _bp = new THREE.Vector3(), _bq = new THREE.Quaternion(), _bs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0); // bamboo instance updates
 
@@ -149,7 +149,7 @@ const PLAIN_MAPS = ['foundry', 'city', 'tilt', 'comet', 'bamboo', 'run']; // (st
 function Q(k, x, z) { for (let i = 0; i < k; i++) { const t = x; x = -z; z = t; } return [x, z]; }
 
 export const MAPS = {
-  spire: { name: 'Sky Spires', blurb: '21 round dish platforms at nearly the same height: swing and dash from one fight to the next' },
+  spire: { name: 'Sky Spires', blurb: 'round dish platforms at many heights: come in on the high outer dishes or the two slung below, and swing and dash your way in to the fight in the middle' },
   colosseum: { name: 'Colosseum', blurb: 'a bowl of round platforms around a big round arena floor: start on the high rim and swing down to fight' },
   plateaus: { name: 'Sky Plateaus', blurb: '7 huge platforms at slightly different heights: big brawls with room to dash' },
   canopy: { name: 'Great Canopy', blurb: 'giant tree branches to run along, big leaves to land on, and twisting jungle vines to swing from (and cut through)' },
@@ -677,10 +677,14 @@ export class Arena {
           if (add(Math.round(Math.cos(a) * R), Math.round(Math.sin(a) * R), Math.round(y0 + r() * (y1 - y0)), Math.round(s0 + r() * (s1 - s0)), Math.round(s0 + r() * (s1 - s0)), kind)) break;
         }
       };
-      ring(6, 28, 36, -2, 4, 11, 15, 'ring', 0); // (all within a few metres of each other: a dash or a jump or two between levels)
-      ring(9, 52, 66, -4, 7, 9, 14, 'outer', 0.5);
-      ring(4, 40, 48, 6, 10, 7, 9, 'perch', 0.25);
-      ring(3, 70, 80, -7, -4, 10, 13, 'low', 0.7);
+      // The middle (the hub and a ring round it) is where the fight is, all within a jump or two of each other. Everyone
+      // comes in away from it and works inward: on the platforms standing above it all round, each at its own height
+      // (higher the further out), or on the two catch platforms slung underneath, which also break a fall from the middle.
+      ring(6, 28, 36, -2, 3, 11, 15, 'ring', 0);
+      ring(4, 40, 48, 6, 11, 7, 9, 'perch', 0.25);
+      ring(9, 52, 66, 9, 19, 9, 14, 'outer', 0.5);
+      ring(3, 70, 80, 14, 23, 10, 13, 'far', 0.7);
+      add(13, 10, -15, 20, 20, 'catch'); add(-17, -15, -18, 17, 17, 'catch'); // (below the middle, off to either side of the hub's stem)
     }
 
     for (const p of plats) {

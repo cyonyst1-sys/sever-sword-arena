@@ -1,20 +1,20 @@
 import * as THREE from 'three';
-import { Arena, MAPS } from './arena.js?v=20261121132128';
-import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121132128';
-import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121132128';
-import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121132128';
-import * as net from './net.js?v=20261121132128';
-import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121132128';
-import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121132128';
-import { makeKillFx } from './killfx.js?v=20261121132128';
-import { makeGrapple } from './grapple.js?v=20261121132128';
-import { initShop } from './shop.js?v=20261121132128';
-import { breakChunk, chunkSoup } from './dojo.js?v=20261121132128';
-import { portal } from './portal.js?v=20261121132128';
-import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121132128';
-import { makePost } from './post.js?v=20261121132128';
-import { makeSliceLines, makeBlob } from './vfx.js?v=20261121132128';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121132128';
-import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121132128';
+import { Arena, MAPS } from './arena.js?v=20261121132640';
+import { Fighter, PALETTE, GUARD, setMetalEnv, metalEnvFor } from './fighter.js?v=20261121132640';
+import { bakeMeshes, Pieces, Particles, splitSoup } from './slice.js?v=20261121132640';
+import { sfx, ensureAudio, setListener, setVolume, setMuted } from './audio.js?v=20261121132640';
+import * as net from './net.js?v=20261121132640';
+import { MODES, POINT_MODES, MODE_GOAL, ModeFx, makeCrown } from './modes.js?v=20261121132640';
+import { profile, addCoins, randomLook, cleanLook, item, cleanUp, upMul } from './cosmetics.js?v=20261121132640';
+import { makeKillFx } from './killfx.js?v=20261121132640';
+import { makeGrapple } from './grapple.js?v=20261121132640';
+import { initShop } from './shop.js?v=20261121132640';
+import { breakChunk, chunkSoup } from './dojo.js?v=20261121132640';
+import { portal } from './portal.js?v=20261121132640';
+import { Piranhas, GiantSaws, GiantBirds } from './piranha.js?v=20261121132640';
+import { makePost } from './post.js?v=20261121132640';
+import { makeSliceLines, makeBlob } from './vfx.js?v=20261121132640';import { addXp, track, progressHtml, levelOf } from './progress.js?v=20261121132640';
+import { BOARDS, lbAdd, lbMet, lbTop, lbSave, lbWorld, weekLeft } from './boards.js?v=20261121132640';
 
 // ---------- settings ----------
 const store = {
@@ -1007,7 +1007,7 @@ function overviewFrom(p, out) {
 function spawnList() {
   if (arena.spawnOk) { const ok = arena.spawns.filter(arena.spawnOk); if (ok.length) return ok; } // (Bullet Train: not on a roof with a tunnel or a high arm coming)
   if (arena.runMode) { const near = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && p.z > -85 && p.z < -28; }); if (near.length) return near; } // (Branch Run: back in on a tree still well ahead, with its whole ride to come; on a branch near the action)
-  const kinds = { pagoda: ['spire', 'terrace'], colosseum: ['rim'], bamboo: ['pad'] }[arena.mapId]; // (Colosseum: its high rim)
+  const kinds = { pagoda: ['spire', 'terrace'], colosseum: ['rim'], bamboo: ['pad'], spire: ['perch', 'outer', 'far', 'catch'] }[arena.mapId]; // (Colosseum: its high rim)
   if (!kinds) return arena.spawns;
   const outer = arena.spawns.filter((sp) => { const p = arena.plats[sp.plat]; return p && !p.gone && !p.busy && kinds.includes(p.kind); });
   return outer.length ? outer : arena.spawns.filter((sp) => !arena.plats[sp.plat]?.busy && arena.plats[sp.plat]?.kind !== 'pad'); // (every pad in use: the main platform)
@@ -1049,7 +1049,7 @@ function spawn(f, p, yaw) {
 function hostSpawn(f) {
   const p = spawnPoint(f), cv = S.mode === 'transport' && arena.caravan ? arena.caravan.pos : null, yaw = arena.runMode || arena.trainMap || arena.tutMap ? 0 : cv ? Math.atan2(-(cv.x - p.x), -(cv.z - p.z)) : Math.atan2(p.x, p.z); // (Transport: face the wagon) // face the centre (Branch Run: face the way the run goes)
   spawn(f, p, yaw);
-  if (arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo') f.rushUntil = now() + 12; // bots charge the centre after coming in
+  if (arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo' || arena.mapId === 'spire') f.rushUntil = now() + 12; // bots charge the centre after coming in
   net.broadcast({ t: 'spawn', id: f.id, p: arr(p), y: +yaw.toFixed(3) });
 }
 
@@ -1922,7 +1922,7 @@ function botObjective(b) {
     if (k) { const pos = new THREE.Vector3(k[1], k[2] - 0.5, k[3]); return mk(pos, platUnder(pos)?.i ?? null, 7); }
   }
   // Pagoda Falls: just spawned on the outer ring? rush the pagoda (fighting whoever gets in the way)
-  if ((arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo') && b.rushUntil > now()) {
+  if ((arena.mapId === 'pagoda' || arena.mapId === 'colosseum' || arena.mapId === 'bamboo' || arena.mapId === 'spire') && b.rushUntil > now()) {
     const d0 = arena.plats[0], n = arena.nodeMap.get('P0');
     if (d0 && !d0.gone && b.plat !== 0) return mk(n.p.clone(), 0, 10);
   }
